@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PDSChain — Blockchain-Based Public Distribution System</title>
+<meta name="description" content="PDSChain is a blockchain-powered Public Distribution System infrastructure delivering transparent, traceable and verifiable distribution records." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+<link rel="stylesheet" href="../css/style.css" />
+<link rel="stylesheet" href="../css/animations.css" />
+<link rel="stylesheet" href="../css/components.css" />
+<link rel="stylesheet" href="../css/responsive.css" />
+</head>
+<body>
+<a href="#main" class="skip-link">Skip to content</a>
+
+<!-- ============== NAVBAR ============== -->
+<header class="navbar" id="navbar">
+  <div class="container">
+    <a href="index.html" class="brand">
+      <span class="brand-mark"><i class="bi bi-shield-check" aria-hidden="true"></i></span>
+      PDSChain
+    </a>
+
+    <nav class="nav-links" aria-label="Primary">
+      <a href="#platform">Platform</a>
+      <a href="#how-it-works">How It Works</a>
+      <a href="#workflow">Process</a>
+      <a href="blockchain.html">Blockchain Explorer</a>
+      <a href="#fba">Consensus</a>
+      <a href="transaction.html">Verify Txn</a>
+    </nav>
+
+    <div class="nav-actions">
+      <button class="theme-toggle" type="button" aria-label="Toggle color theme">
+        <i class="bi bi-moon-stars icon-moon" aria-hidden="true"></i>
+        <i class="bi bi-sun icon-sun" aria-hidden="true"></i>
+      </button>
+      <a href="blockchain.html" class="btn btn-secondary btn-sm"><i class="bi bi-diagram-3"></i> Explorer</a>
+      <a href="login.html" class="btn btn-primary btn-sm"><i class="bi bi-box-arrow-in-right"></i> Sign In</a>
+      <button class="nav-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-drawer">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="mobile-drawer" id="mobile-drawer">
+  <a href="#platform">Platform</a>
+  <a href="#how-it-works">How It Works</a>
+  <a href="#workflow">Process</a>
+  <a href="blockchain.html">Blockchain Explorer</a>
+  <a href="#fba">Consensus</a>
+  <a href="transaction.html">Verify Transaction</a>
+  <div class="nav-actions" style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
+    <a href="blockchain.html" class="btn btn-secondary">Explore Blockchain</a>
+    <a href="login.html" class="btn btn-primary">Sign In to Dashboard</a>
+  </div>
+</div>
+
+<main id="main">
+
+<!-- ============== HERO ============== -->
+<section class="hero" id="top">
+  <div class="container">
+    <div class="hero-copy">
+      <span class="eyebrow">Next-Generation Public Distribution Infrastructure</span>
+      <h1 class="hero-title">Building <span class="text-highlight">Trust &amp; Transparency</span><br>Into Every Grain Distribution.</h1>
+      <p class="hero-sub">PDSChain is a permissioned blockchain platform engineered for the Public Distribution System, eliminating diversion, empowering citizens, and enforcing real-time verifiable audits.</p>
+      <div class="hero-actions">
+        <a href="login.html" class="btn btn-primary"><i class="bi bi-speedometer2"></i> Enter Portal</a>
+        <a href="blockchain.html" class="btn btn-secondary"><i class="bi bi-diagram-3"></i> Live Blockchain Explorer</a>
+      </div>
+      <ul class="hero-checks">
+        <li><i class="bi bi-check-circle-fill" aria-hidden="true"></i> Cryptographically sealed ledgers</li>
+        <li><i class="bi bi-check-circle-fill" aria-hidden="true"></i> Zero-leakage grain tracking</li>
+        <li><i class="bi bi-check-circle-fill" aria-hidden="true"></i> Federated Byzantine Agreement</li>
+      </ul>
+    </div>
+
+    <div class="hero-visual" aria-hidden="true">
+      <svg class="hero-connections" viewBox="0 0 460 480" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#4f6bff"/>
+            <stop offset="100%" stop-color="#17d8ac"/>
+          </linearGradient>
+        </defs>
+        <path d="M60,40 C150,90 190,150 230,240"/>
+        <path d="M400,70 C330,120 270,170 230,240"/>
+        <path d="M30,300 C110,270 170,255 230,240"/>
+        <path d="M390,380 C320,330 270,290 230,240"/>
+        <path d="M170,460 C190,400 205,320 230,240"/>
+      </svg>
+
+      <div class="node-ring">
+        <div class="orbit-node n-gov"><span class="node-dot"></span><span>GOVERNMENT</span></div>
+        <div class="orbit-node n-wh"><span class="node-dot"></span><span>WAREHOUSE</span></div>
+        <div class="orbit-node n-dist"><span class="node-dot"></span><span>DISTRICT</span></div>
+        <div class="orbit-node n-fps"><span class="node-dot"></span><span>FAIR PRICE SHOP</span></div>
+        <div class="orbit-node n-aud"><span class="node-dot"></span><span>AUDITOR</span></div>
+      </div>
+
+      <div class="block-card">
+        <div class="block-card-head">
+          <span class="block-badge"><i class="bi bi-shield-check" aria-hidden="true"></i> FBA Consensus</span>
+        </div>
+        <div class="block-title">BLOCK #004281</div>
+        <div class="block-row"><span>Validators</span><span>12 / 12 Nodes</span></div>
+        <div class="block-row"><span>Transactions</span><span>1,284 Verified</span></div>
+        <div class="block-row"><span class="mono">Hash</span><span class="mono">0x8a7f...92bd</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== TRUST METRICS ============== -->
+<section class="metrics" id="platform">
+  <div class="container">
+    <div class="metrics-head">
+      <span class="eyebrow">Network Status Overview</span>
+      <h2 class="section-heading" style="margin-top:10px;">One Unified Network. Complete Traceability.</h2>
+    </div>
+    <div class="metrics-grid">
+      <div class="metric-cell">
+        <div class="metric-value" data-counter="12">0</div>
+        <div class="metric-label">Active Validator Nodes</div>
+      </div>
+      <div class="metric-cell">
+        <div class="metric-value" data-counter="4281">0</div>
+        <div class="metric-label">Blocks Verified</div>
+      </div>
+      <div class="metric-cell">
+        <div class="metric-value" data-counter="342891">0</div>
+        <div class="metric-label">Beneficiaries Protected</div>
+      </div>
+      <div class="metric-cell">
+        <div class="metric-value" data-counter="99.9" data-decimals="1" data-suffix="%">0</div>
+        <div class="metric-label">Consensus Integrity</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== PROBLEM SECTION ============== -->
+<section class="section">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">Why Blockchain for PDS?</span>
+      <h2 class="section-heading">Overcoming Challenges in Traditional Distribution.</h2>
+    </div>
+    <div class="card-grid">
+      <div class="info-card">
+        <span class="icon-tile"><i class="bi bi-file-earmark-text" aria-hidden="true"></i></span>
+        <h3>Paper &amp; Siloed Logs</h3>
+        <p>Paper registers and fragmented central databases cause reconciliation bottlenecks and human errors.</p>
+      </div>
+      <div class="info-card">
+        <span class="icon-tile"><i class="bi bi-eye-slash" aria-hidden="true"></i></span>
+        <h3>Grain Diversion &amp; Leakage</h3>
+        <p>Stock passing through multiple logistics points is vulnerable to unrecorded diversion and adulteration.</p>
+      </div>
+      <div class="info-card">
+        <span class="icon-tile"><i class="bi bi-pencil-square" aria-hidden="true"></i></span>
+        <h3>Data Tampering</h3>
+        <p>Centralized servers can be vulnerable to unauthorized record alterations and ghost beneficiary inflation.</p>
+      </div>
+      <div class="info-card">
+        <span class="icon-tile"><i class="bi bi-hourglass-split" aria-hidden="true"></i></span>
+        <h3>Delayed Audit Trail</h3>
+        <p>Reconciling national grain distributions takes months rather than real-time automated verification.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== SOLUTION SECTION ============== -->
+<section class="section section-alt" id="how-it-works">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">The PDSChain Architecture</span>
+      <h2 class="section-heading">How PDSChain Solves It.</h2>
+    </div>
+    <div class="card-grid">
+      <div class="info-card is-solution">
+        <span class="icon-tile"><i class="bi bi-link-45deg" aria-hidden="true"></i></span>
+        <h3>Cryptographic Ledger</h3>
+        <p>Every bag of grain moved is timestamped, hashed, and chained permanently into an immutable distributed ledger.</p>
+      </div>
+      <div class="info-card is-solution">
+        <span class="icon-tile"><i class="bi bi-signpost-split" aria-hidden="true"></i></span>
+        <h3>End-to-End Tracking</h3>
+        <p>Track grains seamlessly: Central Depot &rarr; Regional Warehouse &rarr; Fair Price Shop &rarr; Citizen Beneficiary.</p>
+      </div>
+      <div class="info-card is-solution">
+        <span class="icon-tile"><i class="bi bi-diagram-3" aria-hidden="true"></i></span>
+        <h3>Federated Consensus (FBA)</h3>
+        <p>Decentralized quorum slices across Civil Supplies, State Commissions, and oversight bodies guarantee consensus.</p>
+      </div>
+      <div class="info-card is-solution">
+        <span class="icon-tile"><i class="bi bi-patch-check" aria-hidden="true"></i></span>
+        <h3>Citizen Instant Verification</h3>
+        <p>Citizens and inspectors can independently verify rations using cryptographic transaction hashes.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== PDS WORKFLOW ============== -->
+<section class="section" id="workflow">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">End-to-End Workflow</span>
+      <h2 class="section-heading">Citizen &rarr; FPS &rarr; Txn &rarr; Validators &rarr; Consensus &rarr; Blockchain &rarr; Verification</h2>
+    </div>
+    <div class="workflow">
+      <div class="workflow-step">
+        <div class="workflow-node"><i class="bi bi-person-badge" aria-hidden="true"></i></div>
+        <h4>1. Citizen</h4>
+        <p>Authenticates entitlement via Beneficiary ID at local shop.</p>
+      </div>
+      <div class="workflow-step">
+        <div class="workflow-node"><i class="bi bi-shop" aria-hidden="true"></i></div>
+        <h4>2. Fair Price Shop</h4>
+        <p>Weighs grains and generates cryptographically signed distribution.</p>
+      </div>
+      <div class="workflow-step">
+        <div class="workflow-node"><i class="bi bi-arrow-left-right" aria-hidden="true"></i></div>
+        <h4>3. Transaction</h4>
+        <p>Broadcasts payload with stock updates to the validator pool.</p>
+      </div>
+      <div class="workflow-step">
+        <div class="workflow-node"><i class="bi bi-hdd-network" aria-hidden="true"></i></div>
+        <h4>4. Validators (FBA)</h4>
+        <p>12 authorized nodes vote across overlapping quorum slices.</p>
+      </div>
+      <div class="workflow-step">
+        <div class="workflow-node"><i class="bi bi-shield-check" aria-hidden="true"></i></div>
+        <h4>5. Verified Block</h4>
+        <p>Transaction anchored into block and verifiable by anyone.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== BLOCKCHAIN CHAIN SECTION ============== -->
+<section class="section section-alt" id="blockchain-preview">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">The Blockchain Ledger</span>
+      <h2 class="section-heading">Live Block Sequence.</h2>
+      <p class="section-sub">Blocks link backwards cryptographically, ensuring history cannot be altered or rewritten.</p>
+    </div>
+
+    <div class="chain-track">
+      <div class="chain-block is-genesis">
+        <div class="chain-block-label">Origin</div>
+        <div class="chain-block-id">GENESIS</div>
+        <div class="chain-block-row"><span>Transactions</span><span>0</span></div>
+        <div class="chain-block-row"><span class="mono">Hash</span><span class="mono">0000...0000</span></div>
+        <span class="chain-status"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> Verified</span>
+      </div>
+      <div class="chain-block">
+        <div class="chain-block-label">Block</div>
+        <div class="chain-block-id">#4278</div>
+        <div class="chain-block-row"><span>Transactions</span><span>29</span></div>
+        <div class="chain-block-row"><span class="mono">Hash</span><span class="mono">0xa04b...cd95</span></div>
+        <span class="chain-status"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> Verified</span>
+      </div>
+      <div class="chain-block">
+        <div class="chain-block-label">Block</div>
+        <div class="chain-block-id">#4279</div>
+        <div class="chain-block-row"><span>Transactions</span><span>51</span></div>
+        <div class="chain-block-row"><span class="mono">Hash</span><span class="mono">0xc30e...1042</span></div>
+        <span class="chain-status"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> Verified</span>
+      </div>
+      <div class="chain-block">
+        <div class="chain-block-label">Block</div>
+        <div class="chain-block-id">#4280</div>
+        <div class="chain-block-row"><span>Transactions</span><span>38</span></div>
+        <div class="chain-block-row"><span class="mono">Hash</span><span class="mono">0x73ab...ef21</span></div>
+        <span class="chain-status"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> Verified</span>
+      </div>
+      <div class="chain-block is-latest">
+        <div class="chain-block-label">Latest Verified</div>
+        <div class="chain-block-id">#4281</div>
+        <div class="chain-block-row"><span>Transactions</span><span>42</span></div>
+        <div class="chain-block-row"><span class="mono">Hash</span><span class="mono">0x8a7f...92bd</span></div>
+        <span class="chain-status"><i class="bi bi-broadcast" aria-hidden="true"></i> Verified (12/12)</span>
+      </div>
+    </div>
+
+    <div class="chain-cta">
+      <a href="blockchain.html" class="btn btn-primary"><i class="bi bi-diagram-3"></i> Open Blockchain Explorer <i class="bi bi-arrow-right"></i></a>
+    </div>
+  </div>
+</section>
+
+<!-- ============== FBA CONSENSUS SECTION ============== -->
+<section class="section" id="fba">
+  <div class="container fba-wrap">
+    <div class="fba-copy">
+      <span class="eyebrow">Consensus Model</span>
+      <h2 class="section-heading">Federated Byzantine Agreement (FBA).</h2>
+      <p class="section-sub">PDSChain achieves Byzantine fault-tolerant consensus without resource-heavy Proof of Work, utilizing overlapping trust slices configured across government entities.</p>
+
+      <div class="fba-status-list">
+        <div class="fba-status-row">
+          <span class="label"><i class="bi bi-hdd-network" aria-hidden="true"></i> Validator Pool</span>
+          <span class="badge badge-success"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> 12 / 12 Online</span>
+        </div>
+        <div class="fba-status-row">
+          <span class="label"><i class="bi bi-diagram-2" aria-hidden="true"></i> Quorum Slices</span>
+          <span class="badge badge-info"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> 100% Intersecting</span>
+        </div>
+        <div class="fba-status-row">
+          <span class="label"><i class="bi bi-activity" aria-hidden="true"></i> Block Finality</span>
+          <span class="badge badge-success"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> Instant Finality</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="node-grid" aria-label="12 authorized validator nodes">
+      <div class="node-cell"><span class="dot"></span><span>N01</span></div>
+      <div class="node-cell"><span class="dot"></span><span>N02</span></div>
+      <div class="node-cell"><span class="dot"></span><span>N03</span></div>
+      <div class="node-cell"><span class="dot"></span><span>N04</span></div>
+      <div class="node-cell"><span class="dot"></span><span>N05</span></div>
+      <div class="node-cell"><span class="dot"></span><span>N06</span></div>
+      <div class="node-cell"><span class="dot"></span><span>N07</span></div>
+      <div class="node-cell"><span class="dot"></span><span>N08</span></div>
+      <div class="node-cell"><span class="dot"></span><span>N09</span></div>
+      <div class="node-cell"><span class="dot"></span><span>N10</span></div>
+      <div class="node-cell"><span class="dot"></span><span>N11</span></div>
+      <div class="node-cell"><span class="dot"></span><span>N12</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== FINAL CTA ============== -->
+<section class="cta-final">
+  <div class="container">
+    <span class="eyebrow" style="justify-content:center;">Demonstration Prototype</span>
+    <h2 class="section-heading" style="margin-top:14px;">Explore Role-Based Workflows</h2>
+    <p class="section-sub">Experience the complete distribution ecosystem as an Administrator, Warehouse Officer, Fair Price Shop Officer, Citizen, or Validator.</p>
+    <div class="cta-actions">
+      <a href="login.html" class="btn btn-primary"><i class="bi bi-box-arrow-in-right"></i> Sign In to Demo</a>
+      <a href="register.html" class="btn btn-secondary"><i class="bi bi-person-plus"></i> Register Citizen / Officer</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ============== FOOTER ============== -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <a href="index.html" class="brand">
+          <span class="brand-mark"><i class="bi bi-shield-check" aria-hidden="true"></i></span>
+          PDSChain
+        </a>
+        <p>Blockchain infrastructure for a transparent and accountable Public Distribution System.</p>
+      </div>
+      <div class="footer-col">
+        <h5>Workspaces</h5>
+        <ul>
+          <li><a href="admin/admin.html">Admin Workspace</a></li>
+          <li><a href="warehouse/warehouse.html">Warehouse Workspace</a></li>
+          <li><a href="shop/shop.html">Fair Price Shop</a></li>
+          <li><a href="citizen/citizen.html">Citizen Portal</a></li>
+          <li><a href="validator/validator.html">Validator Node</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h5>Explorer</h5>
+        <ul>
+          <li><a href="blockchain.html">Blockchain Explorer</a></li>
+          <li><a href="transaction.html">Verify Transaction</a></li>
+          <li><a href="validator/quorum.html">Quorum Visualizer</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h5>Account</h5>
+        <ul>
+          <li><a href="login.html">Demo Sign In</a></li>
+          <li><a href="register.html">Register Account</a></li>
+          <li><a href="settings.html">Settings</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span id="year">2026</span> PDSChain — Academic Project Prototype</span>
+      <span>Blockchain-Based Public Distribution System (FBA Simulation)</span>
+    </div>
+  </div>
+</footer>
+
+<script src="../js/main.js"></script>
+<script src="../js/dashboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sign In — PDSChain</title>
+<meta name="description" content="Sign in to PDSChain, the blockchain-powered Public Distribution System trust network." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+<link rel="stylesheet" href="../css/style.css" />
+<link rel="stylesheet" href="../css/animations.css" />
+<link rel="stylesheet" href="../css/components.css" />
+<link rel="stylesheet" href="../css/auth.css" />
+<link rel="stylesheet" href="../css/responsive.css" />
+</head>
+<body>
+<a href="#login-main" class="skip-link">Skip to content</a>
+
+<!-- ============== AUTH TOPBAR ============== -->
+<header class="auth-topbar">
+  <div class="container">
+    <a href="index.html" class="back-link"><i class="bi bi-arrow-left" aria-hidden="true"></i> Back to Home</a>
+    <div class="auth-topbar-actions">
+      <span>New to PDSChain?</span>
+      <a href="register.html">Create account</a>
+    </div>
+  </div>
+</header>
+
+<main id="login-main" class="auth-shell">
+
+  <!-- ============== LEFT: BRAND / NETWORK PANEL ============== -->
+  <section class="auth-brand-panel" aria-hidden="true">
+    <div class="auth-brand-top">
+      <a href="index.html" class="brand">
+        <span class="brand-mark"><i class="bi bi-shield-check" aria-hidden="true"></i></span>
+        PDSChain
+      </a>
+      <h2 class="auth-brand-tagline">Building Trust Into Every Distribution.</h2>
+      <p class="auth-brand-desc">Secure role-based access to a transparent, permissioned blockchain Public Distribution infrastructure.</p>
+    </div>
+
+    <div class="auth-network">
+      <div class="network-chain">
+        <div class="network-tier"><span class="tier-dot"></span> Administrator Node</div>
+        <div class="network-connector"></div>
+        <div class="network-tier"><span class="tier-dot"></span> Warehouse Silo WH-003</div>
+        <div class="network-connector"></div>
+        <div class="network-tier"><span class="tier-dot"></span> Fair Price Shop FPS-102</div>
+        <div class="network-connector"></div>
+        <div class="network-tier"><span class="tier-dot"></span> Citizen Beneficiary BEN-1024</div>
+      </div>
+
+      <div class="auth-blocks">
+        <span class="auth-block-chip"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> BLOCK 4280</span>
+        <span class="auth-block-chip"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> BLOCK 4281</span>
+        <span class="auth-block-chip"><i class="bi bi-broadcast" aria-hidden="true"></i> BLOCK 4282</span>
+      </div>
+    </div>
+
+    <div class="status-panel">
+      <div class="status-panel-title">FBA Consensus Health</div>
+      <div class="status-panel-row">
+        <span class="status-live"><span class="dot"></span> Operational</span>
+        <span class="mono">12/12 Online</span>
+      </div>
+      <div class="status-panel-row">
+        <span>Consensus Latency</span><span>2.4s</span>
+      </div>
+      <div class="status-panel-row">
+        <span>Latest Block</span><span class="mono">#4281</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== RIGHT: LOGIN FORM ============== -->
+  <section class="auth-form-panel">
+    <div class="auth-form-wrap">
+
+      <div class="auth-form-header">
+        <span class="eyebrow">PDSChain Access Portal</span>
+        <h1>Sign In.</h1>
+        <p>Select your role or enter demo credentials below.</p>
+      </div>
+
+      <!-- Quick-fill demo credentials info card -->
+      <div class="demo-note" style="display:flex; flex-direction:column; gap:8px;">
+        <div style="display:flex; align-items:center; gap:6px; font-weight:700; color:var(--text-primary);">
+          <i class="bi bi-key-fill text-warning"></i> Demo Accounts (Username / Password):
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:12px;">
+          <div>&bull; <strong>admin</strong> / <code>admin123</code></div>
+          <div>&bull; <strong>shop</strong> / <code>shop123</code></div>
+          <div>&bull; <strong>warehouse</strong> / <code>warehouse123</code></div>
+          <div>&bull; <strong>citizen</strong> / <code>citizen123</code></div>
+          <div>&bull; <strong>validator</strong> / <code>validator123</code></div>
+        </div>
+      </div>
+
+      <div class="form-status" id="login-status" role="alert" hidden></div>
+
+      <form id="login-form" novalidate>
+        <div class="form-group">
+          <label class="form-label" for="login-role">Select Role (Quick Fill)</label>
+          <div class="role-select-wrap">
+            <i class="bi bi-person-badge" aria-hidden="true"></i>
+            <select class="form-select" id="login-role" name="loginRole">
+              <option value="" disabled selected>Choose a role...</option>
+              <option value="admin">Administrator (Admin Dashboard)</option>
+              <option value="warehouse">Warehouse Officer (WH-003)</option>
+              <option value="shop">Fair Price Shop Officer (FPS-102)</option>
+              <option value="citizen">Citizen / Beneficiary (BEN-1024)</option>
+              <option value="validator">Validator Node (NODE-07)</option>
+            </select>
+          </div>
+          <div class="form-hint" aria-live="polite"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="login-id">Username / User ID</label>
+          <input class="form-input" type="text" id="login-id" name="loginId" placeholder="e.g. admin, shop, warehouse, citizen, validator" autocomplete="username" />
+          <div class="form-hint" aria-live="polite"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="login-password">Password</label>
+          <div class="input-wrap">
+            <input class="form-input has-icon" type="password" id="login-password" name="loginPassword" placeholder="Enter password" autocomplete="current-password" />
+            <button class="input-icon-btn" type="button" data-toggle-password="login-password" aria-label="Show password">
+              <i class="bi bi-eye" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div class="form-hint" aria-live="polite"></div>
+        </div>
+
+        <div class="checkbox-row">
+          <label class="checkbox-field">
+            <input type="checkbox" id="remember-me" name="rememberMe" checked />
+            Remember me
+          </label>
+          <a href="#" class="link-muted">Forgot password?</a>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block" id="login-submit">
+          Sign In to Dashboard <i class="bi bi-arrow-right" aria-hidden="true"></i>
+        </button>
+      </form>
+
+      <p class="auth-switch">Don't have an account? <a href="register.html">Register here</a></p>
+
+      <div class="security-note">
+        <i class="bi bi-shield-lock-fill" aria-hidden="true"></i>
+        Protected by Federated Byzantine Agreement blockchain simulation.
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div class="toast-stack" id="toast-stack" aria-live="polite"></div>
+
+<footer class="auth-footer">
+  <div class="container">
+    <strong>PDSChain</strong> — Blockchain-Based Public Distribution System · © <span id="year">2026</span> PDSChain
+  </div>
+</footer>
+
+<script src="../js/main.js"></script>
+<script src="../js/auth.js"></script>
+</body>
+</html>

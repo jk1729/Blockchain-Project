@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Blockchain Explorer — PDSChain</title>
+<meta name="description" content="Explore immutable blocks, cryptographic transaction hashes, and FBA validator consensus on the PDSChain network." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+<link rel="stylesheet" href="../css/style.css" />
+<link rel="stylesheet" href="../css/animations.css" />
+<link rel="stylesheet" href="../css/components.css" />
+<link rel="stylesheet" href="../css/dashboard.css" />
+<link rel="stylesheet" href="../css/blockchain.css" />
+<link rel="stylesheet" href="../css/responsive.css" />
+</head>
+<body class="dash-body">
+<a href="#dash-main-content" class="skip-link">Skip to content</a>
+
+<div class="dash-shell" id="dash-shell">
+
+  <!-- ============== SIDEBAR ============== -->
+  <aside class="dash-sidebar" id="dash-sidebar" aria-label="Primary">
+    <div class="sidebar-head">
+      <span class="brand-mark"><i class="bi bi-shield-check" aria-hidden="true"></i></span>
+      <a href="index.html" class="brand"><span class="label">PDSChain</span></a>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="sidebar-group-label">Navigation</div>
+      <ul>
+        <li><a href="index.html" class="sidebar-link"><i class="bi bi-house" aria-hidden="true"></i><span>Landing Page</span></a></li>
+        <li><a href="blockchain.html" class="sidebar-link is-active" aria-current="page"><i class="bi bi-diagram-3" aria-hidden="true"></i><span>Explorer</span></a></li>
+        <li><a href="transaction.html" class="sidebar-link"><i class="bi bi-arrow-left-right" aria-hidden="true"></i><span>Verify Transaction</span></a></li>
+      </ul>
+      <div class="sidebar-group-label">Dashboards</div>
+      <ul>
+        <li><a href="admin/admin.html" class="sidebar-link"><i class="bi bi-shield-lock" aria-hidden="true"></i><span>Admin</span></a></li>
+        <li><a href="warehouse/warehouse.html" class="sidebar-link"><i class="bi bi-building" aria-hidden="true"></i><span>Warehouse</span></a></li>
+        <li><a href="shop/shop.html" class="sidebar-link"><i class="bi bi-shop" aria-hidden="true"></i><span>Fair Price Shop</span></a></li>
+        <li><a href="citizen/citizen.html" class="sidebar-link"><i class="bi bi-person-badge" aria-hidden="true"></i><span>Citizen Portal</span></a></li>
+        <li><a href="validator/validator.html" class="sidebar-link"><i class="bi bi-hdd-network" aria-hidden="true"></i><span>Validator Node</span></a></li>
+      </ul>
+      <div class="sidebar-group-label">System</div>
+      <ul>
+        <li><a href="profile.html" class="sidebar-link"><i class="bi bi-person" aria-hidden="true"></i><span>Profile</span></a></li>
+        <li><a href="settings.html" class="sidebar-link"><i class="bi bi-gear" aria-hidden="true"></i><span>Settings</span></a></li>
+      </ul>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="sidebar-status"><span class="dot"></span><span class="label">FBA Consensus Healthy</span></div>
+    </div>
+  </aside>
+
+  <div class="dash-overlay" id="dash-overlay"></div>
+
+  <!-- ============== MAIN CONTENT ============== -->
+  <div class="dash-main">
+    <header class="dash-topbar">
+      <div class="topbar-left">
+        <button class="sidebar-toggle-btn" id="sidebar-toggle" aria-label="Collapse sidebar"><i class="bi bi-layout-sidebar"></i></button>
+        <button class="drawer-toggle-btn" id="drawer-toggle" aria-label="Open menu"><i class="bi bi-list"></i></button>
+      </div>
+
+      <div class="topbar-search">
+        <i class="bi bi-search"></i>
+        <input type="search" placeholder="Search by Block #, Tx Hash, Beneficiary..." aria-label="Global search" />
+      </div>
+
+      <div class="topbar-right">
+        <button class="theme-toggle" type="button" aria-label="Toggle color theme">
+          <i class="bi bi-moon-stars icon-moon"></i>
+          <i class="bi bi-sun icon-sun"></i>
+        </button>
+        <div class="dropdown-wrap">
+          <a href="login.html" class="btn btn-primary btn-sm"><i class="bi bi-box-arrow-in-right"></i> Sign In</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="dash-content" id="dash-main-content">
+
+      <div class="page-header">
+        <div>
+          <h1>Blockchain Ledger Explorer</h1>
+          <p>Real-time cryptographic audit log of all distribution blocks, Merkle roots, and FBA consensus rounds.</p>
+        </div>
+        <div class="page-header-meta" style="display:flex;align-items:center;gap:10px;">
+          <span id="chain-validity-badge" class="badge badge-success" style="font-size:13px;padding:7px 14px;"><i class="bi bi-patch-check-fill"></i> CHAIN VALID</span>
+          <button class="btn btn-primary btn-sm" id="btn-validate-chain" type="button" onclick="validateChainLive()"><i class="bi bi-shield-check"></i> Re-Verify Ledger</button>
+        </div>
+      </div>
+
+      <!-- Explorer Search & Metric Header -->
+      <div class="explorer-header">
+        <div class="kpi-grid cols-5" style="margin-bottom:0;">
+          <div class="stat-card">
+            <div class="stat-card-label">Latest Block</div>
+            <div class="stat-card-value mono" id="kpi-latest-block">#4</div>
+            <div class="stat-card-foot"><span class="trend is-up"><i class="bi bi-check-circle"></i> Live</span></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">Total Blocks</div>
+            <div class="stat-card-value" id="kpi-total-blocks">5</div>
+            <div class="stat-card-foot"><span class="caption">Since Genesis #0</span></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">Total Verified Txns</div>
+            <div class="stat-card-value" id="kpi-total-txns">5</div>
+            <div class="stat-card-foot"><span class="trend is-up"><i class="bi bi-arrow-up-short"></i> On-Chain</span></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">Active Validators</div>
+            <div class="stat-card-value">12 / 12</div>
+            <div class="stat-card-foot"><span class="trend is-flat"><i class="bi bi-check-circle-fill"></i> 100% Online</span></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">Network Model</div>
+            <div class="stat-card-value" style="font-size:18px;">FBA Quorum</div>
+            <div class="stat-card-foot"><span class="caption">Instant Finality</span></div>
+          </div>
+        </div>
+
+        <div class="explorer-search-row">
+          <input type="text" class="form-input" id="explorer-search-input" placeholder="Search by Block # (e.g. 0, 4) or Transaction ID (e.g. TXN-004281)" />
+          <button class="btn btn-primary" id="explorer-search-btn" type="button"><i class="bi bi-search"></i> Search Ledger</button>
+        </div>
+      </div>
+
+      <!-- Visual Chain Flow -->
+      <div class="section-block">
+        <div class="section-block-head">
+          <div>
+            <h2>Cryptographic Block Chain Sequence</h2>
+            <div class="sub">Each block cryptographically seals and references the SHA-256 hash of the preceding block.</div>
+          </div>
+        </div>
+        <div class="chain-flow-container">
+          <div class="chain-flow-track" id="chain-flow-track">
+            <!-- Dynamically Rendered by blockchain.js -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Transaction Mempool (Pending Stage) -->
+      <div class="section-block">
+        <div class="section-block-head">
+          <div>
+            <h2>Transaction Mempool (Pending Stage)</h2>
+            <div class="sub">Unconfirmed transactions staged prior to 12-validator FBA consensus and block proposal.</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span class="badge badge-info" id="mempool-capacity-badge">Capacity: 0 / 5000</span>
+            <button class="btn btn-secondary btn-sm" onclick="loadMempool()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+          </div>
+        </div>
+
+        <div class="kpi-grid cols-4" style="margin-bottom:15px;">
+          <div class="stat-card">
+            <div class="stat-card-label">Total Pending</div>
+            <div class="stat-card-value mono text-indigo" id="mp-total-count">0</div>
+            <div class="stat-card-foot"><span class="caption">In Active Staging</span></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">Ready for Proposal</div>
+            <div class="stat-card-value text-success" id="mp-ready-count">0</div>
+            <div class="stat-card-foot"><span class="caption">Sequential Nonce</span></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">Queued (Future Nonce)</div>
+            <div class="stat-card-value text-warning" id="mp-queued-count">0</div>
+            <div class="stat-card-foot"><span class="caption">Waiting Prior Nonces</span></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-label">Pool Utilization</div>
+            <div class="stat-card-value" id="mp-utilization">0.00%</div>
+            <div class="stat-card-foot"><span class="caption">TTL: 1 Hour</span></div>
+          </div>
+        </div>
+
+        <div class="table-card">
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Tx ID</th>
+                  <th>Sender Address</th>
+                  <th>Receiver / FPS</th>
+                  <th>Commodity</th>
+                  <th>Qty</th>
+                  <th>Nonce</th>
+                  <th>Received</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="mempool-table-body">
+                <tr>
+                  <td colspan="8" style="text-align:center;color:var(--text-muted);padding:20px;">
+                    <em>No unconfirmed transactions in mempool. All transactions are finalized on-chain.</em>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Verified Blocks Table -->
+      <div class="section-block">
+        <div class="section-block-head">
+          <div>
+            <h2>Verified Block Registry</h2>
+            <div class="sub">Click any block row to inspect Merkle roots, validator signatures, and included distribution records.</div>
+          </div>
+        </div>
+        <div class="table-card">
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Block Height</th>
+                  <th>Block Hash</th>
+                  <th>Previous Hash</th>
+                  <th>Transactions</th>
+                  <th>Validator Quorum</th>
+                  <th>Timestamp</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="blockchain-table-body">
+                <!-- Dynamically populated by blockchain.js -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <footer class="auth-footer">
+      <div class="container" style="max-width:1400px;">
+        <strong>PDSChain</strong> — Blockchain-Based Public Distribution System · © <span id="year">2026</span> PDSChain
+      </div>
+    </footer>
+  </div>
+</div>
+
+<!-- Block Inspector Modal -->
+<div class="modal-backdrop" id="modal-inspect-block" role="dialog" aria-modal="true">
+  <div class="modal-dialog is-wide">
+    <div class="modal-header">
+      <h3 class="modal-title"><i class="bi bi-diagram-3 text-indigo"></i> <span id="inspect-block-num">Block Details</span></h3>
+      <button class="modal-close" type="button" data-close-modal aria-label="Close modal"><i class="bi bi-x"></i></button>
+    </div>
+    <div class="modal-body" id="inspect-block-content"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" type="button" data-close-modal>Close Inspector</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-stack" id="toast-stack" aria-live="polite"></div>
+
+<script src="../js/api.js"></script>
+<script src="../js/main.js"></script>
+<script src="../js/dashboard.js"></script>
+<script src="../js/blockchain.js"></script>
+</body>
+</html>
+
