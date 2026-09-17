@@ -73,6 +73,22 @@ function extractUnsignedFields(tx) {
     }
     if (tx.unit) rawPayload.unit = tx.unit;
     if (tx.name || tx.beneficiaryName) rawPayload.name = tx.name || tx.beneficiaryName;
+    if (type === 'CONTRACT_CALL') {
+      if (tx.contractAddress) rawPayload.contractAddress = tx.contractAddress;
+      if (tx.method) rawPayload.method = tx.method;
+      if (tx.args) rawPayload.args = tx.args;
+      if (tx.calldata) rawPayload.calldata = tx.calldata;
+      if (tx.gasLimit !== undefined) rawPayload.gasLimit = tx.gasLimit;
+    }
+  }
+
+  // Ensure contract call fields are captured from root if present for CONTRACT_CALL
+  if (type === 'CONTRACT_CALL') {
+    if (tx.contractAddress && !rawPayload.contractAddress) rawPayload.contractAddress = tx.contractAddress;
+    if (tx.method && !rawPayload.method) rawPayload.method = tx.method;
+    if (tx.args && !rawPayload.args) rawPayload.args = tx.args;
+    if (tx.calldata && !rawPayload.calldata) rawPayload.calldata = tx.calldata;
+    if (tx.gasLimit !== undefined && rawPayload.gasLimit === undefined) rawPayload.gasLimit = tx.gasLimit;
   }
 
   // Exclude post-commit consensus metadata from the signed payload

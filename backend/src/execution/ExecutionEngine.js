@@ -156,6 +156,7 @@ class ExecutionEngine {
       success: true,
       transactionId: context.transactionId,
       receipt: receipt,
+      evmReceipt: ruleResult.receipt || null,
       stateTransitions: ruleResult.stateChanges || validation.predictedChanges || [],
       blockNumber,
       blockHash

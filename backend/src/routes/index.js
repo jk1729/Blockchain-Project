@@ -10,6 +10,7 @@ const blockchainRoutes = require('./blockchainRoutes');
 const validatorRoutes = require('./validatorRoutes');
 const consensusRoutes = require('./consensusRoutes');
 const dashboardRoutes = require('./dashboardRoutes');
+const contractRoutes = require('./contractRoutes');
 
 const Beneficiary = require('../models/Beneficiary');
 const Shop = require('../models/Shop');
@@ -28,6 +29,7 @@ router.use('/blockchain', blockchainRoutes);
 router.use('/validators', validatorRoutes);
 router.use('/consensus', consensusRoutes);
 router.use('/dashboard', dashboardRoutes);
+router.use('/contracts', contractRoutes);
 
 // Health Check API
 router.get('/health', (req, res) => {

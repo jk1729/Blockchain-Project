@@ -1,11 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const transactionController = require('../controllers/transactionController');
+const contractController = require('../controllers/contractController');
 const { authMiddleware, optionalAuthMiddleware } = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 
 // Public/authenticated queries
 router.get('/', optionalAuthMiddleware, transactionController.getAll);
+router.get('/:id/receipt', contractController.getTransactionReceipt);
 router.get('/:id', optionalAuthMiddleware, transactionController.getById);
 
 // Protected: Only Fair Price Shop Officers and Admins can distribute ration and create on-chain transactions

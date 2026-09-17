@@ -55,7 +55,7 @@ class ValidatorNode {
    * @param {object} [options] - { expectedStateRoot, round, stateManager }
    * @returns {ValidatorVote} Signed ValidatorVote
    */
-  evaluateBlockProposal(blockProposal, options = {}) {
+  async evaluateBlockProposal(blockProposal, options = {}) {
     const round = parseInt(options.round || blockProposal.round || 0, 10);
     const proposalId = blockProposal.proposalId || hashProposal(blockProposal);
     const blockNumber = parseInt(blockProposal.blockNumber !== undefined ? blockProposal.blockNumber : blockProposal.index, 10) || 0;
@@ -133,7 +133,56 @@ class ValidatorNode {
       }
     }
 
-    // 5. State Root Verification (if expectedStateRoot provided)
+    // 5. Independent EVM Contract Execution Verification
+    const hasContractCalls = txs.some(tx => tx.type === 'CONTRACT_CALL');
+    if (hasContractCalls) {
+      const { evmRuntime, resolveEVMCaller } = require('../evm');
+      await evmRuntime.initialize();
+      await evmRuntime.stateAdapter.checkpoint();
+
+      try {
+        for (const tx of txs) {
+          if (tx.type === 'CONTRACT_CALL') {
+            const payload = tx.payload || {};
+            const caller = resolveEVMCaller(tx);
+            const contractAddr = payload.contractAddress || tx.receiver;
+
+            const simReceipt = await evmRuntime.executeContractCall({
+              transactionId: tx.transactionId || tx.id,
+              caller,
+              contractAddress: contractAddr,
+              method: payload.method,
+              args: payload.args || [],
+              calldata: payload.calldata,
+              gasLimit: payload.gasLimit || 500000,
+              blockNumber: blockProposal.blockNumber || 1,
+              timestamp: tx.timestamp
+            });
+
+            if (simReceipt.isRevert()) {
+              await evmRuntime.stateAdapter.revert();
+              return createVote('REJECT', `EVM_CONTRACT_EXECUTION_FAILED: ${simReceipt.revertReason || 'Reverted'}`);
+            }
+
+            // Verify receipt hash if expected receipts provided
+            if (options.expectedReceipts && Array.isArray(options.expectedReceipts)) {
+              const expected = options.expectedReceipts.find(r => r.transactionId === (tx.transactionId || tx.id));
+              if (expected && expected.receiptHash && expected.receiptHash !== simReceipt.receiptHash) {
+                await evmRuntime.stateAdapter.revert();
+                return createVote('REJECT', `EVM_RECEIPT_HASH_MISMATCH for tx ${tx.transactionId || tx.id}`);
+              }
+            }
+          }
+        }
+      } catch (evmErr) {
+        await evmRuntime.stateAdapter.revert();
+        return createVote('REJECT', `EVM_EXECUTION_ERROR: ${evmErr.message}`);
+      } finally {
+        await evmRuntime.stateAdapter.revert();
+      }
+    }
+
+    // 6. State Root Verification (if expectedStateRoot provided)
     if (options.expectedStateRoot && blockProposal.stateRoot) {
       const exp = String(options.expectedStateRoot).toLowerCase().trim();
       const actual = String(blockProposal.stateRoot).toLowerCase().trim();

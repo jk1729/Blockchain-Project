@@ -14,11 +14,11 @@
 > - **Application-Specific**: Tailored specifically for public distribution governance, ration entitlements, and inventory integrity.
 > - **PDS-Focused**: Native state models represent Beneficiaries, Fair Price Shops, Warehouses, and Commodities.
 > - **Cryptographically Signed**: Every transaction is signed via native Ed25519 digital signatures and protected by sequential nonces.
-> - **Dual Cryptographic Commitments**: Every block header anchors both `merkleRoot` (transaction commitment) and `stateRoot` (post-execution state commitment).
+> - **Triple Cryptographic Commitments**: Every block header anchors `merkleRoot` (transaction commitment), `receiptsRoot` (execution receipts commitment), and `stateRoot` (composite world state commitment).
 > - **Cryptographic Consensus Certificates**: Every finalized block contains signed validator vote approvals and an FBA consensus certificate.
-> - **NOT an Ethereum Network**: Does not run EVM bytecodes, Solidity smart contracts, or Ethereum RPCs.
-> - **NOT Using Cryptocurrency**: Operates strictly on subsidized public distribution quotas with zero native token or gas fees.
-> - **NOT Using Proof-of-Work (PoW) / PoS**: Uses zero energy-waste mining; consensus is achieved via Federated Byzantine Agreement.
+> - **Native Solidity Smart Contracts & Embedded EVM**: Runs genuine Solidity contracts (`0.8.24`, Cancun) embedded via `@ethereumjs/vm` (chainId: 1729).
+> - **Zero-Cryptocurrency & Zero-Fee Model**: Operates strictly on subsidized public distribution quotas; zero native token, zero currency, zero transaction fees. Gas is used purely as an execution resource cap and watchdog.
+> - **Federated Byzantine Agreement (FBA)**: Zero energy-waste mining; consensus is achieved via 12 institutional validators with 3-of-4 quorum slices and 9-of-12 threshold.
 
 ---
 
@@ -62,18 +62,34 @@ PDSChain
 │   ├── Structured Execution Receipts & Ordered Diffs (`ExecutionReceipt.js`)
 │   ├── World State Access, Sender Nonce Tracking & State Snapshots (`StateManager.js`)
 │   ├── Standardized Structured Error Codes (`errors/ExecutionErrors.js`)
-│   └── Modular Smart-Contract-Like Domain Rules (`rules/`)
-│       ├── `BaseRule.js` (Rule contract interface)
-│       ├── `AuthorizationRule.js` (Actor permission validation)
-│       ├── `EntitlementRule.js` (Citizen quota allowances & deductions)
-│       ├── `InventoryRule.js` (Shop stock management & zero-stock guards)
-│       ├── `DistributionRule.js` (Atomic composite grain distribution)
-│       └── `WarehouseTransferRule.js` (Atomic logistics transfers & audit logging)
+│   ├── Modular Domain Rules (`rules/`)
+│   │   ├── `BaseRule.js` (Rule contract interface)
+│   │   ├── `AuthorizationRule.js` (Actor permission validation)
+│   │   ├── `EntitlementRule.js` (Citizen quota allowances & deductions)
+│   │   ├── `InventoryRule.js` (Shop stock management & zero-stock guards)
+│   │   ├── `DistributionRule.js` (Atomic composite grain distribution)
+│   │   ├── `WarehouseTransferRule.js` (Atomic logistics transfers & audit logging)
+│   │   └── `ContractCallRule.js` (EVM smart contract invocation & receipt binding)
+│   └── Embedded EVM Runtime Adapter (`backend/src/evm/`)
+│       ├── `EVMRuntime.js` (Embedded @ethereumjs/vm, Cancun hardfork, chainId 1729)
+│       ├── `EVMStateAdapter.js` (Copy-on-write state checkpoints, rollback & evmStateRoot)
+│       ├── `ContractRegistry.js` (Hardhat artifact loader & address lookup)
+│       ├── `ABIEncoder.js` (Deterministic ABI encoding, decoding, log parsing)
+│       ├── `ExecutionGasPolicy.js` (Execution gas caps: 1M tx gas limit, 10M block gas limit)
+│       ├── `EVMReceipt.js` (Deterministic execution receipts & receiptHash)
+│       └── `identityBridge.js` (Ed25519 identity to deterministic 20-byte EVM address bridge)
+│   └── Native Solidity Smart Contracts (`contracts/contracts/`)
+│       ├── `core/AccessControl.sol` & `core/PDSRegistry.sol`
+│       ├── `registry/BeneficiaryRegistry.sol` (Zero-PII pseudonymous citizen registry)
+│       ├── `registry/ShopRegistry.sol` & `registry/WarehouseRegistry.sol`
+│       ├── `registry/CommodityRegistry.sol`
+│       ├── `inventory/InventoryManager.sol` & `inventory/EntitlementManager.sol`
+│       └── `distribution/DistributionManager.sol` (Atomic grain disbursement)
 │
 ├── 4. Consensus Layer
 │   ├── Federated Byzantine Agreement Engine (`FBAConsensus.js`)
 │   ├── 12 Institutional Validator Topology (`consensusConfig.js`)
-│   ├── Validator Node Representation & Independent Signature Checks (`ValidatorNode.js`)
+│   ├── Validator Node Representation & Independent Execution Checks (`ValidatorNode.js`)
 │   ├── Dedicated Signed Validator Vote Model (`ValidatorVote.js`)
 │   ├── In-Memory Consensus Vote Store & Conflict Protection (`VoteStore.js`)
 │   ├── Cryptographic Consensus Certificate & Standalone Verifier (`ConsensusCertificate.js`)

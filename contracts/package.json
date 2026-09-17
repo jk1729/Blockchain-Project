@@ -1,0 +1,29 @@
+{
+  "name": "pdschain-contracts",
+  "version": "1.0.0",
+  "description": "Solidity Smart Contracts for PDSChain: A Permissioned Blockchain-Based Public Distribution System",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "clean": "hardhat clean"
+  },
+  "keywords": [
+    "solidity",
+    "pdschain",
+    "smart-contracts",
+    "hardhat",
+    "permissioned-blockchain"
+  ],
+  "author": "PDSChain Team",
+  "license": "ISC",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.19"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.2",
+    "ethers": "^6.13.4"
+  }
+}
+

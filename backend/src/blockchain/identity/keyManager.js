@@ -47,6 +47,7 @@ function generateKeyPair() {
  * Used for development/demo shops, warehouses, validators, and citizens.
  */
 const devKeystore = new Map();
+const devKeystoreByAddress = new Map();
 
 /**
  * Deterministically generate or retrieve a development keypair for an entity ID.
@@ -57,7 +58,9 @@ const devKeystore = new Map();
 function getOrCreateDevParticipant(entityId, entityType = 'SHOP') {
   const key = String(entityId).toUpperCase().trim();
   if (devKeystore.has(key)) {
-    return devKeystore.get(key);
+    const existing = devKeystore.get(key);
+    devKeystoreByAddress.set(existing.address, existing);
+    return existing;
   }
 
   // Derive deterministic development keypair from seed string for consistent tests
@@ -104,21 +107,26 @@ function getPublicParticipantInfo(idOrAddress) {
   const key = String(idOrAddress).trim();
   let participant = devKeystore.get(key) || devKeystore.get(key.toUpperCase());
   if (!participant) {
-    // If it starts with FPS, WH, VAL, BEN, derive on the fly
     if (/^(FPS|WH|VAL|BEN)-/i.test(key)) {
       const type = key.startsWith('FPS') ? 'SHOP' : (key.startsWith('WH') ? 'WAREHOUSE' : (key.startsWith('VAL') ? 'VALIDATOR' : 'BENEFICIARY'));
       participant = getOrCreateDevParticipant(key, type);
     }
   }
-
   if (!participant) return null;
-
   return {
     entityId: participant.entityId,
     entityType: participant.entityType,
     address: participant.address,
     publicKey: participant.publicKey
   };
+}
+
+/**
+ * Retrieve participant by derived address
+ */
+function getParticipantByAddress(address) {
+  if (!address) return null;
+  return devKeystoreByAddress.get(address) || null;
 }
 
 /**
@@ -139,6 +147,6 @@ module.exports = {
   generateKeyPair,
   getOrCreateDevParticipant,
   getPublicParticipantInfo,
+  getParticipantByAddress,
   getParticipantPrivateKey
 };
-

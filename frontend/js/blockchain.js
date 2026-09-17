@@ -234,13 +234,16 @@
             '<div class="table-wrap"><table class="data-table"><thead><tr><th>Tx ID</th><th>Sender / Beneficiary</th><th>Shop</th><th>Commodity</th><th>Qty</th><th>Nonce</th><th>Signature</th></tr></thead><tbody>' +
             block.transactions.map(function (tx) {
               var isSig = tx.signature ? '<span class="badge badge-success" title="Ed25519 Verified">✓ Signed</span>' : '<span class="badge badge-info">Genesis</span>';
+              var isEvm = tx.type === 'CONTRACT_CALL' ? ' <span class="badge badge-primary" style="font-size:10px;">EVM</span>' : '';
               var sender = tx.sender && tx.sender.startsWith('PDS1') ? (tx.sender.substring(0, 10) + '...') : (tx.beneficiaryId || tx.beneficiaryName || 'N/A');
+              var item = tx.type === 'CONTRACT_CALL' ? (tx.method ? ('Call: ' + tx.method) : 'Contract Call') : (tx.commodity || tx.item || 'Grain');
+              var quantity = tx.type === 'CONTRACT_CALL' ? ('Gas: ' + (tx.gasLimit || 500000)) : ((tx.quantity || 0) + ' ' + (tx.unit || 'kg'));
               return '<tr>' +
-                '<td class="mono">' + (tx.transactionId || 'TXN-GEN') + '</td>' +
+                '<td class="mono">' + (tx.transactionId || 'TXN-GEN') + isEvm + '</td>' +
                 '<td>' + sender + '</td>' +
-                '<td>' + (tx.shopId || 'N/A') + '</td>' +
-                '<td>' + (tx.commodity || tx.item || 'Grain') + '</td>' +
-                '<td>' + (tx.quantity || 0) + ' ' + (tx.unit || 'kg') + '</td>' +
+                '<td>' + (tx.shopId || (tx.contractAddress ? (tx.contractAddress.substring(0, 10) + '...') : 'N/A')) + '</td>' +
+                '<td>' + item + '</td>' +
+                '<td>' + quantity + '</td>' +
                 '<td class="mono">#' + (tx.nonce !== undefined ? tx.nonce : 0) + '</td>' +
                 '<td>' + isSig + '</td>' +
               '</tr>';
@@ -310,6 +313,7 @@
           propIdHtml +
           '<div class="receipt-row"><span class="label">Transaction Merkle Root:</span><span class="val mono" style="word-break:break-all;">' + (block.merkleRoot || 'N/A') + ' <span class="badge badge-info" style="font-size:10px;margin-left:5px;">Tx Commitment</span></span></div>' +
           '<div class="receipt-row"><span class="label">Resulting State Root:</span><span class="val mono" style="word-break:break-all;">' + (block.stateRoot || '0x0000000000000000000000000000000000000000000000000000000000000000') + ' <span class="badge badge-success" style="font-size:10px;margin-left:5px;">State Commitment</span></span></div>' +
+          (block.receiptsRoot ? ('<div class="receipt-row"><span class="label">Receipts Merkle Root:</span><span class="val mono" style="word-break:break-all;">' + block.receiptsRoot + ' <span class="badge badge-info" style="font-size:10px;margin-left:5px;">Receipts Commitment</span></span></div>') : '') +
           certHashHtml +
           '<div class="receipt-row"><span class="label">Timestamp:</span><span class="val">' + formatTimestamp(block.timestamp) + '</span></div>' +
         '</div>' +

@@ -123,7 +123,7 @@ function canonicalizeState(rawState = {}, version = STATE_ROOT_VERSION) {
     return a.commodity.localeCompare(b.commodity);
   });
 
-  return {
+  const canonical = {
     version: parseInt(version, 10) || STATE_ROOT_VERSION,
     beneficiaries,
     shops,
@@ -131,6 +131,12 @@ function canonicalizeState(rawState = {}, version = STATE_ROOT_VERSION) {
     warehouses,
     warehouseInventory
   };
+
+  if (state.evmStateRoot) {
+    canonical.evmStateRoot = String(state.evmStateRoot).toLowerCase().trim();
+  }
+
+  return canonical;
 }
 
 /**

@@ -55,6 +55,9 @@ class Block {
       this.consensusCertificate = null;
     }
 
+    this.receiptsRoot = options.receiptsRoot || null;
+    this.executionReceipts = options.executionReceipts || [];
+
     this.blockHash = this.calculateHash();
   }
 
@@ -170,6 +173,7 @@ class Block {
       nonce: this.nonce,
       merkleRoot: this.merkleRoot,
       stateRoot: this.stateRoot,
+      receiptsRoot: this.receiptsRoot,
       proposerId: this.proposerId,
       proposerAddress: this.proposerAddress,
       proposerSignature: this.proposerSignature,

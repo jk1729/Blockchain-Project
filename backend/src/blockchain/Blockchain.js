@@ -114,7 +114,9 @@ class Blockchain {
         round,
         proposerSignature: options.proposerSignature,
         proposalId: options.proposalId,
-        consensusCertificate: options.consensusCertificate
+        consensusCertificate: options.consensusCertificate,
+        receiptsRoot: options.receiptsRoot,
+        executionReceipts: options.executionReceipts
       }
     );
 

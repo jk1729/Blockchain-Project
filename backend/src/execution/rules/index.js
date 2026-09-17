@@ -10,6 +10,7 @@ const EntitlementRule = require('./EntitlementRule');
 const InventoryRule = require('./InventoryRule');
 const DistributionRule = require('./DistributionRule');
 const WarehouseTransferRule = require('./WarehouseTransferRule');
+const ContractCallRule = require('./ContractCallRule');
 
 const ruleRegistry = {
   DISTRIBUTION: new DistributionRule(),
@@ -18,7 +19,8 @@ const ruleRegistry = {
   INVENTORY: new InventoryRule(),
   SHOP_STOCK_DEDUCTION: new InventoryRule(),
   WAREHOUSE_TRANSFER: new WarehouseTransferRule(),
-  TRANSFER: new WarehouseTransferRule()
+  TRANSFER: new WarehouseTransferRule(),
+  CONTRACT_CALL: new ContractCallRule()
 };
 
 /**

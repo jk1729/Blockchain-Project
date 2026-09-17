@@ -65,6 +65,13 @@ class Transaction {
     const pdsQty = quantity !== undefined ? quantity : (qty !== undefined ? qty : (payload && (payload.quantity !== undefined ? payload.quantity : payload.qty)));
     const pdsName = name || beneficiaryName || (payload && (payload.name || payload.beneficiaryName)) || '';
 
+    // Contract Call properties
+    const contractAddr = (payload && payload.contractAddress) || (receiver && receiver.startsWith('0x') ? receiver : null);
+    const contractMethod = (payload && payload.method) || null;
+    const contractArgs = (payload && payload.args) || [];
+    const contractCalldata = (payload && payload.calldata) || null;
+    const contractGasLimit = (payload && payload.gasLimit) !== undefined ? payload.gasLimit : 500000;
+
     this.payload = {
       ...payload,
       ...(pdsBenId ? { beneficiaryId: pdsBenId } : {}),
@@ -73,6 +80,11 @@ class Transaction {
       ...(pdsQty !== undefined ? { quantity: typeof pdsQty === 'string' && pdsQty.includes(' ') ? parseFloat(pdsQty) : pdsQty } : {}),
       unit: unit || (payload && payload.unit) || 'KG',
       name: pdsName,
+      ...(contractAddr ? { contractAddress: contractAddr } : {}),
+      ...(contractMethod ? { method: contractMethod } : {}),
+      ...(contractArgs && contractArgs.length ? { args: contractArgs } : {}),
+      ...(contractCalldata ? { calldata: contractCalldata } : {}),
+      ...(this.type === 'CONTRACT_CALL' ? { gasLimit: contractGasLimit } : {}),
       consensusRound: consensusRound || (payload && payload.consensusRound) || null,
       validators: validators || (payload && payload.validators) || null
     };
@@ -135,6 +147,27 @@ class Transaction {
 
   get beneficiaryName() {
     return (this.payload && this.payload.name) || '';
+  }
+
+  get contractAddress() {
+    return (this.payload && this.payload.contractAddress) || (this.receiver && this.receiver.startsWith('0x') ? this.receiver : null);
+  }
+
+  get method() {
+    return (this.payload && this.payload.method) || null;
+  }
+
+  get args() {
+    return (this.payload && this.payload.args) || [];
+  }
+
+  get calldata() {
+    return (this.payload && this.payload.calldata) || null;
+  }
+
+  get gasLimit() {
+    if (this.type !== 'CONTRACT_CALL') return undefined;
+    return (this.payload && this.payload.gasLimit) !== undefined ? this.payload.gasLimit : 500000;
   }
 
   /**
@@ -203,7 +236,14 @@ class Transaction {
       quantity: this.quantity,
       unit: this.unit,
       name: this.name,
-      status: this.status
+      status: this.status,
+      ...(this.type === 'CONTRACT_CALL' ? {
+        contractAddress: this.contractAddress,
+        method: this.method,
+        args: this.args,
+        calldata: this.calldata,
+        gasLimit: this.gasLimit
+      } : {})
     };
   }
 
@@ -228,6 +268,13 @@ class Transaction {
       signature: this.signature,
       consensusRound: (this.payload && this.payload.consensusRound) || null,
       validators: (this.payload && this.payload.validators) || null,
+      ...(this.type === 'CONTRACT_CALL' ? {
+        contractAddress: this.contractAddress,
+        method: this.method,
+        args: this.args,
+        calldata: this.calldata,
+        gasLimit: this.gasLimit
+      } : {}),
       payload: this.payload
     };
   }

@@ -16,6 +16,7 @@ const { signBlockProposal } = require('../blockchain/identity/signature');
 const { ConflictError, ValidationError, NotFoundError } = require('../utils/errors');
 const logger = require('../utils/logger');
 const crypto = require('crypto');
+const { evmRuntime, resolveEVMCaller } = require('../evm');
 
 class TransactionService {
   async getAllTransactions(limit = 100) {
@@ -324,6 +325,253 @@ class TransactionService {
           latencyMs: consensusResult.latencyMs
         },
         receipt: executionResult.receipt
+      };
+    });
+  }
+
+  /**
+   * Process a CONTRACT_CALL Transaction invoking a Solidity smart contract:
+   * 1. Pre-validation & Cryptographic Digital Signing (Ed25519)
+   * 2. Mempool Staging
+   * 3. Candidate Block Proposal with EVM simulation & predicted stateRoot
+   * 4. 12-Validator Federated Byzantine Agreement (FBA) Consensus with independent EVM execution verification
+   * 5. Consensus Certificate Generation
+   * 6. Atomic Ledger Commitment & EVM State Mutation
+   * 7. Execution Receipt Generation
+   */
+  async processContractCall(payload, user = null) {
+    if (!payload || !payload.contractAddress) {
+      throw new ValidationError('contractAddress is required for CONTRACT_CALL.');
+    }
+    if (!payload.method && !payload.calldata) {
+      throw new ValidationError('method or calldata is required for CONTRACT_CALL.');
+    }
+
+    await evmRuntime.initialize();
+
+    const timestamp = payload.timestamp || new Date().toISOString();
+
+    // 1. Resolve Identity and Sign
+    let tx;
+    if (payload.signature && payload.transactionId) {
+      tx = Transaction.fromJSON({ ...payload, type: 'CONTRACT_CALL' });
+    } else {
+      const senderRole = (user && user.role) || payload.senderRole || (payload.sender && payload.sender.toUpperCase() === 'ADMIN' ? 'ADMIN' : 'SHOP');
+      const senderEntityId = (user && user.entityId) || (user && user.username) || payload.senderId || payload.sender || senderRole;
+      const senderParticipant = getOrCreateDevParticipant(senderEntityId, senderRole);
+      const expectedNonce = stateManager.getExpectedNonce(senderParticipant.address);
+
+      tx = new Transaction({
+        type: 'CONTRACT_CALL',
+        sender: senderParticipant.address,
+        senderPublicKey: senderParticipant.publicKey,
+        receiver: payload.contractAddress,
+        payload: {
+          contractAddress: payload.contractAddress,
+          method: payload.method,
+          args: payload.args || [],
+          calldata: payload.calldata || null,
+          gasLimit: payload.gasLimit || 500000,
+          senderId: senderEntityId,
+          senderRole: senderRole,
+          senderPublicKey: senderParticipant.publicKey
+        },
+        timestamp,
+        nonce: expectedNonce
+      });
+
+      tx.sign(senderParticipant.privateKey, senderParticipant.publicKey);
+    }
+
+    // 2. Pre-validate via ExecutionEngine
+    await executionEngine.validateTransaction(tx);
+
+    // 3. Stage in Mempool
+    try {
+      mempool.addTransaction(tx);
+    } catch (mempoolErr) {
+      if (mempoolErr instanceof MempoolError) {
+        if (mempoolErr.code === 'DUPLICATE_TRANSACTION' || mempoolErr.code === 'CONFLICTING_NONCE') {
+          throw new ConflictError(mempoolErr.message);
+        }
+        throw new ValidationError(`Mempool admission rejected: ${mempoolErr.message}`);
+      }
+      throw mempoolErr;
+    }
+
+    // 4. Candidate Block Simulation
+    const latestBlock = blockchainService.blockchain.getLatestBlock();
+    const nextBlockNumber = latestBlock ? (latestBlock.blockNumber + 1) : 1;
+    const previousHash = latestBlock ? latestBlock.blockHash : '0000000000000000000000000000000000000000000000000000000000000000';
+    const txPayload = tx.toBlockPayload();
+    const merkleRoot = calculateMerkleRoot([txPayload]);
+
+    // Isolated EVM Simulation to predict state root and generate receipt
+    await evmRuntime.stateAdapter.checkpoint();
+    let simReceipt;
+    let predictedEvmRoot;
+    try {
+      simReceipt = await evmRuntime.executeContractCall({
+        transactionId: tx.transactionId,
+        caller: resolveEVMCaller(tx),
+        contractAddress: tx.payload.contractAddress,
+        method: tx.payload.method,
+        args: tx.payload.args || [],
+        calldata: tx.payload.calldata,
+        gasLimit: tx.payload.gasLimit || 500000,
+        blockNumber: nextBlockNumber,
+        timestamp
+      });
+      predictedEvmRoot = await evmRuntime.getStateRoot();
+    } finally {
+      await evmRuntime.stateAdapter.revert();
+    }
+
+    const currentConsensusState = await stateManager.getConsensusStateSnapshot();
+    const predictedState = JSON.parse(JSON.stringify(currentConsensusState));
+    predictedState.evmStateRoot = predictedEvmRoot;
+    const predictedStateRoot = calculateStateRoot(predictedState);
+
+    const receiptsRoot = calculateMerkleRoot([{ receiptHash: simReceipt.receiptHash }]);
+
+    // Proposer Identity & Signature
+    const proposerId = 'VAL-01';
+    const proposerParticipant = getOrCreateDevParticipant(proposerId, 'VALIDATOR');
+    const proposerAddress = proposerParticipant.address;
+    const round = 0;
+
+    const proposalHeader = {
+      version: 1,
+      blockNumber: nextBlockNumber,
+      previousHash,
+      timestamp,
+      merkleRoot,
+      stateRoot: predictedStateRoot,
+      receiptsRoot,
+      proposerId,
+      proposerAddress,
+      round
+    };
+
+    const proposalId = hashProposal(proposalHeader);
+    const proposerPrivKey = getParticipantPrivateKey(proposerId);
+    const proposerSignature = proposerPrivKey ? signBlockProposal(proposalHeader, proposerPrivKey) : null;
+
+    const candidateProposal = {
+      ...proposalHeader,
+      proposalId,
+      proposerSignature,
+      proposerPublicKey: proposerParticipant.publicKey,
+      transactions: [txPayload],
+      transactionId: tx.transactionId,
+      nonce: tx.nonce,
+      signature: tx.signature,
+      senderPublicKey: tx.senderPublicKey,
+      sender: tx.sender,
+      receiver: tx.receiver,
+      payload: tx.payload
+    };
+
+    logger.info(`Initiating FBA Block Consensus for Block #${nextBlockNumber} with EVM CONTRACT_CALL (Tx: ${tx.transactionId})...`);
+
+    // 5. Run FBA Consensus Round (with EVM independent verification)
+    const consensusResult = await consensusService.runBlockConsensus(candidateProposal, {
+      round,
+      expectedStateRoot: predictedStateRoot,
+      expectedReceipts: [simReceipt.toJSON()],
+      threshold: 9
+    });
+
+    if (consensusResult.status !== 'ACHIEVED') {
+      mempool.removeIncludedTransactions([tx.transactionId]);
+      const rejectedTx = await TransactionModel.create({
+        transactionId: tx.transactionId,
+        beneficiaryId: payload.contractAddress,
+        shopId: tx.sender,
+        commodity: payload.method || 'CONTRACT_CALL',
+        quantity: 0,
+        timestamp: tx.timestamp,
+        status: 'Rejected',
+        fbaValidators: consensusResult.participatingValidators,
+        fbaConsensus: false,
+        remarks: 'Failed FBA validator quorum agreement for contract call'
+      });
+      return {
+        success: false,
+        message: 'Contract call transaction rejected by validator quorum consensus.',
+        transaction: rejectedTx,
+        consensus: consensusResult
+      };
+    }
+
+    // 6. Consensus Achieved: Atomically Commit Block & Execute in EVM
+    return await sequelize.transaction(async (t) => {
+      tx.payload.consensusRound = consensusResult.roundId;
+      tx.payload.validators = consensusResult.participatingValidators;
+
+      const executionResult = await executionEngine.executeTransaction(tx, {
+        dbTransaction: t,
+        consensusRound: consensusResult.roundId,
+        blockNumber: nextBlockNumber,
+        blockHash: ''
+      });
+
+      const finalEvmRoot = await evmRuntime.getStateRoot();
+      const resultingState = await stateManager.getConsensusStateSnapshot({ dbTransaction: t });
+      resultingState.evmStateRoot = finalEvmRoot;
+      stateManager.assertStateConsistency(resultingState);
+      const stateRoot = calculateStateRoot(resultingState);
+
+      const newBlock = await blockchainService.addBlock(
+        [tx.toBlockPayload()],
+        consensusResult.validatorSignatures,
+        t,
+        stateRoot,
+        {
+          version: 1,
+          proposerId,
+          proposerAddress,
+          proposerSignature,
+          proposalId,
+          round,
+          receiptsRoot,
+          executionReceipts: [executionResult.evmReceipt ? (executionResult.evmReceipt.toJSON ? executionResult.evmReceipt.toJSON() : executionResult.evmReceipt) : (executionResult.receipt || simReceipt.toJSON())],
+          consensusCertificate: consensusResult.certificate,
+          consensusStatus: 'FINALIZED'
+        }
+      );
+
+      const txHash = '0x' + crypto.createHash('sha256')
+        .update(JSON.stringify(tx.toBlockPayload()) + newBlock.blockHash)
+        .digest('hex')
+        .substring(0, 16);
+
+      mempool.removeIncludedTransactions([tx.transactionId], newBlock.blockNumber);
+
+      const verifiedTx = await TransactionModel.create({
+        transactionId: tx.transactionId,
+        beneficiaryId: payload.contractAddress,
+        beneficiaryName: payload.method || 'CONTRACT_CALL',
+        shopId: tx.sender,
+        commodity: payload.method || 'CONTRACT_CALL',
+        quantity: 0,
+        timestamp: tx.timestamp,
+        status: 'Verified',
+        blockNumber: newBlock.blockNumber,
+        blockHash: newBlock.blockHash,
+        hash: txHash,
+        fbaValidators: consensusResult.participatingValidators,
+        fbaConsensus: true,
+        remarks: 'Verified via 12-Validator FBA Quorum Consensus and EVM Execution'
+      }, { transaction: t });
+
+      return {
+        success: true,
+        message: 'Contract call successfully executed on EVM, verified through FBA consensus, and anchored to ledger.',
+        transaction: verifiedTx,
+        block: newBlock,
+        receipt: executionResult.evmReceipt ? (executionResult.evmReceipt.toJSON ? executionResult.evmReceipt.toJSON() : executionResult.evmReceipt) : (executionResult.receipt || simReceipt.toJSON()),
+        consensus: consensusResult
       };
     });
   }

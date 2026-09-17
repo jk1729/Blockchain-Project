@@ -22,7 +22,7 @@
 13. [Blockchain & Cryptographic Integrity Model](#13-blockchain--cryptographic-integrity-model)
 14. [Database Schema & ACID Transaction Atomicity](#14-database-schema--acid-transaction-atomicity)
 15. [Complete REST API Reference](#15-complete-rest-api-reference)
-16. [Automated Test Suite (47/47 Tests Passing)](#16-automated-test-suite-4747-tests-passing)
+16. [Automated Test Suite (290/290 Tests Passing)](#16-automated-test-suite-290290-tests-passing---100)
 17. [Academic Scope, Assumptions & Limitations](#17-academic-scope-assumptions--limitations)
 18. [License & Acknowledgments](#18-license--acknowledgments)
 
@@ -537,6 +537,15 @@ If any check fails (e.g. quota exceeded, insufficient stock, or consensus failur
 | `GET` | `/api/consensus/quorum` | No | Public | Returns trust graph and recent consensus rounds |
 | `POST` | `/api/consensus/round` | Yes | `VALIDATOR`, `ADMIN` | Manually trigger a standalone consensus round |
 
+### Smart Contracts & EVM Execution
+| Method | Endpoint | Auth Required | Role | Purpose |
+| :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/api/contracts` | No | Public | List all 8 deployed Solidity contracts, code hashes, and EVM state root |
+| `GET` | `/api/contracts/:addressOrName` | No | Public | Fetch contract details, deployed address, bytecode, and ABI |
+| `GET` | `/api/contracts/:address/events` | No | Public | Query decoded historical events for contract |
+| `GET` | `/api/contracts/transactions/:id/receipt` | No | Public | Query deterministic EVM execution receipt by transaction ID |
+| `POST` | `/api/contracts/call` | Optional | Public / RBAC | Execute view call (isView: true) or submit state-changing tx via FBA |
+
 ### Role Dashboards
 | Method | Endpoint | Auth Required | Role | Purpose |
 | :--- | :--- | :---: | :---: | :--- |
@@ -548,9 +557,36 @@ If any check fails (e.g. quota exceeded, insufficient stock, or consensus failur
 
 ---
 
-## 16. Automated Test Suite (47/47 Tests Passing)
+## 16. Automated Test Suite (290/290 Tests Passing - 100%)
 
-The test suite covers unit, integration, and security paths using Jest and Supertest:
+The test suite covers unit, integration, and adversarial paths across all 5 architectural layers:
+
+### Hardhat Smart Contract Tests (`contracts/`)
+- **20 / 20 Tests Passing** (`npx hardhat test`):
+  - Access control and emergency circuit breaker
+  - Pseudonymous beneficiary registration (zero PII)
+  - Fair Price Shop & Warehouse directory management
+  - Warehouse stock receiving, transfer, and deficit prevention
+  - Socioeconomic entitlement quota calculations and custom overrides
+  - Atomic grain distribution with balance and quota deductions
+
+### Backend Integration & Layer Suites (`backend/`)
+- **270 / 270 Tests Passing across 15 Test Suites** (`npm test`):
+  1. `auth.test.js` (RBAC & JWT authentication)
+  2. `api.test.js` (REST endpoints)
+  3. `cryptography.test.js` (Ed25519 identity & signing)
+  4. `mempool.test.js` (Transaction mempool & admission)
+  5. `execution.test.js` (Execution layer basics)
+  6. `execution-rules.test.js` (Domain execution rules)
+  7. `stateRoot.test.js` (Deterministic state hashing)
+  8. `consensus.test.js` (FBA consensus core)
+  9. `consensus-signatures.test.js` (Block proposals & certificates)
+  10. `blockchain.test.js` (Ledger & block integrity)
+  11. `transaction.test.js` (PDS transactions)
+  12. `warehouse.test.js` (Logistics workflows)
+  13. `evm-runtime.test.js` (**13 tests**: VM boot, registry, ABI encoding, view calls, rollback, gas limits)
+  14. `contracts-integration.test.js` (**10 tests**: end-to-end `CONTRACT_CALL`, FBA voting, certificate, block commit, receipts)
+  15. `contracts-adversarial.test.js` (**6 tests**: calldata tampering, forged callers, state root discrepancy rejection, candidate rollback, outage tolerance)
 
 ```
 PASS tests/api.test.js
