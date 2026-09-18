@@ -20,6 +20,7 @@ const EVMReceipt = require('./EVMReceipt');
 const ABIEncoder = require('./ABIEncoder');
 const { GAS_LIMITS, validateAndCapGas } = require('./ExecutionGasPolicy');
 const { SYSTEM_EVM_ACCOUNTS } = require('./identityBridge');
+const { BlockchainEvent, EVENT_TYPES, EVENT_CATEGORIES, EVENT_SEVERITIES, FINALITY_STATUS } = require('../events');
 const logger = require('../utils/logger');
 
 /**
@@ -36,6 +37,11 @@ class EVMRuntime {
     this.adminAddress = SYSTEM_EVM_ACCOUNTS.ADMIN;
     this.historicalReceipts = new Map(); // txId -> EVMReceipt
     this.contractEvents = []; // historical decoded events
+    this.eventBus = null;
+  }
+
+  setEventBus(eventBus) {
+    this.eventBus = eventBus;
   }
 
   /**
@@ -268,6 +274,31 @@ class EVMRuntime {
           blockNumber
         });
         this.historicalReceipts.set(transactionId, revertReceipt);
+
+        if (this.eventBus) {
+          try {
+            const failEvent = BlockchainEvent.create({
+              type: EVENT_TYPES.CONTRACT_CALL_FAILED,
+              category: EVENT_CATEGORIES.CONTRACT,
+              severity: EVENT_SEVERITIES.WARNING,
+              finalityStatus: FINALITY_STATUS.FINALIZED,
+              blockHeight: blockNumber,
+              txHash: transactionId,
+              contractAddress: contractAddress ? contractAddress.toLowerCase() : null,
+              source: 'evm',
+              payload: {
+                contractAddress: contractAddress ? contractAddress.toLowerCase() : null,
+                method: method || null,
+                reason,
+                gasUsed
+              }
+            });
+            this.eventBus.publish(failEvent);
+          } catch (e) {
+            logger.warn(`Failed to publish CONTRACT_CALL_FAILED event: ${e.message}`);
+          }
+        }
+
         return revertReceipt;
       }
 
@@ -278,7 +309,9 @@ class EVMRuntime {
         : [];
 
       // Record decoded events
-      for (const ev of decodedLogs) {
+      for (let i = 0; i < decodedLogs.length; i++) {
+        const ev = decodedLogs[i];
+        const rawLog = rawLogs[i];
         this.contractEvents.push({
           ...ev,
           contractAddress,
@@ -286,6 +319,39 @@ class EVMRuntime {
           blockNumber,
           timestamp: timestamp || new Date().toISOString()
         });
+
+        if (this.eventBus) {
+          try {
+            const rawTopics = Array.isArray(rawLog) ? rawLog[1] : (rawLog && rawLog.topics ? rawLog.topics : []);
+            const rawData = Array.isArray(rawLog) ? rawLog[2] : (rawLog && rawLog.data ? rawLog.data : '0x');
+            const formattedTopics = (rawTopics || []).map(t => typeof t === 'string' ? t : '0x' + Buffer.from(t).toString('hex'));
+            const formattedData = typeof rawData === 'string' ? rawData : '0x' + Buffer.from(rawData || []).toString('hex');
+
+            const blockchainEvent = BlockchainEvent.create({
+              type: EVENT_TYPES.CONTRACT_EVENT_EMITTED,
+              category: EVENT_CATEGORIES.CONTRACT,
+              severity: EVENT_SEVERITIES.INFO,
+              finalityStatus: FINALITY_STATUS.FINALIZED,
+              blockHeight: blockNumber,
+              txHash: transactionId,
+              contractAddress: contractAddress.toLowerCase(),
+              eventName: ev.name || ev.event || 'ContractEvent',
+              source: 'evm',
+              payload: {
+                contractAddress: contractAddress.toLowerCase(),
+                eventName: ev.name || ev.event || 'ContractEvent',
+                signature: ev.signature || null,
+                args: ev.args || {},
+                rawTopics: formattedTopics,
+                rawData: formattedData,
+                logIndex: i
+              }
+            });
+            this.eventBus.publish(blockchainEvent);
+          } catch (e) {
+            logger.warn(`Failed to publish contract event on eventBus: ${e.message}`);
+          }
+        }
       }
 
       const receipt = EVMReceipt.success({
@@ -298,6 +364,31 @@ class EVMRuntime {
       });
 
       this.historicalReceipts.set(transactionId, receipt);
+
+      if (this.eventBus) {
+        try {
+          const callEvent = BlockchainEvent.create({
+            type: EVENT_TYPES.CONTRACT_CALL_EXECUTED,
+            category: EVENT_CATEGORIES.CONTRACT,
+            severity: EVENT_SEVERITIES.INFO,
+            finalityStatus: FINALITY_STATUS.FINALIZED,
+            blockHeight: blockNumber,
+            txHash: transactionId,
+            contractAddress: contractAddress.toLowerCase(),
+            source: 'evm',
+            payload: {
+              contractAddress: contractAddress.toLowerCase(),
+              method: method || null,
+              gasUsed,
+              logsCount: decodedLogs.length
+            }
+          });
+          this.eventBus.publish(callEvent);
+        } catch (e) {
+          logger.warn(`Failed to publish CONTRACT_CALL_EXECUTED event: ${e.message}`);
+        }
+      }
+
       return receipt;
     } catch (err) {
       const failReceipt = EVMReceipt.revert({

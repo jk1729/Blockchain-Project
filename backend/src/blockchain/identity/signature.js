@@ -283,7 +283,7 @@ function verifyBlockProposalSignature(proposal, signature, publicKey) {
  */
 function extractUnsignedVotePayload(vote) {
   if (!vote) return {};
-  return {
+  const payload = {
     domain: DOMAIN_VOTE,
     validatorId: String(vote.validatorId || ''),
     validatorAddress: String(vote.validatorAddress || ''),
@@ -296,6 +296,10 @@ function extractUnsignedVotePayload(vote) {
     vote: String(vote.vote || 'ACCEPT').toUpperCase(),
     reason: vote.reason ? String(vote.reason) : ''
   };
+  if (vote.chainId !== undefined && vote.chainId !== null && vote.chainId !== '') {
+    payload.chainId = parseInt(vote.chainId, 10);
+  }
+  return payload;
 }
 
 /**

@@ -15,6 +15,7 @@ class ConsensusCertificate {
     this.threshold = parseInt(data.threshold, 10) || 9;
     this.totalValidators = parseInt(data.totalValidators, 10) || 12;
     this.achieved = data.achieved !== undefined ? Boolean(data.achieved) : false;
+    this.chainId = data.chainId !== undefined && data.chainId !== null && data.chainId !== '' ? parseInt(data.chainId, 10) : undefined;
 
     // Deterministically sort validator approvals by validatorId ASC
     const rawApprovals = Array.isArray(data.validatorApprovals) ? data.validatorApprovals : [];
@@ -50,12 +51,13 @@ class ConsensusCertificate {
       achieved: this.achieved,
       validatorApprovals: this.validatorApprovals
     };
+    if (this.chainId !== undefined) payload.chainId = this.chainId;
 
     return hashCanonical(payload);
   }
 
   toJSON() {
-    return {
+    const data = {
       version: this.version,
       proposalId: this.proposalId,
       blockNumber: this.blockNumber,
@@ -69,6 +71,8 @@ class ConsensusCertificate {
       approvalCount: this.validatorApprovals.length,
       certificateHash: this.certificateHash
     };
+    if (this.chainId !== undefined) data.chainId = this.chainId;
+    return data;
   }
 
   static fromJSON(data) {
@@ -214,6 +218,9 @@ class ConsensusCertificate {
         vote: 'ACCEPT',
         reason: ''
       };
+      if (cert.chainId !== undefined) {
+        votePayload.chainId = cert.chainId;
+      }
 
       const sigCheck = verifyValidatorVoteSignature(votePayload, approval.signature, pubKey);
       if (!sigCheck.valid) {

@@ -8,9 +8,14 @@ const config = require('../config/env');
 const logger = require('../utils/logger');
 
 class Blockchain {
-  constructor(difficulty = config.BLOCKCHAIN_DIFFICULTY) {
+  constructor(difficulty = config.BLOCKCHAIN_DIFFICULTY, options = {}) {
     this.chain = [];
     this.difficulty = difficulty;
+    this.eventBus = options.eventBus || null;
+  }
+
+  setEventBus(eventBus) {
+    this.eventBus = eventBus;
   }
 
   createGenesisBlock() {
@@ -19,6 +24,7 @@ class Blockchain {
       type: 'GENESIS',
       sender: 'GENESIS',
       receiver: 'NETWORK',
+      timestamp: '2026-01-01T00:00:00.000Z',
       payload: { details: 'PDSChain Genesis Block Initialized' }
     });
 
@@ -89,48 +95,107 @@ class Blockchain {
     return this.chain[this.chain.length - 1];
   }
 
-  addBlock(transactions, validatorSignatures = [], stateRoot = null, options = {}) {
-    const latest = this.getLatestBlock();
-    const newNumber = latest.blockNumber + 1;
-    const timestamp = options.timestamp || new Date().toISOString();
+  addBlock(transactionsOrBlock, validatorSignatures = [], stateRoot = null, options = {}) {
+    let newBlock;
+    if (transactionsOrBlock instanceof Block || (transactionsOrBlock && (transactionsOrBlock.blockHash || transactionsOrBlock.hash) && Array.isArray(transactionsOrBlock.transactions))) {
+      newBlock = transactionsOrBlock;
+      this.chain.push(newBlock);
+      logger.info(`New Block #${newBlock.blockNumber || newBlock.index} added to chain. Hash: ${newBlock.blockHash || newBlock.hash}`);
+    } else {
+      const transactions = transactionsOrBlock;
+      const latest = this.getLatestBlock();
+      const newNumber = latest.blockNumber + 1;
+      const timestamp = options.timestamp || new Date().toISOString();
 
-    const proposerId = options.proposerId || 'VAL-01';
-    const proposerParticipant = getOrCreateDevParticipant(proposerId, 'VALIDATOR');
-    const proposerAddress = options.proposerAddress || proposerParticipant.address;
-    const round = parseInt(options.round !== undefined ? options.round : 0, 10);
+      const proposerId = options.proposerId || 'VAL-01';
+      const proposerParticipant = getOrCreateDevParticipant(proposerId, 'VALIDATOR');
+      const proposerAddress = options.proposerAddress || proposerParticipant.address;
+      const round = parseInt(options.round !== undefined ? options.round : 0, 10);
 
-    const newBlock = new Block(
-      newNumber,
-      timestamp,
-      transactions,
-      latest.blockHash,
-      0,
-      options.consensusStatus || 'FINALIZED',
-      validatorSignatures,
-      stateRoot,
-      {
-        proposerId,
-        proposerAddress,
-        round,
-        proposerSignature: options.proposerSignature,
-        proposalId: options.proposalId,
-        consensusCertificate: options.consensusCertificate,
-        receiptsRoot: options.receiptsRoot,
-        executionReceipts: options.executionReceipts
+      newBlock = new Block(
+        newNumber,
+        timestamp,
+        transactions,
+        latest.blockHash,
+        0,
+        options.consensusStatus || 'FINALIZED',
+        validatorSignatures,
+        stateRoot,
+        {
+          proposerId,
+          proposerAddress,
+          round,
+          proposerSignature: options.proposerSignature,
+          proposalId: options.proposalId,
+          consensusCertificate: options.consensusCertificate,
+          receiptsRoot: options.receiptsRoot,
+          executionReceipts: options.executionReceipts
+        }
+      );
+
+      // Auto-sign proposal if signature not provided and private key exists
+      if (!newBlock.proposerSignature) {
+        const privKey = getParticipantPrivateKey(proposerId);
+        if (privKey) {
+          newBlock.signProposal(privKey);
+        }
       }
-    );
 
-    // Auto-sign proposal if signature not provided and private key exists
-    if (!newBlock.proposerSignature) {
-      const privKey = getParticipantPrivateKey(proposerId);
-      if (privKey) {
-        newBlock.signProposal(privKey);
+      newBlock.mineBlock(this.difficulty);
+      this.chain.push(newBlock);
+      logger.info(`New Block #${newBlock.blockNumber} added to chain. Hash: ${newBlock.blockHash}, Proposer: ${newBlock.proposerId}, StateRoot: ${newBlock.stateRoot}`);
+    }
+
+    if (this.eventBus) {
+      try {
+        const { BlockchainEvent, EventCategory, EventSeverity, FinalityStatus, EventType } = require('../events');
+        const bNum = newBlock.blockNumber !== undefined ? newBlock.blockNumber : newBlock.index;
+        const bHash = newBlock.blockHash || newBlock.hash;
+
+        this.eventBus.publish(new BlockchainEvent({
+          eventType: EventType.BLOCK_FINALIZED,
+          category: EventCategory.BLOCKCHAIN || 'BLOCKCHAIN',
+          severity: EventSeverity.INFO,
+          finalityStatus: FinalityStatus.FINALIZED,
+          blockHeight: bNum,
+          blockHash: bHash,
+          timestamp: newBlock.timestamp,
+          round: newBlock.round,
+          payload: {
+            proposerId: newBlock.proposerId,
+            stateRoot: newBlock.stateRoot,
+            receiptsRoot: newBlock.receiptsRoot,
+            txCount: Array.isArray(newBlock.transactions) ? newBlock.transactions.length : 0,
+            transactionCount: Array.isArray(newBlock.transactions) ? newBlock.transactions.length : 0
+          }
+        }));
+
+        if (Array.isArray(newBlock.transactions)) {
+          newBlock.transactions.forEach((tx, idx) => {
+            const txHash = tx.hash || tx.transactionId || tx.id || `TX-${bNum}-${idx}`;
+            this.eventBus.publish(new BlockchainEvent({
+              eventType: EventType.TRANSACTION_EXECUTED,
+              category: EventCategory.TRANSACTION,
+              severity: EventSeverity.INFO,
+              finalityStatus: FinalityStatus.FINALIZED,
+              blockHeight: bNum,
+              blockHash: bHash,
+              transactionHash: txHash,
+              transactionIndex: idx,
+              timestamp: newBlock.timestamp,
+              payload: {
+                type: tx.type || 'TRANSFER',
+                sender: tx.sender || null,
+                receiver: tx.receiver || null
+              }
+            }));
+          });
+        }
+      } catch (e) {
+        logger.warn(`[Blockchain] Failed to emit block events: ${e.message}`);
       }
     }
 
-    newBlock.mineBlock(this.difficulty);
-    this.chain.push(newBlock);
-    logger.info(`New Block #${newBlock.blockNumber} added to chain. Hash: ${newBlock.blockHash}, Proposer: ${newBlock.proposerId}, StateRoot: ${newBlock.stateRoot}`);
     return newBlock;
   }
 

@@ -53,6 +53,10 @@ const Block = sequelize.define('Block', {
     type: DataTypes.STRING,
     allowNull: true
   },
+  receiptsRoot: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
   proposerId: {
     type: DataTypes.STRING,
     allowNull: true,
@@ -91,7 +95,26 @@ const Block = sequelize.define('Block', {
   }
 }, {
   tableName: 'blocks',
-  timestamps: true
+  timestamps: true,
+  indexes: [
+    { fields: ['blockNumber'], unique: true },
+    { fields: ['blockHash'], unique: true },
+    { fields: ['proposerId'] },
+    { fields: ['consensusStatus'] },
+    { fields: ['timestamp'] }
+  ],
+  hooks: {
+    beforeUpdate: (instance) => {
+      if (instance.consensusStatus === 'FINALIZED') {
+        throw new Error(`Block #${instance.blockNumber} is FINALIZED and cryptographically immutable.`);
+      }
+    },
+    beforeDestroy: (instance) => {
+      if (instance.consensusStatus === 'FINALIZED') {
+        throw new Error(`Block #${instance.blockNumber} is FINALIZED and cannot be deleted.`);
+      }
+    }
+  }
 });
 
 module.exports = Block;

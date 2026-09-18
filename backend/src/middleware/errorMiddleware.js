@@ -36,6 +36,27 @@ function errorMiddleware(err, req, res, next) {
     logger.warn(`[${req.method} ${req.originalUrl}] Operational Error (${statusCode}):`, message);
   }
 
+  // Check if request was to JSON-RPC endpoint
+  const isRpc = (req.originalUrl && (req.originalUrl.includes('/rpc'))) || (req.path && (req.path.includes('/rpc')));
+  if (isRpc) {
+    const isParseErr = err instanceof SyntaxError || statusCode === 400;
+    return res.status(isParseErr ? 400 : statusCode).json({
+      jsonrpc: '2.0',
+      id: null,
+      error: {
+        code: isParseErr ? -32700 : -32603,
+        message: isParseErr ? 'Parse error: Invalid JSON was received by the server.' : message
+      }
+    });
+  }
+
+  const { errorEnvelope } = require('../api/ResponseEnvelope');
+  const isV1 = (req.originalUrl && req.originalUrl.startsWith('/api/v1')) || (req.path && req.path.startsWith('/api/v1')) || req.apiVersion === 'v1';
+  if (isV1) {
+    const errorCode = err.code || (statusCode === 404 ? 'RESOURCE_NOT_FOUND' : statusCode === 401 ? 'UNAUTHORIZED' : statusCode === 403 ? 'FORBIDDEN' : statusCode === 422 ? 'VALIDATION_ERROR' : 'INTERNAL_ERROR');
+    return res.status(statusCode).json(errorEnvelope(errorCode, message, errors, req));
+  }
+
   res.status(statusCode).json({
     success: false,
     message,

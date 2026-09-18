@@ -27,10 +27,20 @@ class TransactionService {
   }
 
   async getTransactionById(transactionId) {
-    const tx = await TransactionModel.findOne({
-      where: { transactionId }
+    const { Op } = require('sequelize');
+    let tx = await TransactionModel.findOne({
+      where: {
+        [Op.or]: [
+          { transactionId },
+          { hash: transactionId }
+        ]
+      }
     });
     if (!tx) {
+      const memoryTx = blockchainService.getTransactionById(transactionId);
+      if (memoryTx) {
+        return memoryTx.transaction;
+      }
       throw new NotFoundError(`Transaction '${transactionId}' not found.`);
     }
     return tx;

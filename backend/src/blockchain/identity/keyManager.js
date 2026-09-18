@@ -63,6 +63,10 @@ function getOrCreateDevParticipant(entityId, entityType = 'SHOP') {
     return existing;
   }
 
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(`Deterministic development keys are strictly prohibited in production mode for '${key}'. Provision a genuine identity.`);
+  }
+
   // Derive deterministic development keypair from seed string for consistent tests
   // Using Ed25519 with deterministic seed via crypto.generateKeyPairSync with seed or HMAC-derived key
   // Node crypto Ed25519 keygen with deterministic PKCS8:
@@ -142,11 +146,27 @@ function getParticipantPrivateKey(idOrAddress) {
   return participant ? participant.privateKey : null;
 }
 
+/**
+ * Register a provisioned production or custom participant identity.
+ */
+function registerCustomParticipant(participant) {
+  if (!participant || !participant.entityId) {
+    throw new Error('Invalid participant to register');
+  }
+  const key = String(participant.entityId).toUpperCase().trim();
+  devKeystore.set(key, participant);
+  if (participant.address) {
+    devKeystoreByAddress.set(participant.address, participant);
+  }
+  return participant;
+}
+
 module.exports = {
   deriveAddress,
   generateKeyPair,
   getOrCreateDevParticipant,
   getPublicParticipantInfo,
   getParticipantByAddress,
-  getParticipantPrivateKey
+  getParticipantPrivateKey,
+  registerCustomParticipant
 };

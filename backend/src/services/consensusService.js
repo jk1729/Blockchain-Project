@@ -35,6 +35,28 @@ class ConsensusService {
   verifyCertificate(certificate, block) {
     return fbaInstance.verifyCertificate(certificate, block);
   }
+
+  getStateMachineState() {
+    return fbaInstance.getStateMachine().toJSON();
+  }
+
+  getStateMachineHistory() {
+    return fbaInstance.getStateMachine().getHistory();
+  }
+
+  getConflicts() {
+    return fbaInstance.voteStore.getConflicts();
+  }
+
+  getVotesByHeight(height) {
+    const votes = fbaInstance.voteStore.getVotesByHeight(height);
+    return votes.map(v => (v.toJSON ? v.toJSON() : v));
+  }
+
+  getJournalEntries(limit = 50) {
+    const entries = fbaInstance.getJournal().getEntries();
+    return entries.slice(-limit);
+  }
 }
 
 module.exports = new ConsensusService();

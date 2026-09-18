@@ -74,7 +74,28 @@ const Transaction = sequelize.define('Transaction', {
   }
 }, {
   tableName: 'transactions',
-  timestamps: true
+  timestamps: true,
+  indexes: [
+    { fields: ['transactionId'], unique: true },
+    { fields: ['hash'] },
+    { fields: ['blockNumber'] },
+    { fields: ['status'] },
+    { fields: ['beneficiaryId', 'createdAt'] },
+    { fields: ['shopId', 'createdAt'] }
+  ],
+  hooks: {
+    beforeUpdate: (instance) => {
+      // Allow transitioning from Pending to Verified or Rejected, but never allow altering a Verified transaction
+      if (instance._previousDataValues && instance._previousDataValues.status === 'Verified') {
+        throw new Error(`Transaction ${instance.transactionId} is already Verified and cannot be mutated.`);
+      }
+    },
+    beforeDestroy: (instance) => {
+      if (instance.status === 'Verified') {
+        throw new Error(`Verified transaction ${instance.transactionId} is immutable and cannot be deleted.`);
+      }
+    }
+  }
 });
 
 module.exports = Transaction;

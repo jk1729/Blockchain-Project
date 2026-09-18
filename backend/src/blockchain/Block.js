@@ -17,6 +17,18 @@ class Block {
     stateRoot = null,
     options = {}
   ) {
+    if (typeof blockNumber === 'object' && blockNumber !== null && !Array.isArray(blockNumber)) {
+      options = blockNumber;
+      blockNumber = options.blockNumber !== undefined ? options.blockNumber : (options.index !== undefined ? options.index : 0);
+      timestamp = options.timestamp;
+      transactions = options.transactions || [];
+      previousHash = options.previousHash || '';
+      nonce = options.nonce || 0;
+      consensusStatus = options.consensusStatus || options.status || 'FINALIZED';
+      validatorSignatures = options.validatorSignatures || [];
+      stateRoot = options.stateRoot || null;
+    }
+
     this.version = parseInt(options.version !== undefined ? options.version : 1, 10);
     this.blockNumber = parseInt(blockNumber !== undefined ? blockNumber : (options.index || 0), 10);
     this.timestamp = timestamp || new Date().toISOString();
@@ -159,6 +171,14 @@ class Block {
 
   isFinalized() {
     return this.consensusStatus === 'FINALIZED' || this.consensusStatus === 'VERIFIED';
+  }
+
+  get hash() {
+    return this.blockHash;
+  }
+
+  get index() {
+    return this.blockNumber;
   }
 
   toJSON() {

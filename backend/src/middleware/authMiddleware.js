@@ -48,9 +48,15 @@ async function authMiddleware(req, res, next) {
 // Optional Auth (doesn't fail if no token, but populates req.user if valid)
 async function optionalAuthMiddleware(req, res, next) {
   try {
+    let token = null;
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.split(' ')[1];
+      token = authHeader.split(' ')[1];
+    } else if (req.query && req.query.token) {
+      token = req.query.token;
+    }
+
+    if (token) {
       const decoded = jwt.verify(token, config.JWT_SECRET);
       const user = await User.findByPk(decoded.id);
       if (user) {
@@ -73,4 +79,3 @@ module.exports = {
   authMiddleware,
   optionalAuthMiddleware
 };
-

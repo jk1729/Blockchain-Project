@@ -11,6 +11,9 @@ const validatorRoutes = require('./validatorRoutes');
 const consensusRoutes = require('./consensusRoutes');
 const dashboardRoutes = require('./dashboardRoutes');
 const contractRoutes = require('./contractRoutes');
+const networkRoutes = require('./networkRoutes');
+const ledgerRoutes = require('./ledgerRoutes');
+const eventRoutes = require('./eventRoutes');
 
 const Beneficiary = require('../models/Beneficiary');
 const Shop = require('../models/Shop');
@@ -30,6 +33,9 @@ router.use('/validators', validatorRoutes);
 router.use('/consensus', consensusRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/contracts', contractRoutes);
+router.use('/network', networkRoutes);
+router.use('/ledger', ledgerRoutes);
+router.use('/events', eventRoutes);
 
 // Health Check API
 router.get('/health', (req, res) => {

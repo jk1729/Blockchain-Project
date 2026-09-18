@@ -15,6 +15,7 @@ class ValidatorVote {
     this.reason = data.reason ? String(data.reason) : '';
     this.timestamp = data.timestamp || new Date().toISOString();
     this.signature = data.signature ? String(data.signature) : null;
+    this.chainId = data.chainId !== undefined && data.chainId !== null && data.chainId !== '' ? parseInt(data.chainId, 10) : undefined;
 
     // Auto-populate public key and address from identity keystore if missing
     if (this.validatorId && (!this.validatorAddress || !this.validatorPublicKey)) {
@@ -28,6 +29,7 @@ class ValidatorVote {
 
   toUnsignedPayload() {
     return extractUnsignedVotePayload({
+      chainId: this.chainId,
       validatorId: this.validatorId,
       validatorAddress: this.validatorAddress,
       validatorPublicKey: this.validatorPublicKey,
@@ -66,7 +68,7 @@ class ValidatorVote {
   }
 
   toJSON() {
-    return {
+    const data = {
       validatorId: this.validatorId,
       validatorAddress: this.validatorAddress,
       validatorPublicKey: this.validatorPublicKey,
@@ -80,6 +82,8 @@ class ValidatorVote {
       timestamp: this.timestamp,
       signature: this.signature
     };
+    if (this.chainId !== undefined) data.chainId = this.chainId;
+    return data;
   }
 
   static fromJSON(data) {

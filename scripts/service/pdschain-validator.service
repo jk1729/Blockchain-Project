@@ -1,0 +1,48 @@
+[Unit]
+Description=PDSChain Validator Node Daemon (%I)
+Documentation=https://github.com/jk1729/Blockchain-Project
+After=network.target local-fs.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pdschain
+Group=pdschain
+WorkingDirectory=/var/lib/pdschain/%i
+Environment=NODE_ENV=production
+Environment=VALIDATOR_ID=%i
+Environment=DATA_DIR=/var/lib/pdschain/%i
+Environment=IDENTITY_PATH=/var/lib/pdschain/%i/identity.json
+
+# Executable launch with node and isolated script
+ExecStart=/usr/bin/node /opt/pdschain/backend/src/validators/validatorProcess.js
+
+# Graceful termination and signal handling
+KillSignal=SIGTERM
+TimeoutStopSec=15
+KillMode=mixed
+
+# Restart policy with bounded backoff
+Restart=on-failure
+RestartSec=5s
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+# Security hardening and resource isolation
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/pdschain/%i /var/log/pdschain
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+LimitNOFILE=65536
+
+# Structured logging to systemd journal
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pdschain-%i
+
+[Install]
+WantedBy=multi-user.target
+

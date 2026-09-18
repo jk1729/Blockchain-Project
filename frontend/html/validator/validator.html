@@ -133,6 +133,49 @@
         </div>
       </div>
 
+      <!-- PHASE 10: Ledger Synchronization & Recovery Subsystem Card -->
+      <div class="consensus-live-card" id="ledger-sync-card" style="margin-bottom: 24px;">
+        <div class="section-block-head" style="margin-bottom: 16px;">
+          <div>
+            <span class="round-badge" id="sync-state-badge" style="background:#10b981; color:#fff;">
+              <i class="bi bi-shield-check"></i> SYNC STATE: CURRENT
+            </span>
+            <h2 style="margin-top:10px;">Ledger Synchronization &amp; Crash Recovery</h2>
+            <div class="sub">Continuous verification of finalized blocks, cryptographic checkpoints, and EVM execution commitments.</div>
+          </div>
+          <div style="text-align: right;">
+            <span id="consensus-gating-badge" class="badge badge-success" style="font-size:13px; padding:6px 12px;">
+              <i class="bi bi-check-circle-fill"></i> Consensus Voting: Enabled
+            </span>
+          </div>
+        </div>
+
+        <div class="kpi-grid cols-4" style="gap:16px; margin-bottom:16px;">
+          <div style="background:var(--bg-card, #fff); border:1px solid var(--border-color, #e2e8f0); border-radius:8px; padding:12px;">
+            <div class="stat-card-label" style="font-size:12px; color:var(--text-muted, #64748b);">Finalized Height / Target</div>
+            <div class="stat-card-value mono font-bold" id="sync-height-display" style="font-size:20px; margin-top:4px;">#4281 / #4281</div>
+            <div style="font-size:11px; color:#10b981; margin-top:4px;"><i class="bi bi-link-45deg"></i> Hash Continuity Valid</div>
+          </div>
+          <div style="background:var(--bg-card, #fff); border:1px solid var(--border-color, #e2e8f0); border-radius:8px; padding:12px;">
+            <div class="stat-card-label" style="font-size:12px; color:var(--text-muted, #64748b);">Sync Progress</div>
+            <div class="stat-card-value mono font-bold" id="sync-progress-display" style="font-size:20px; margin-top:4px;">100%</div>
+            <div class="progress-bar-container" style="height:6px; background:#e2e8f0; border-radius:3px; margin-top:6px; overflow:hidden;">
+              <div id="sync-progress-bar" style="width:100%; height:100%; background:#10b981;"></div>
+            </div>
+          </div>
+          <div style="background:var(--bg-card, #fff); border:1px solid var(--border-color, #e2e8f0); border-radius:8px; padding:12px;">
+            <div class="stat-card-label" style="font-size:12px; color:var(--text-muted, #64748b);">Durable Checkpoint</div>
+            <div class="stat-card-value mono font-bold" id="sync-checkpoint-display" style="font-size:16px; margin-top:4px;">#4281 (Verified)</div>
+            <div style="font-size:11px; color:#10b981; margin-top:4px;"><i class="bi bi-file-earmark-lock-fill"></i> Crash-Safe Atomic Commit</div>
+          </div>
+          <div style="background:var(--bg-card, #fff); border:1px solid var(--border-color, #e2e8f0); border-radius:8px; padding:12px;">
+            <div class="stat-card-label" style="font-size:12px; color:var(--text-muted, #64748b);">EVM &amp; Journal Replay</div>
+            <div class="stat-card-value mono font-bold text-success" id="sync-evm-display" style="font-size:16px; margin-top:4px;">State Root Valid</div>
+            <div style="font-size:11px; color:#10b981; margin-top:4px;"><i class="bi bi-journal-check"></i> Journal Replayed</div>
+          </div>
+        </div>
+      </div>
+
       <!-- Live Consensus Round Box -->
       <div class="consensus-live-card">
         <div class="section-block-head">

@@ -1,0 +1,216 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PDSChain REST and JSON-RPC API",
+    "description": "Production API specification for PDSChain: Blockchain-Based Public Distribution System with Federated Byzantine Agreement (FBA) consensus and embedded EVM.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "PDSChain Engineering Team"
+    }
+  },
+  "servers": [
+    {
+      "url": "/api/v1",
+      "description": "Version 1 REST API"
+    },
+    {
+      "url": "/rpc/v1",
+      "description": "JSON-RPC 2.0 Endpoint"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "description": "Returns node, consensus, and database operational health status.",
+        "responses": {
+          "200": {
+            "description": "Node is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/blockchain": {
+      "get": {
+        "summary": "Get Blockchain Summary",
+        "responses": {
+          "200": {
+            "description": "Ledger state and chain metrics"
+          }
+        }
+      }
+    },
+    "/blockchain/blocks": {
+      "get": {
+        "summary": "List Blocks (Paginated)",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": { "type": "string" },
+            "description": "Opaque cursor for pagination"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "default": 20 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated array of verified blocks"
+          }
+        }
+      }
+    },
+    "/blockchain/blocks/{number}": {
+      "get": {
+        "summary": "Get Block by Height",
+        "parameters": [
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Block details"
+          },
+          "404": {
+            "description": "Block not found"
+          }
+        }
+      }
+    },
+    "/transactions": {
+      "get": {
+        "summary": "List Transactions",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "default": 20 }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Paginated list of transactions" }
+        }
+      },
+      "post": {
+        "summary": "Submit Distribution Transaction",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "schema": { "type": "string" },
+            "description": "Unique key to ensure request idempotency"
+          }
+        ],
+        "responses": {
+          "201": { "description": "Transaction accepted and committed" },
+          "409": { "description": "Duplicate transaction" }
+        }
+      }
+    },
+    "/contracts": {
+      "get": {
+        "summary": "List Smart Contracts",
+        "responses": {
+          "200": { "description": "Deployed contracts and state root" }
+        }
+      }
+    },
+    "/contracts/call": {
+      "post": {
+        "summary": "Execute Contract Call",
+        "description": "Read-only view method execution or consensus-backed state transition.",
+        "responses": {
+          "200": { "description": "Call execution result or receipt" }
+        }
+      }
+    },
+    "/consensus/status": {
+      "get": {
+        "summary": "FBA Consensus Status",
+        "responses": {
+          "200": { "description": "Current consensus state, round, and quorum health" }
+        }
+      }
+    },
+    "/events": {
+      "get": {
+        "summary": "Query Canonical Events",
+        "parameters": [
+          {
+            "name": "category",
+            "in": "query",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Filtered canonical events" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ResponseEnvelope": {
+        "type": "object",
+        "properties": {
+          "data": { "type": "object", "nullable": true },
+          "meta": {
+            "type": "object",
+            "properties": {
+              "version": { "type": "string" },
+              "requestId": { "type": "string" },
+              "timestamp": { "type": "string" },
+              "finality": { "type": "string", "enum": ["PENDING", "COMMITTED", "FINALIZED", "REVERTED"] }
+            }
+          },
+          "error": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "code": { "type": "string" },
+              "message": { "type": "string" },
+              "details": { "type": "object" }
+            }
+          }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "status": { "type": "string" },
+              "service": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+

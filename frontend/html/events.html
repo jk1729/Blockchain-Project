@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Blockchain Events & Logs — PDSChain</title>
+<meta name="description" content="Audit, stream, and query real-time blockchain events, EVM contract execution logs, and consensus telemetry on PDSChain." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+<link rel="stylesheet" href="../css/style.css" />
+<link rel="stylesheet" href="../css/animations.css" />
+<link rel="stylesheet" href="../css/components.css" />
+<link rel="stylesheet" href="../css/dashboard.css" />
+<link rel="stylesheet" href="../css/blockchain.css" />
+<link rel="stylesheet" href="../css/responsive.css" />
+<style>
+  .badge-category { font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 4px 8px; border-radius: 4px; font-weight: 600; }
+  .badge-cat-BLOCKCHAIN { background: rgba(59, 130, 246, 0.15); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.3); }
+  .badge-cat-TRANSACTION { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); }
+  .badge-cat-CONTRACT { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; border: 1px solid rgba(139, 92, 246, 0.3); }
+  .badge-cat-CONSENSUS { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+  .badge-cat-NETWORK { background: rgba(14, 165, 233, 0.15); color: #0ea5e9; border: 1px solid rgba(14, 165, 233, 0.3); }
+  .badge-cat-TLS { background: rgba(236, 72, 153, 0.15); color: #ec4899; border: 1px solid rgba(236, 72, 153, 0.3); }
+  .badge-cat-KEY_MANAGEMENT { background: rgba(234, 179, 8, 0.15); color: #eab308; border: 1px solid rgba(234, 179, 8, 0.3); }
+  .badge-cat-SYNC { background: rgba(99, 102, 241, 0.15); color: #6366f1; border: 1px solid rgba(99, 102, 241, 0.3); }
+  .badge-cat-RECOVERY { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+
+  .badge-finality { font-size: 11px; padding: 4px 8px; border-radius: 4px; font-weight: 600; text-transform: uppercase; }
+  .finality-FINALIZED { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); }
+  .finality-PENDING { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4); }
+  .finality-COMMITTED { background: rgba(59, 130, 246, 0.2); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.4); }
+  .finality-REVERTED { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4); }
+
+  .badge-sev-INFO { color: #10b981; }
+  .badge-sev-WARNING { color: #f59e0b; font-weight: 700; }
+  .badge-sev-ERROR, .badge-sev-CRITICAL { color: #ef4444; font-weight: 700; }
+
+  .filter-bar { background: var(--bg-surface, #1e293b); padding: 16px; border-radius: 8px; border: 1px solid var(--border-color, rgba(255,255,255,0.08)); margin-bottom: 20px; }
+  .filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end; }
+  .filter-item label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted, #94a3b8); margin-bottom: 4px; }
+  .filter-item select, .filter-item input { width: 100%; padding: 8px 10px; font-size: 13px; border-radius: 6px; border: 1px solid var(--border-color, #334155); background: var(--bg-card, #0f172a); color: var(--text-color, #f8fafc); }
+
+  .stream-status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+  .stream-status-dot.online { background: #10b981; box-shadow: 0 0 8px #10b981; animation: pulseDot 2s infinite; }
+  .stream-status-dot.offline { background: #64748b; }
+  @keyframes pulseDot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.2); } }
+
+  .live-feed-ticker { background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 6px; padding: 10px 14px; margin-bottom: 20px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; display: flex; align-items: center; justify-content: space-between; }
+  .event-json-box { background: #090d16; border: 1px solid #1e293b; border-radius: 6px; padding: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #38bdf8; max-height: 380px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+</style>
+</head>
+<body class="dash-body">
+<a href="#dash-main-content" class="skip-link">Skip to content</a>
+
+<div class="dash-shell" id="dash-shell">
+
+  <!-- ============== SIDEBAR ============== -->
+  <aside class="dash-sidebar" id="dash-sidebar" aria-label="Primary">
+    <div class="sidebar-head">
+      <span class="brand-mark"><i class="bi bi-shield-check" aria-hidden="true"></i></span>
+      <a href="index.html" class="brand"><span class="label">PDSChain</span></a>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="sidebar-group-label">Navigation</div>
+      <ul>
+        <li><a href="index.html" class="sidebar-link"><i class="bi bi-house" aria-hidden="true"></i><span>Landing Page</span></a></li>
+        <li><a href="explorer.html" class="sidebar-link"><i class="bi bi-compass" aria-hidden="true"></i><span>Pro Explorer (v15)</span></a></li>
+        <li><a href="blockchain.html" class="sidebar-link"><i class="bi bi-diagram-3" aria-hidden="true"></i><span>Ledger Overview</span></a></li>
+        <li><a href="events.html" class="sidebar-link is-active" aria-current="page"><i class="bi bi-activity" aria-hidden="true"></i><span>Events & Logs</span></a></li>
+        <li><a href="transaction.html" class="sidebar-link"><i class="bi bi-arrow-left-right" aria-hidden="true"></i><span>Verify Transaction</span></a></li>
+      </ul>
+      <div class="sidebar-group-label">Dashboards</div>
+      <ul>
+        <li><a href="admin/admin.html" class="sidebar-link"><i class="bi bi-shield-lock" aria-hidden="true"></i><span>Admin</span></a></li>
+        <li><a href="warehouse/warehouse.html" class="sidebar-link"><i class="bi bi-building" aria-hidden="true"></i><span>Warehouse</span></a></li>
+        <li><a href="shop/shop.html" class="sidebar-link"><i class="bi bi-shop" aria-hidden="true"></i><span>Fair Price Shop</span></a></li>
+        <li><a href="citizen/citizen.html" class="sidebar-link"><i class="bi bi-person-badge" aria-hidden="true"></i><span>Citizen Portal</span></a></li>
+        <li><a href="validator/validator.html" class="sidebar-link"><i class="bi bi-hdd-network" aria-hidden="true"></i><span>Validator Node</span></a></li>
+      </ul>
+      <div class="sidebar-group-label">System</div>
+      <ul>
+        <li><a href="profile.html" class="sidebar-link"><i class="bi bi-person" aria-hidden="true"></i><span>Profile</span></a></li>
+        <li><a href="settings.html" class="sidebar-link"><i class="bi bi-gear" aria-hidden="true"></i><span>Settings</span></a></li>
+      </ul>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="sidebar-status"><span class="dot"></span><span class="label">FBA Consensus Healthy</span></div>
+    </div>
+  </aside>
+
+  <div class="dash-overlay" id="dash-overlay"></div>
+
+  <!-- ============== MAIN CONTENT ============== -->
+  <div class="dash-main">
+    <header class="dash-topbar">
+      <div class="topbar-left">
+        <button class="sidebar-toggle-btn" id="sidebar-toggle" aria-label="Collapse sidebar"><i class="bi bi-layout-sidebar"></i></button>
+        <button class="drawer-toggle-btn" id="drawer-toggle" aria-label="Open menu"><i class="bi bi-list"></i></button>
+      </div>
+
+      <div class="topbar-search">
+        <i class="bi bi-search"></i>
+        <input type="search" id="top-search-input" placeholder="Search by Event ID, Block #, Tx Hash, Contract..." aria-label="Events search" />
+      </div>
+
+      <div class="topbar-right">
+        <button class="theme-toggle" type="button" aria-label="Toggle color theme">
+          <i class="bi bi-moon-stars icon-moon"></i>
+          <i class="bi bi-sun icon-sun"></i>
+        </button>
+        <div class="dropdown-wrap">
+          <a href="login.html" class="btn btn-primary btn-sm"><i class="bi bi-box-arrow-in-right"></i> Sign In</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="dash-content" id="dash-main-content">
+
+      <div class="page-header">
+        <div>
+          <h1>Blockchain Events & Logs Explorer</h1>
+          <p>Durable, finality-aware event audit trail, EVM smart contract receipts, and real-time SSE streaming.</p>
+        </div>
+        <div class="page-header-meta" style="display:flex;align-items:center;gap:12px;">
+          <span id="stream-status-badge" class="badge" style="background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);font-size:13px;padding:6px 12px;">
+            <span class="stream-status-dot online" id="stream-dot"></span>
+            <span id="stream-label">SSE Stream Active</span>
+          </span>
+          <button class="btn btn-secondary btn-sm" id="btn-toggle-stream" type="button" onclick="toggleStream()"><i class="bi bi-pause-fill"></i> Pause Stream</button>
+          <button class="btn btn-primary btn-sm" id="btn-refresh-events" type="button" onclick="loadEvents(true)"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+        </div>
+      </div>
+
+      <!-- KPI Summary Cards -->
+      <div class="kpi-grid cols-4" style="margin-bottom:20px;">
+        <div class="stat-card">
+          <div class="stat-label">Total Events Journaled</div>
+          <div class="stat-value" id="kpi-total-events">0</div>
+          <div class="stat-meta text-success"><i class="bi bi-journal-text"></i> Append-only storage</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Finalized Events</div>
+          <div class="stat-value" id="kpi-finalized-events">0</div>
+          <div class="stat-meta text-primary"><i class="bi bi-shield-check"></i> Cryptographically sealed</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">EVM Contract Logs</div>
+          <div class="stat-value" id="kpi-contract-events">0</div>
+          <div class="stat-meta text-info"><i class="bi bi-file-code"></i> Decoded ABI topics</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Consensus & P2P Telemetry</div>
+          <div class="stat-value" id="kpi-consensus-events">0</div>
+          <div class="stat-meta text-warning"><i class="bi bi-hdd-network"></i> Quorum certificates & votes</div>
+        </div>
+      </div>
+
+      <!-- Live Stream Feed Ticker -->
+      <div class="live-feed-ticker" id="live-feed-ticker">
+        <div>
+          <span style="color:#10b981;font-weight:700;"><i class="bi bi-broadcast"></i> LIVE EVENT STREAM:</span>
+          <span id="ticker-content" style="color:#94a3b8;margin-left:8px;">Waiting for next blockchain event...</span>
+        </div>
+        <div id="ticker-time" style="color:#64748b;font-size:11px;">Just now</div>
+      </div>
+
+      <!-- Query & Filtering Bar -->
+      <div class="filter-bar">
+        <div class="filter-grid">
+          <div class="filter-item">
+            <label for="filter-category">Category</label>
+            <select id="filter-category" onchange="loadEvents(true)">
+              <option value="">All Categories</option>
+              <option value="BLOCKCHAIN">BLOCKCHAIN</option>
+              <option value="TRANSACTION">TRANSACTION</option>
+              <option value="CONTRACT">CONTRACT</option>
+              <option value="CONSENSUS">CONSENSUS</option>
+              <option value="VALIDATOR">VALIDATOR</option>
+              <option value="NETWORK">NETWORK</option>
+              <option value="SYNC">SYNC</option>
+              <option value="RECOVERY">RECOVERY</option>
+              <option value="TLS">TLS</option>
+              <option value="KEY_MANAGEMENT">KEY_MANAGEMENT</option>
+            </select>
+          </div>
+
+          <div class="filter-item">
+            <label for="filter-severity">Severity</label>
+            <select id="filter-severity" onchange="loadEvents(true)">
+              <option value="">All Severities</option>
+              <option value="INFO">INFO</option>
+              <option value="WARNING">WARNING</option>
+              <option value="ERROR">ERROR</option>
+              <option value="CRITICAL">CRITICAL</option>
+              <option value="DEBUG">DEBUG</option>
+            </select>
+          </div>
+
+          <div class="filter-item">
+            <label for="filter-finality">Finality</label>
+            <select id="filter-finality" onchange="loadEvents(true)">
+              <option value="">All Finalities</option>
+              <option value="FINALIZED">FINALIZED</option>
+              <option value="COMMITTED">COMMITTED</option>
+              <option value="PENDING">PENDING</option>
+              <option value="REVERTED">REVERTED</option>
+            </select>
+          </div>
+
+          <div class="filter-item">
+            <label for="filter-from-block">From Block #</label>
+            <input type="number" id="filter-from-block" placeholder="0" min="0" onchange="loadEvents(true)" />
+          </div>
+
+          <div class="filter-item">
+            <label for="filter-to-block">To Block #</label>
+            <input type="number" id="filter-to-block" placeholder="Latest" min="0" onchange="loadEvents(true)" />
+          </div>
+
+          <div class="filter-item">
+            <label for="filter-limit">Page Size</label>
+            <select id="filter-limit" onchange="loadEvents(true)">
+              <option value="15">15 events</option>
+              <option value="25" selected>25 events</option>
+              <option value="50">50 events</option>
+              <option value="100">100 events</option>
+            </select>
+          </div>
+
+          <div class="filter-item" style="display:flex;gap:8px;">
+            <button class="btn btn-secondary btn-sm" type="button" onclick="resetFilters()" style="height:36px;flex:1;"><i class="bi bi-x-circle"></i> Reset</button>
+            <button class="btn btn-primary btn-sm" type="button" onclick="loadEvents(true)" style="height:36px;flex:1;"><i class="bi bi-funnel"></i> Apply</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Events Table -->
+      <div class="card" style="padding:0;overflow:hidden;border:1px solid var(--border-color, rgba(255,255,255,0.08));">
+        <div class="table-responsive">
+          <table class="table" style="width:100%;margin:0;border-collapse:collapse;">
+            <thead>
+              <tr style="background:rgba(15,23,42,0.8);border-bottom:1px solid var(--border-color, #334155);font-size:12px;text-align:left;color:var(--text-muted, #94a3b8);">
+                <th style="padding:12px 16px;">Event ID</th>
+                <th style="padding:12px 16px;">Timestamp</th>
+                <th style="padding:12px 16px;">Category</th>
+                <th style="padding:12px 16px;">Type</th>
+                <th style="padding:12px 16px;">Finality</th>
+                <th style="padding:12px 16px;">Severity</th>
+                <th style="padding:12px 16px;">Block / Tx / Target</th>
+                <th style="padding:12px 16px;text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="events-table-body">
+              <tr>
+                <td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted, #94a3b8);">
+                  <div class="spinner" style="margin:0 auto 12px;"></div>
+                  Loading blockchain events from ledger...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination Footer -->
+        <div style="padding:14px 20px;display:flex;align-items:center;justify-content:space-between;background:rgba(15,23,42,0.4);border-top:1px solid var(--border-color, #334155);font-size:13px;">
+          <div id="pagination-info" style="color:var(--text-muted, #94a3b8);">Showing 0 events</div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-secondary btn-sm" id="btn-prev-page" onclick="prevPage()" disabled><i class="bi bi-chevron-left"></i> Previous</button>
+            <button class="btn btn-secondary btn-sm" id="btn-next-page" onclick="nextPage()" disabled>Next <i class="bi bi-chevron-right"></i></button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Event Details Modal -->
+<div id="event-modal" class="modal-backdrop" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.75);z-index:9999;align-items:center;justify-content:center;padding:20px;">
+  <div class="modal-content" style="background:#0f172a;border:1px solid #334155;border-radius:10px;width:100%;max-width:760px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);">
+    <div style="padding:16px 20px;border-bottom:1px solid #1e293b;display:flex;align-items:center;justify-content:space-between;">
+      <h3 style="margin:0;font-size:16px;display:flex;align-items:center;gap:8px;">
+        <i class="bi bi-file-earmark-text text-primary"></i>
+        <span>Event Inspector</span>
+        <span id="modal-event-id" style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#94a3b8;"></span>
+      </h3>
+      <button class="btn-close" onclick="closeModal()" style="background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div style="padding:20px;overflow-y:auto;flex:1;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;font-size:13px;">
+        <div><strong>Type:</strong> <span id="modal-type" style="font-family:'IBM Plex Mono',monospace;color:#38bdf8;"></span></div>
+        <div><strong>Category:</strong> <span id="modal-category"></span></div>
+        <div><strong>Finality:</strong> <span id="modal-finality"></span></div>
+        <div><strong>Severity:</strong> <span id="modal-severity"></span></div>
+        <div><strong>Block Height:</strong> <span id="modal-block" style="font-family:'IBM Plex Mono',monospace;"></span></div>
+        <div><strong>Source:</strong> <span id="modal-source" style="font-family:'IBM Plex Mono',monospace;"></span></div>
+        <div><strong>Tx Hash:</strong> <span id="modal-tx" style="font-family:'IBM Plex Mono',monospace;word-break:break-all;"></span></div>
+        <div><strong>Contract:</strong> <span id="modal-contract" style="font-family:'IBM Plex Mono',monospace;word-break:break-all;"></span></div>
+        <div style="grid-column: span 2;"><strong>Deduplication Key:</strong> <span id="modal-dedup" style="font-family:'IBM Plex Mono',monospace;color:#94a3b8;"></span></div>
+      </div>
+      <h4 style="font-size:13px;color:#94a3b8;margin:12px 0 6px;">Event Payload (Sanitized / Zero Secrets)</h4>
+      <div class="event-json-box" id="modal-payload">{}</div>
+    </div>
+    <div style="padding:12px 20px;border-top:1px solid #1e293b;display:flex;justify-content:flex-end;">
+      <button class="btn btn-secondary btn-sm" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/main.js"></script>
+<script src="../js/events.js"></script>
+</body>
+</html>
+

@@ -1,15 +1,25 @@
+const { ConflictDetector, ConflictCode } = require('./ConflictDetector');
+
 class VoteStore {
   constructor() {
     // Map: proposalId -> Array<ValidatorVote>
     this.votesByProposal = new Map();
-    // Map: `${validatorId}:${round}` -> ValidatorVote
+    // Map: `${validatorId}:${round}` -> ValidatorVote (legacy compatibility)
     this.votesByValidatorRound = new Map();
+    // Map: `${validatorId}:${blockNumber}:${round}` -> ValidatorVote
+    this.votesByValidatorHeightRound = new Map();
+    // Map: blockNumber -> Array<ValidatorVote>
+    this.votesByHeight = new Map();
+    // Map: blockHash -> Array<ValidatorVote>
+    this.votesByBlockHash = new Map();
     // All votes array
     this.allVotes = [];
+    // Conflict detector instance
+    this.conflictDetector = new ConflictDetector();
   }
 
   /**
-   * Record a validator vote and detect duplicate or conflicting votes
+   * Record a validator vote, verify against conflicts and duplicate submissions
    * @param {ValidatorVote|object} vote 
    * @returns {{ success: boolean, code?: string, reason?: string, vote: ValidatorVote }}
    */
@@ -18,57 +28,130 @@ class VoteStore {
       return { success: false, code: 'INVALID_VOTE', reason: 'Validator vote is missing validatorId' };
     }
 
-    const key = `${vote.validatorId}:${vote.round}`;
-    const existingVote = this.votesByValidatorRound.get(key);
+    const vId = vote.validatorId;
+    const round = parseInt(vote.round, 10) || 0;
+    const blockNumber = parseInt(vote.blockNumber !== undefined ? vote.blockNumber : vote.blockIndex, 10) || 0;
+    const proposalId = String(vote.proposalId || '');
+    const blockHash = String(vote.blockHash || '');
 
-    if (existingVote) {
-      // Check if it is a duplicate identical vote
-      if (existingVote.proposalId === vote.proposalId && existingVote.blockHash === vote.blockHash && existingVote.vote === vote.vote) {
+    // Get prior votes for this validator
+    const priorVotes = this.allVotes.filter(v => v.validatorId === vId);
+    const check = this.conflictDetector.checkVote(vote, priorVotes);
+
+    if (check.code === ConflictCode.DUPLICATE_IDENTICAL) {
+      return {
+        success: false,
+        code: 'DUPLICATE_VOTE',
+        reason: check.reason || `Validator ${vId} already submitted an identical vote for proposal ${proposalId} in round ${round}`
+      };
+    }
+
+    if (check.code === ConflictCode.CONFLICTING_DOUBLE_VOTE) {
+      return {
+        success: false,
+        code: 'CONFLICTING_VOTE',
+        reason: check.reason || `CONFLICTING_VOTE: Validator ${vId} already voted ACCEPT for another block in round ${round}`
+      };
+    }
+
+    if (check.code === ConflictCode.EQUIVOCATION) {
+      return {
+        success: false,
+        code: 'EQUIVOCATING_VOTE',
+        reason: check.reason || `EQUIVOCATING_VOTE: Validator ${vId} contradictory votes in round ${round}`
+      };
+    }
+
+    // Secondary legacy check for existing vote in round
+    const legacyKey = `${vId}:${round}`;
+    const existingLegacy = this.votesByValidatorRound.get(legacyKey);
+    if (existingLegacy) {
+      if (existingLegacy.proposalId === proposalId && existingLegacy.blockHash === blockHash && existingLegacy.vote === vote.vote) {
         return {
           success: false,
           code: 'DUPLICATE_VOTE',
-          reason: `Validator ${vote.validatorId} already submitted an identical vote for proposal ${vote.proposalId} in round ${vote.round}`
+          reason: `Validator ${vId} already submitted an identical vote for proposal ${proposalId} in round ${round}`
         };
       }
-
-      // Check if it is a conflicting double vote
-      if (existingVote.isAccept && existingVote.isAccept() && vote.isAccept && vote.isAccept()) {
-        if (existingVote.proposalId !== vote.proposalId || existingVote.blockHash !== vote.blockHash) {
+      if (existingLegacy.isAccept && existingLegacy.isAccept() && vote.isAccept && vote.isAccept()) {
+        if (existingLegacy.proposalId !== proposalId || existingLegacy.blockHash !== blockHash) {
           return {
             success: false,
             code: 'CONFLICTING_VOTE',
-            reason: `CONFLICTING_VOTE: Validator ${vote.validatorId} already voted ACCEPT for proposal ${existingVote.proposalId} in round ${vote.round}. Cannot vote for competing proposal ${vote.proposalId}.`
+            reason: `CONFLICTING_VOTE: Validator ${vId} already voted ACCEPT for proposal ${existingLegacy.proposalId} in round ${round}. Cannot vote for competing proposal ${proposalId}.`
           };
         }
       }
     }
 
-    // Store the vote
-    this.votesByValidatorRound.set(key, vote);
+    // Store in all multi-index lookups
+    this.votesByValidatorRound.set(legacyKey, vote);
 
-    if (!this.votesByProposal.has(vote.proposalId)) {
-      this.votesByProposal.set(vote.proposalId, []);
+    const fullKey = `${vId}:${blockNumber}:${round}`;
+    this.votesByValidatorHeightRound.set(fullKey, vote);
+
+    if (!this.votesByProposal.has(proposalId)) {
+      this.votesByProposal.set(proposalId, []);
     }
-    this.votesByProposal.get(vote.proposalId).push(vote);
+    this.votesByProposal.get(proposalId).push(vote);
+
+    if (!this.votesByHeight.has(blockNumber)) {
+      this.votesByHeight.set(blockNumber, []);
+    }
+    this.votesByHeight.get(blockNumber).push(vote);
+
+    if (blockHash) {
+      if (!this.votesByBlockHash.has(blockHash)) {
+        this.votesByBlockHash.set(blockHash, []);
+      }
+      this.votesByBlockHash.get(blockHash).push(vote);
+    }
+
     this.allVotes.push(vote);
 
     return { success: true, vote };
   }
 
   getVotesForProposal(proposalId) {
-    return this.votesByProposal.get(proposalId) || [];
+    return this.votesByProposal.get(String(proposalId)) || [];
   }
 
   getVoteForValidatorRound(validatorId, round) {
     return this.votesByValidatorRound.get(`${validatorId}:${round}`) || null;
   }
 
+  getVoteForValidatorHeightRound(validatorId, height, round) {
+    return this.votesByValidatorHeightRound.get(`${validatorId}:${height}:${round}`) || null;
+  }
+
+  getVotesByHeight(height) {
+    return this.votesByHeight.get(parseInt(height, 10)) || [];
+  }
+
+  getVotesByBlockHash(blockHash) {
+    return this.votesByBlockHash.get(String(blockHash)) || [];
+  }
+
+  getConflicts() {
+    return this.conflictDetector.getConflicts();
+  }
+
+  hasVoted(validatorId, round, height = null) {
+    if (height !== null) {
+      return this.votesByValidatorHeightRound.has(`${validatorId}:${height}:${round}`);
+    }
+    return this.votesByValidatorRound.has(`${validatorId}:${round}`);
+  }
+
   clear() {
     this.votesByProposal.clear();
     this.votesByValidatorRound.clear();
+    this.votesByValidatorHeightRound.clear();
+    this.votesByHeight.clear();
+    this.votesByBlockHash.clear();
     this.allVotes = [];
+    this.conflictDetector.clear();
   }
 }
 
 module.exports = VoteStore;
-

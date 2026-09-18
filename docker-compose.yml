@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  validator-01:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pdschain/validator:1.0.0
+    container_name: pdschain-val-01
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - VALIDATOR_ID=VAL-01
+      - NETWORK_ID=pdschain-mainnet
+      - CHAIN_ID=1729
+      - API_PORT=4001
+      - P2P_PORT=5001
+      - P2P_HOST=0.0.0.0
+      - API_HOST=0.0.0.0
+      - DATA_DIR=/data
+      - IDENTITY_PATH=/data/identity.json
+    ports:
+      - "4001:4001"   # HTTP Management / Health / Metrics
+      - "5001:5001"   # Authenticated P2P Wire Transport
+    volumes:
+      - val01_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:4001/health/live"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  val01_data:
+    driver: local
+

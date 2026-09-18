@@ -1061,5 +1061,35 @@ describe('PHASE 6: PDSChain Professional Block Structure & Consensus Certificate
       expect(certRes.body.success).toBe(true);
       expect(certRes.body.valid).toBe(true);
     });
+
+    test('40. GET /api/consensus/state should return state machine state and history', async () => {
+      const res = await request(app).get('/api/consensus/state');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.state).toBeDefined();
+      expect(res.body.history).toBeInstanceOf(Array);
+    });
+
+    test('41. GET /api/consensus/conflicts should return conflict detector records', async () => {
+      const res = await request(app).get('/api/consensus/conflicts');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.conflicts).toBeInstanceOf(Array);
+    });
+
+    test('42. GET /api/consensus/votes/height/:height should return votes recorded for height', async () => {
+      const res = await request(app).get('/api/consensus/votes/height/1');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.height).toBe(1);
+      expect(res.body.votes).toBeInstanceOf(Array);
+    });
+
+    test('43. GET /api/consensus/journal should return write-ahead journal entries', async () => {
+      const res = await request(app).get('/api/consensus/journal?limit=10');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.entries).toBeInstanceOf(Array);
+    });
   });
 });

@@ -1,0 +1,113 @@
+version: '3.8'
+
+networks:
+  pdschain-net:
+    driver: bridge
+
+services:
+  validator-01:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pdschain/validator:1.0.0
+    container_name: pdschain-val-01
+    restart: unless-stopped
+    networks:
+      - pdschain-net
+    environment:
+      - NODE_ENV=development
+      - VALIDATOR_ID=VAL-01
+      - NETWORK_ID=pdschain-devnet
+      - CHAIN_ID=1729
+      - API_PORT=4001
+      - P2P_PORT=5001
+      - P2P_HOST=0.0.0.0
+      - API_HOST=0.0.0.0
+      - DATA_DIR=/data
+    ports:
+      - "4001:4001"
+      - "5001:5001"
+    volumes:
+      - val01_storage:/data
+
+  validator-02:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pdschain/validator:1.0.0
+    container_name: pdschain-val-02
+    restart: unless-stopped
+    networks:
+      - pdschain-net
+    environment:
+      - NODE_ENV=development
+      - VALIDATOR_ID=VAL-02
+      - NETWORK_ID=pdschain-devnet
+      - CHAIN_ID=1729
+      - API_PORT=4002
+      - P2P_PORT=5002
+      - P2P_HOST=0.0.0.0
+      - API_HOST=0.0.0.0
+      - DATA_DIR=/data
+    ports:
+      - "4002:4002"
+      - "5002:5002"
+    volumes:
+      - val02_storage:/data
+
+  validator-03:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pdschain/validator:1.0.0
+    container_name: pdschain-val-03
+    restart: unless-stopped
+    networks:
+      - pdschain-net
+    environment:
+      - NODE_ENV=development
+      - VALIDATOR_ID=VAL-03
+      - NETWORK_ID=pdschain-devnet
+      - CHAIN_ID=1729
+      - API_PORT=4003
+      - P2P_PORT=5003
+      - P2P_HOST=0.0.0.0
+      - API_HOST=0.0.0.0
+      - DATA_DIR=/data
+    ports:
+      - "4003:4003"
+      - "5003:5003"
+    volumes:
+      - val03_storage:/data
+
+  validator-04:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pdschain/validator:1.0.0
+    container_name: pdschain-val-04
+    restart: unless-stopped
+    networks:
+      - pdschain-net
+    environment:
+      - NODE_ENV=development
+      - VALIDATOR_ID=VAL-04
+      - NETWORK_ID=pdschain-devnet
+      - CHAIN_ID=1729
+      - API_PORT=4004
+      - P2P_PORT=5004
+      - P2P_HOST=0.0.0.0
+      - API_HOST=0.0.0.0
+      - DATA_DIR=/data
+    ports:
+      - "4004:4004"
+      - "5004:5004"
+    volumes:
+      - val04_storage:/data
+
+volumes:
+  val01_storage:
+  val02_storage:
+  val03_storage:
+  val04_storage:
+

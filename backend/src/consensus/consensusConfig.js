@@ -10,6 +10,8 @@ const DEFAULT_12_VALIDATORS = [
     org: 'Government of India',
     port: 4001,
     endpoint: 'http://127.0.0.1:4001',
+    p2pPort: 5001,
+    p2pEndpoint: 'http://127.0.0.1:5001',
     publicKey: '0x01A9F4C82E3B7701',
     status: 'Online',
     trustConfiguration: {
@@ -23,6 +25,8 @@ const DEFAULT_12_VALIDATORS = [
     org: 'NIC Technology Cell',
     port: 4002,
     endpoint: 'http://127.0.0.1:4002',
+    p2pPort: 5002,
+    p2pEndpoint: 'http://127.0.0.1:5002',
     publicKey: '0x02B8E3D71C4A8812',
     status: 'Online',
     trustConfiguration: {
@@ -36,6 +40,8 @@ const DEFAULT_12_VALIDATORS = [
     org: 'State Regulatory Authority',
     port: 4003,
     endpoint: 'http://127.0.0.1:4003',
+    p2pPort: 5003,
+    p2pEndpoint: 'http://127.0.0.1:5003',
     publicKey: '0x03C7D2A60B5C9923',
     status: 'Online',
     trustConfiguration: {
@@ -49,6 +55,8 @@ const DEFAULT_12_VALIDATORS = [
     org: 'State Food Logistics',
     port: 4004,
     endpoint: 'http://127.0.0.1:4004',
+    p2pPort: 5004,
+    p2pEndpoint: 'http://127.0.0.1:5004',
     publicKey: '0x04D6C195FA6D0034',
     status: 'Online',
     trustConfiguration: {
@@ -62,6 +70,8 @@ const DEFAULT_12_VALIDATORS = [
     org: 'District Collectorate',
     port: 4005,
     endpoint: 'http://127.0.0.1:4005',
+    p2pPort: 5005,
+    p2pEndpoint: 'http://127.0.0.1:5005',
     publicKey: '0x05E5B084E97E1145',
     status: 'Online',
     trustConfiguration: {
@@ -75,6 +85,8 @@ const DEFAULT_12_VALIDATORS = [
     org: 'Comptroller & Auditor General',
     port: 4006,
     endpoint: 'http://127.0.0.1:4006',
+    p2pPort: 5006,
+    p2pEndpoint: 'http://127.0.0.1:5006',
     publicKey: '0x06F4A973D88F2256',
     status: 'Online',
     trustConfiguration: {
@@ -88,6 +100,8 @@ const DEFAULT_12_VALIDATORS = [
     org: 'Independent Audit Council',
     port: 4007,
     endpoint: 'http://127.0.0.1:4007',
+    p2pPort: 5007,
+    p2pEndpoint: 'http://127.0.0.1:5007',
     publicKey: '0x07A39862C7903367',
     status: 'Online',
     trustConfiguration: {
@@ -101,6 +115,8 @@ const DEFAULT_12_VALIDATORS = [
     org: 'Civil Supplies Depots',
     port: 4008,
     endpoint: 'http://127.0.0.1:4008',
+    p2pPort: 5008,
+    p2pEndpoint: 'http://127.0.0.1:5008',
     publicKey: '0x08B28751B6A14478',
     status: 'Online',
     trustConfiguration: {
@@ -114,6 +130,8 @@ const DEFAULT_12_VALIDATORS = [
     org: 'FPS Representative Federation',
     port: 4009,
     endpoint: 'http://127.0.0.1:4009',
+    p2pPort: 5009,
+    p2pEndpoint: 'http://127.0.0.1:5009',
     publicKey: '0x09C17640A5B25589',
     status: 'Online',
     trustConfiguration: {
@@ -127,6 +145,8 @@ const DEFAULT_12_VALIDATORS = [
     org: 'E-Governance Cell',
     port: 4010,
     endpoint: 'http://127.0.0.1:4010',
+    p2pPort: 5010,
+    p2pEndpoint: 'http://127.0.0.1:5010',
     publicKey: '0x10D0653F94C36690',
     status: 'Online',
     trustConfiguration: {
@@ -140,6 +160,8 @@ const DEFAULT_12_VALIDATORS = [
     org: 'Civil Rights & Transparency Forum',
     port: 4011,
     endpoint: 'http://127.0.0.1:4011',
+    p2pPort: 5011,
+    p2pEndpoint: 'http://127.0.0.1:5011',
     publicKey: '0x11E9542E83D47701',
     status: 'Online',
     trustConfiguration: {
@@ -153,6 +175,8 @@ const DEFAULT_12_VALIDATORS = [
     org: 'National Cryptographic Board',
     port: 4012,
     endpoint: 'http://127.0.0.1:4012',
+    p2pPort: 5012,
+    p2pEndpoint: 'http://127.0.0.1:5012',
     publicKey: '0x12F8431D72E58812',
     status: 'Online',
     trustConfiguration: {

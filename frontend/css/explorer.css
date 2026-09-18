@@ -1,0 +1,792 @@
+/* ==========================================================
+   PDSCHAIN — EXPLORER.CSS (Phase 15)
+   Professional Blockchain Explorer Stylesheet
+   ========================================================== */
+
+/* ---------- 1. ROOT DESIGN TOKENS & OVERRIDES ---------- */
+:root {
+  --explorer-brand: #6366f1;
+  --explorer-brand-hover: #4f46e5;
+  --explorer-finalized: #10b981;
+  --explorer-committed: #3b82f6;
+  --explorer-pending: #f59e0b;
+  --explorer-reverted: #ef4444;
+  --explorer-syncing: #8b5cf6;
+  --explorer-bg: #0b0f19;
+  --explorer-surface: #111827;
+  --explorer-surface-hover: #1e293b;
+  --explorer-border: rgba(255, 255, 255, 0.08);
+  --explorer-border-strong: rgba(255, 255, 255, 0.16);
+  --explorer-text: #f8fafc;
+  --explorer-text-muted: #94a3b8;
+  --font-mono: 'IBM Plex Mono', monospace;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Light Theme Variables */
+[data-theme="light"] {
+  --explorer-bg: #f8fafc;
+  --explorer-surface: #ffffff;
+  --explorer-surface-hover: #f1f5f9;
+  --explorer-border: rgba(0, 0, 0, 0.08);
+  --explorer-border-strong: rgba(0, 0, 0, 0.16);
+  --explorer-text: #0f172a;
+  --explorer-text-muted: #64748b;
+}
+
+/* ---------- 2. EXPLORER HEADER & TOPBAR ---------- */
+.explorer-topbar {
+  background: var(--explorer-surface);
+  border-bottom: 1px solid var(--explorer-border);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(8px);
+}
+
+.explorer-brand-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: var(--explorer-text);
+}
+
+.explorer-logo-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #6366f1, #3b82f6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 18px;
+}
+
+.explorer-brand-title {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: var(--explorer-text);
+}
+
+.explorer-brand-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  letter-spacing: 0.04em;
+  margin-left: 6px;
+}
+
+/* Universal Search Container */
+.explorer-search-box {
+  flex: 1;
+  max-width: 640px;
+  position: relative;
+}
+
+.explorer-search-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.explorer-search-input-wrap i.search-icon {
+  position: absolute;
+  left: 14px;
+  color: var(--explorer-text-muted);
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.explorer-search-input {
+  width: 100%;
+  padding: 10px 42px 10px 40px;
+  background: var(--explorer-bg);
+  border: 1px solid var(--explorer-border);
+  border-radius: 8px;
+  color: var(--explorer-text);
+  font-size: 13.5px;
+  font-family: var(--font-sans);
+  transition: all 0.2s ease;
+}
+
+.explorer-search-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.explorer-search-kbd {
+  position: absolute;
+  right: 12px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--explorer-text-muted);
+  border: 1px solid var(--explorer-border);
+  pointer-events: none;
+}
+
+/* Search Dropdown Results */
+.explorer-search-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: var(--explorer-surface);
+  border: 1px solid var(--explorer-border-strong);
+  border-radius: 8px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+  max-height: 420px;
+  overflow-y: auto;
+  z-index: 1000;
+  display: none;
+}
+
+.explorer-search-dropdown.is-active {
+  display: block;
+}
+
+.search-dropdown-header {
+  padding: 8px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--explorer-text-muted);
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--explorer-border);
+}
+
+.search-result-item {
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-decoration: none;
+  color: var(--explorer-text);
+  border-bottom: 1px solid var(--explorer-border);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.search-result-item:last-child {
+  border-bottom: none;
+}
+
+.search-result-item:hover, .search-result-item:focus {
+  background: var(--explorer-surface-hover);
+}
+
+.search-result-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.search-result-type-chip {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.search-type-block { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+.search-type-transaction { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+.search-type-address { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; }
+.search-type-contract { background: rgba(236, 72, 153, 0.15); color: #ec4899; }
+.search-type-validator { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+.search-type-event { background: rgba(14, 165, 233, 0.15); color: #0ea5e9; }
+
+.search-result-title {
+  font-weight: 600;
+  font-size: 13.5px;
+}
+
+.search-result-subtitle {
+  font-size: 11.5px;
+  color: var(--explorer-text-muted);
+  font-family: var(--font-mono);
+}
+
+/* Header Meta & Network Badge */
+.explorer-topbar-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.network-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: #10b981;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.network-pill .pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 6px #10b981;
+  animation: pulseDot 2s infinite ease-in-out;
+}
+
+/* ---------- 3. EXPLORER NAVIGATION TABS ---------- */
+.explorer-nav-wrap {
+  background: var(--explorer-surface);
+  border-bottom: 1px solid var(--explorer-border);
+  padding: 0 24px;
+}
+
+.explorer-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.explorer-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.explorer-tab-btn {
+  padding: 14px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--explorer-text-muted);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.explorer-tab-btn:hover {
+  color: var(--explorer-text);
+}
+
+.explorer-tab-btn.is-active {
+  color: #6366f1;
+  border-bottom-color: #6366f1;
+}
+
+.explorer-tab-btn i {
+  font-size: 14px;
+}
+
+/* ---------- 4. STATUS & FINALITY BADGES ---------- */
+.finality-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.finality-FINALIZED {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.finality-COMMITTED {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
+.finality-PENDING {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.finality-REVERTED, .finality-REJECTED {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.finality-SYNCING {
+  background: rgba(139, 92, 246, 0.15);
+  color: #8b5cf6;
+  border: 1px solid rgba(139, 92, 246, 0.35);
+}
+
+.finality-DEGRADED {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+/* ---------- 5. COPY CONTROLS & MONOSPACE FORMATTING ---------- */
+.hash-link {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: #38bdf8;
+  text-decoration: none;
+  word-break: break-all;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hash-link:hover {
+  text-decoration: underline;
+  color: #7dd3fc;
+}
+
+.copy-btn {
+  background: none;
+  border: none;
+  color: var(--explorer-text-muted);
+  cursor: pointer;
+  padding: 3px 5px;
+  border-radius: 4px;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.copy-btn:hover {
+  color: var(--explorer-text);
+  background: var(--explorer-surface-hover);
+}
+
+.copy-btn.copied {
+  color: #10b981;
+}
+
+/* ---------- 6. LIVE SSE TICKER ---------- */
+.explorer-live-ticker {
+  background: rgba(17, 24, 39, 0.7);
+  border: 1px solid var(--explorer-border);
+  border-radius: 8px;
+  padding: 10px 16px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 12.5px;
+  font-family: var(--font-mono);
+}
+
+.live-ticker-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-pulse-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #10b981;
+}
+
+.live-pulse-badge .pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  animation: pulseDot 1.6s infinite ease-in-out;
+}
+
+.ticker-text {
+  color: var(--explorer-text);
+}
+
+.live-ticker-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ---------- 7. JSON VIEWER & CODE BOX ---------- */
+.json-box {
+  background: #090d16;
+  border: 1px solid var(--explorer-border);
+  border-radius: 6px;
+  padding: 14px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  color: #e2e8f0;
+  max-height: 380px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.bytecode-box {
+  background: #090d16;
+  border: 1px solid var(--explorer-border);
+  border-radius: 6px;
+  padding: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #94a3b8;
+  max-height: 180px;
+  overflow-y: auto;
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+/* ---------- 8. READ-ONLY CONTRACT RUNNER ---------- */
+.contract-runner-card {
+  background: var(--explorer-surface);
+  border: 1px solid var(--explorer-border);
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 16px;
+}
+
+.method-select-wrap {
+  margin-bottom: 16px;
+}
+
+.param-input-row {
+  margin-bottom: 12px;
+}
+
+.param-input-row label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--explorer-text-muted);
+  margin-bottom: 4px;
+  font-family: var(--font-mono);
+}
+
+.param-input-row input {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--explorer-border);
+  background: var(--explorer-bg);
+  color: var(--explorer-text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.param-input-row input:focus {
+  outline: none;
+  border-color: #6366f1;
+}
+
+.call-result-panel {
+  margin-top: 16px;
+  padding: 14px;
+  background: #090d16;
+  border: 1px solid var(--explorer-border);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+.call-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--explorer-text-muted);
+  text-transform: uppercase;
+}
+
+.call-result-value {
+  color: #38bdf8;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ---------- 9. SYNC & RECOVERY BARS ---------- */
+.sync-progress-wrap {
+  margin: 10px 0;
+}
+
+.sync-bar-track {
+  width: 100%;
+  height: 8px;
+  background: var(--explorer-bg);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--explorer-border);
+}
+
+.sync-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #10b981);
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+/* ---------- 10. BREADCRUMBS & PAGINATION ---------- */
+.explorer-breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--explorer-text-muted);
+  margin-bottom: 16px;
+}
+
+.explorer-breadcrumbs a {
+  color: var(--explorer-text-muted);
+  text-decoration: none;
+}
+
+.explorer-breadcrumbs a:hover {
+  color: var(--explorer-text);
+}
+
+.explorer-breadcrumbs i {
+  font-size: 11px;
+}
+
+.cursor-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 0;
+  border-top: 1px solid var(--explorer-border);
+}
+
+/* Degraded Alert Banner */
+.explorer-alert-banner {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #f59e0b;
+  font-size: 13.5px;
+}
+
+.explorer-alert-banner.danger {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+/* ---------- 11. RESPONSIVENESS & ACCESSIBILITY ---------- */
+@media (max-width: 900px) {
+  .explorer-topbar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px 16px;
+  }
+  .explorer-search-box {
+    max-width: 100%;
+  }
+  .kpi-grid.cols-5, .kpi-grid.cols-6 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .kpi-grid, .kpi-grid.cols-4, .kpi-grid.cols-5, .kpi-grid.cols-6 {
+    grid-template-columns: 1fr;
+  }
+  .explorer-tabs {
+    padding-bottom: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-dot, .stream-status-dot.online {
+    animation: none;
+  }
+  * {
+    transition-duration: 0.001ms !important;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+
+/* ---------- 12. MERKLE PROOF VISUALIZER & INSPECTOR (Phase 16) ---------- */
+.proof-header-badges {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.proof-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.proof-pill.valid {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.proof-pill.invalid {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.proof-pill.info {
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+}
+
+.merkle-tree-visualizer {
+  background: var(--explorer-bg);
+  border: 1px solid var(--explorer-border);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+  display: flex;
+  flex-direction: column-reverse; /* Leaves at bottom, Root at top */
+  gap: 12px;
+  overflow-x: auto;
+}
+
+.merkle-level-node {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--explorer-card-bg);
+  border: 1px solid var(--explorer-border);
+  border-radius: 6px;
+  padding: 10px 14px;
+  gap: 12px;
+}
+
+.merkle-level-node.is-root {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.merkle-level-node.is-leaf {
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.merkle-node-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.merkle-pos-badge {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  text-transform: uppercase;
+}
+
+.merkle-pos-badge.left {
+  background: #3b82f6;
+  color: #fff;
+}
+
+.merkle-pos-badge.right {
+  background: #ec4899;
+  color: #fff;
+}
+
+.merkle-pos-badge.leaf {
+  background: #6366f1;
+  color: #fff;
+}
+
+.merkle-pos-badge.root {
+  background: #10b981;
+  color: #fff;
+}
+
+.merkle-connector-arrow {
+  text-align: center;
+  color: var(--explorer-text-muted);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.merkle-view-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.merkle-view-toggle button {
+  background: transparent;
+  border: 1px solid var(--explorer-border);
+  color: var(--explorer-text-muted);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.merkle-view-toggle button.active {
+  background: var(--explorer-brand);
+  color: #fff;
+  border-color: var(--explorer-brand);
+}
+
+

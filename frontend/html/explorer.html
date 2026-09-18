@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PDSChain — Professional Blockchain Explorer</title>
+<meta name="description" content="Official enterprise blockchain explorer for PDSChain: search finalized blocks, cryptographic transactions, EVM smart contracts, decoded event logs, and 12-validator FBA consensus telemetry." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+<link rel="stylesheet" href="../css/style.css" />
+<link rel="stylesheet" href="../css/animations.css" />
+<link rel="stylesheet" href="../css/components.css" />
+<link rel="stylesheet" href="../css/dashboard.css" />
+<link rel="stylesheet" href="../css/blockchain.css" />
+<link rel="stylesheet" href="../css/explorer.css" />
+<link rel="stylesheet" href="../css/responsive.css" />
+</head>
+<body class="dash-body">
+<a href="#explorer-content" class="skip-link">Skip to main explorer content</a>
+
+<div class="dash-shell">
+
+  <!-- TOPBAR -->
+  <header class="explorer-topbar" role="banner">
+    <div class="explorer-brand-wrap">
+      <div class="explorer-logo-icon"><i class="bi bi-shield-check"></i></div>
+      <div>
+        <div style="display:flex;align-items:center;">
+          <h1 class="explorer-brand-title">PDSChain</h1>
+          <span class="explorer-brand-tag">Mainnet</span>
+        </div>
+        <div style="font-size:11px;color:var(--explorer-text-muted);letter-spacing:0.02em;">Consortium FBA Ledger</div>
+      </div>
+    </div>
+
+    <!-- Universal Search Bar -->
+    <div class="explorer-search-box" role="search">
+      <div class="explorer-search-input-wrap">
+        <i class="bi bi-search search-icon" aria-hidden="true"></i>
+        <input type="search" id="global-search-input" class="explorer-search-input" placeholder="Search by Block #, Hash, Tx ID, Address (PDS1/0x), Validator, Event ID..." aria-label="Global Blockchain Search" autocomplete="off" />
+        <span class="explorer-search-kbd">/</span>
+      </div>
+      <div id="global-search-dropdown" class="explorer-search-dropdown" role="region" aria-live="polite"></div>
+    </div>
+
+    <div class="explorer-topbar-meta">
+      <div class="network-pill" id="topbar-chain-pill">
+        <span class="pulse-dot"></span>
+        <span>Height #... · Quorum Healthy</span>
+      </div>
+      <a href="index.html" class="btn btn-secondary btn-sm" title="Return to Portal Home"><i class="bi bi-house"></i> Home</a>
+      <a href="login.html" class="btn btn-primary btn-sm"><i class="bi bi-box-arrow-in-right"></i> Sign In</a>
+    </div>
+  </header>
+
+  <!-- NAVIGATION TABS -->
+  <nav class="explorer-nav-wrap" aria-label="Explorer Navigation">
+    <div class="explorer-tabs" role="tablist">
+      <button class="explorer-tab-btn is-active" data-view="overview" onclick="Explorer.navigateTo('#overview')" role="tab"><i class="bi bi-grid-1x2-fill"></i> Overview</button>
+      <button class="explorer-tab-btn" data-view="blocks" onclick="Explorer.navigateTo('#blocks')" role="tab"><i class="bi bi-diagram-3-fill"></i> Blocks</button>
+      <button class="explorer-tab-btn" data-view="txs" onclick="Explorer.navigateTo('#txs')" role="tab"><i class="bi bi-arrow-left-right"></i> Transactions</button>
+      <button class="explorer-tab-btn" data-view="addresses" onclick="Explorer.navigateTo('#addresses')" role="tab"><i class="bi bi-wallet2"></i> Addresses</button>
+      <button class="explorer-tab-btn" data-view="contracts" onclick="Explorer.navigateTo('#contracts')" role="tab"><i class="bi bi-file-earmark-code-fill"></i> Smart Contracts</button>
+      <button class="explorer-tab-btn" data-view="events" onclick="Explorer.navigateTo('#events')" role="tab"><i class="bi bi-activity"></i> Events &amp; Logs</button>
+      <button class="explorer-tab-btn" data-view="validators" onclick="Explorer.navigateTo('#validators')" role="tab"><i class="bi bi-hdd-network-fill"></i> Validators</button>
+      <button class="explorer-tab-btn" data-view="network" onclick="Explorer.navigateTo('#network')" role="tab"><i class="bi bi-diagram-2-fill"></i> Network &amp; Peers</button>
+      <button class="explorer-tab-btn" data-view="sync" onclick="Explorer.navigateTo('#sync')" role="tab"><i class="bi bi-arrow-repeat"></i> Sync &amp; Recovery</button>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTAINER -->
+  <main class="dash-content" id="explorer-content" style="max-width:1440px;margin:0 auto;padding:24px 20px;">
+
+    <!-- Live SSE Ticker -->
+    <div class="explorer-live-ticker" role="status" aria-live="polite">
+      <div class="live-ticker-left">
+        <span class="live-pulse-badge"><span class="pulse-dot" id="header-stream-dot"></span> SSE LIVE</span>
+        <span class="ticker-text" id="header-stream-text">Connecting to real-time blockchain event stream...</span>
+      </div>
+      <div class="live-ticker-right">
+        <button class="btn btn-secondary btn-sm" id="btn-toggle-stream" onclick="Explorer.toggleStream()"><i class="bi bi-pause-fill"></i> Pause Stream</button>
+      </div>
+    </div>
+
+    <!-- ================= VIEW 1: OVERVIEW DASHBOARD ================= -->
+    <section id="view-overview" class="explorer-view-panel">
+      <!-- High Level KPIs -->
+      <div class="kpi-grid cols-6" style="margin-bottom:24px;">
+        <div class="stat-card">
+          <div class="stat-card-label">Finalized Height</div>
+          <div class="stat-card-value mono" id="kpi-finalized-height">#...</div>
+          <div class="stat-card-foot"><span class="trend is-up"><i class="bi bi-check-circle-fill"></i> Certified</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-label">Latest Block Hash</div>
+          <div class="stat-card-value mono" style="font-size:18px;" id="kpi-latest-hash">0x...</div>
+          <div class="stat-card-foot"><span class="caption">SHA-256 Digest</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-label">Total Blocks</div>
+          <div class="stat-card-value mono" id="kpi-total-blocks">0</div>
+          <div class="stat-card-foot"><span class="caption">Since Genesis #0</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-label">Total Transactions</div>
+          <div class="stat-card-value mono" id="kpi-total-txs">0</div>
+          <div class="stat-card-foot"><span class="trend is-up"><i class="bi bi-arrow-up-right"></i> On-Chain</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-label">Consensus Quorum</div>
+          <div class="stat-card-value" style="font-size:20px;" id="kpi-validator-quorum">12 / 12</div>
+          <div class="stat-card-foot"><span class="trend is-up" id="kpi-quorum-status">OPERATIONAL</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-label">Throughput / TPS</div>
+          <div class="stat-card-value text-indigo" style="font-size:22px;" id="kpi-tps">42.5 TPS</div>
+          <div class="stat-card-foot"><span class="caption">Instant Finality</span></div>
+        </div>
+      </div>
+
+      <!-- Chain Sequence Flow -->
+      <div class="section-block">
+        <div class="section-block-head">
+          <div>
+            <h2>Cryptographic Chain Sequence</h2>
+            <div class="sub">Immutable chain of cryptographically sealed blocks validated by 12 Federated Byzantine Agreement nodes.</div>
+          </div>
+        </div>
+        <div class="chain-flow-container">
+          <div class="chain-flow-track" id="chain-sequence-track">
+            <!-- Populated by explorer.js -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Content Split: Recent Blocks & Recent Transactions -->
+      <div class="content-grid even">
+        <!-- Recent Blocks -->
+        <div class="section-block">
+          <div class="section-block-head">
+            <div>
+              <h2>Recent Finalized Blocks</h2>
+              <div class="sub">Latest blocks sealed with consensus certificates.</div>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="Explorer.navigateTo('#blocks')">View All Blocks</button>
+          </div>
+          <div class="table-card">
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Height</th>
+                    <th>Hash</th>
+                    <th>Txns</th>
+                    <th>Proposer</th>
+                    <th>Age</th>
+                    <th>Finality</th>
+                  </tr>
+                </thead>
+                <tbody id="overview-recent-blocks-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Transactions -->
+        <div class="section-block">
+          <div class="section-block-head">
+            <div>
+              <h2>Recent Verified Transactions</h2>
+              <div class="sub">Public grain distribution transfers confirmed on-chain.</div>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="Explorer.navigateTo('#txs')">View All Txns</button>
+          </div>
+          <div class="table-card">
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Tx ID</th>
+                    <th>From</th>
+                    <th>To</th>
+                    <th>Commodity</th>
+                    <th>Timestamp</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="overview-recent-txs-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= VIEW 2: BLOCKS EXPLORER ================= -->
+    <section id="view-blocks" class="explorer-view-panel" style="display:none;">
+      <div class="section-block">
+        <div class="section-block-head">
+          <div>
+            <h2>Verified Block Registry</h2>
+            <div class="sub">Browse immutable block sequence with roots, validator signatures, and consensus certificates.</div>
+          </div>
+        </div>
+        <div class="table-card">
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Height</th>
+                  <th>Block Hash</th>
+                  <th>Parent Hash</th>
+                  <th>Transactions</th>
+                  <th>Proposer</th>
+                  <th>Timestamp</th>
+                  <th>Finality</th>
+                </tr>
+              </thead>
+              <tbody id="blocks-table-body"></tbody>
+            </table>
+          </div>
+          <div class="cursor-pagination" style="padding:14px 20px;">
+            <button class="btn btn-secondary btn-sm" id="blocks-prev-btn" onclick="Explorer.loadBlocks(state.blocksPrevCursor)"><i class="bi bi-chevron-left"></i> Previous</button>
+            <span id="blocks-page-info" style="font-size:12.5px;color:var(--explorer-text-muted);">Showing blocks...</span>
+            <button class="btn btn-secondary btn-sm" id="blocks-next-btn" onclick="Explorer.loadBlocks(state.blocksNextCursor)">Next <i class="bi bi-chevron-right"></i></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= VIEW 3: TRANSACTIONS EXPLORER ================= -->
+    <section id="view-txs" class="explorer-view-panel" style="display:none;">
+      <div class="section-block">
+        <div class="section-block-head">
+          <div>
+            <h2>Public Transaction Ledger</h2>
+            <div class="sub">Cryptographic grain allocation, smart contract executions, and state transfers.</div>
+          </div>
+        </div>
+        <div class="table-card">
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Transaction ID</th>
+                  <th>Block</th>
+                  <th>Sender</th>
+                  <th>Receiver</th>
+                  <th>Commodity / Value</th>
+                  <th>Timestamp</th>
+                  <th>Finality</th>
+                </tr>
+              </thead>
+              <tbody id="tx-table-body"></tbody>
+            </table>
+          </div>
+          <div class="cursor-pagination" style="padding:14px 20px;">
+            <button class="btn btn-secondary btn-sm" id="tx-prev-btn" onclick="Explorer.loadTransactions(state.txPrevCursor)"><i class="bi bi-chevron-left"></i> Previous</button>
+            <span id="tx-page-info" style="font-size:12.5px;color:var(--explorer-text-muted);">Showing transactions...</span>
+            <button class="btn btn-secondary btn-sm" id="tx-next-btn" onclick="Explorer.loadTransactions(state.txNextCursor)">Next <i class="bi bi-chevron-right"></i></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= VIEW 4: ADDRESSES & ACCOUNTS ================= -->
+    <section id="view-addresses" class="explorer-view-panel" style="display:none;">
+      <div id="address-detail-container"></div>
+    </section>
+
+    <!-- ================= VIEW 5: SMART CONTRACTS ================= -->
+    <section id="view-contracts" class="explorer-view-panel" style="display:none;">
+      <div class="section-block">
+        <div class="section-block-head">
+          <div>
+            <h2>Verified Smart Contracts Directory</h2>
+            <div class="sub">Native EVM contracts governing citizen entitlements, warehouse logistics, and fair price shops.</div>
+          </div>
+        </div>
+        <div class="table-card" style="margin-bottom:24px;">
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Contract Name</th>
+                  <th>Address</th>
+                  <th>Code Hash</th>
+                  <th>Functions</th>
+                  <th>Events</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="contracts-dir-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Interactive Runner & ABI Inspector -->
+        <div id="contract-detail-card" style="display:none;"></div>
+      </div>
+    </section>
+
+    <!-- ================= VIEW 6: EVENTS & LOGS ================= -->
+    <section id="view-events" class="explorer-view-panel" style="display:none;">
+      <div class="section-block">
+        <div class="section-block-head">
+          <div>
+            <h2>Blockchain Events &amp; Log Streams</h2>
+            <div class="sub">Structured event journal emitted by consensus nodes, transactions, and smart contracts.</div>
+          </div>
+        </div>
+
+        <div class="filter-bar" style="margin-bottom:20px;">
+          <div class="filter-grid">
+            <div class="filter-item">
+              <label for="events-cat-filter">Category:</label>
+              <select id="events-cat-filter" onchange="Explorer.loadEvents()">
+                <option value="">All Categories</option>
+                <option value="BLOCKCHAIN">BLOCKCHAIN</option>
+                <option value="TRANSACTION">TRANSACTION</option>
+                <option value="CONTRACT">CONTRACT</option>
+                <option value="CONSENSUS">CONSENSUS</option>
+                <option value="NETWORK">NETWORK</option>
+                <option value="SYNC">SYNC</option>
+                <option value="RECOVERY">RECOVERY</option>
+              </select>
+            </div>
+            <div class="filter-item">
+              <label for="events-sev-filter">Severity:</label>
+              <select id="events-sev-filter" onchange="Explorer.loadEvents()">
+                <option value="">All Severities</option>
+                <option value="INFO">INFO</option>
+                <option value="WARNING">WARNING</option>
+                <option value="ERROR">ERROR</option>
+                <option value="CRITICAL">CRITICAL</option>
+              </select>
+            </div>
+            <div class="filter-item" style="grid-column: span 2;">
+              <label for="events-search-filter">Topic / Search:</label>
+              <input type="text" id="events-search-filter" placeholder="Search event payload, type, or correlation ID..." onkeyup="if(event.key==='Enter') Explorer.loadEvents()" />
+            </div>
+            <div class="filter-item">
+              <button class="btn btn-primary" onclick="Explorer.loadEvents()" style="width:100%;height:38px;"><i class="bi bi-filter"></i> Apply Filters</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-card">
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Event ID</th>
+                  <th>Event Type</th>
+                  <th>Category</th>
+                  <th>Severity</th>
+                  <th>Block</th>
+                  <th>Timestamp</th>
+                  <th>Finality</th>
+                </tr>
+              </thead>
+              <tbody id="events-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= VIEW 7: VALIDATORS ================= -->
+    <section id="view-validators" class="explorer-view-panel" style="display:none;">
+      <div class="section-block">
+        <div class="section-block-head">
+          <div>
+            <h2>12-Validator Consortium Directory</h2>
+            <div class="sub">Institutional validator nodes operating Federated Byzantine Agreement consensus.</div>
+          </div>
+        </div>
+        <div class="table-card">
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Validator ID</th>
+                  <th>Institution / Public Name</th>
+                  <th>Jurisdiction</th>
+                  <th>PDS1 Public Address</th>
+                  <th>Status</th>
+                  <th>Consensus Readiness</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="validators-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= VIEW 8: NETWORK & PEERS ================= -->
+    <section id="view-network" class="explorer-view-panel" style="display:none;">
+      <div class="section-block">
+        <div class="section-block-head">
+          <div>
+            <h2>Authenticated P2P Network Topology</h2>
+            <div class="sub">Direct mTLS connections pinned with private consortium CA trust certificates.</div>
+          </div>
+        </div>
+        <div class="table-card">
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Node ID</th>
+                  <th>Designation</th>
+                  <th>Wire Endpoint</th>
+                  <th>Security Layer</th>
+                  <th>Round-Trip Latency</th>
+                  <th>Direction</th>
+                </tr>
+              </thead>
+              <tbody id="network-peers-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= VIEW 9: SYNC & RECOVERY ================= -->
+    <section id="view-sync" class="explorer-view-panel" style="display:none;">
+      <div id="sync-status-card"></div>
+    </section>
+
+  </main>
+
+  <footer class="auth-footer">
+    <div class="container" style="max-width:1440px;text-align:center;color:var(--explorer-text-muted);font-size:13px;padding:20px 0;">
+      <strong>PDSChain Professional Blockchain Explorer</strong> · Immutable Public Distribution System · &copy; 2026 PDSChain Consortium
+    </div>
+  </footer>
+</div>
+
+<!-- SHARED MODAL INSPECTOR -->
+<div class="modal-backdrop" id="explorer-modal" role="dialog" aria-modal="true" aria-labelledby="explorer-modal-title">
+  <div class="modal-dialog is-wide">
+    <div class="modal-header">
+      <h3 class="modal-title" id="explorer-modal-title">Inspector</h3>
+      <button class="modal-close" type="button" onclick="Explorer.closeModal()" aria-label="Close Inspector"><i class="bi bi-x"></i></button>
+    </div>
+    <div class="modal-body" id="explorer-modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" type="button" onclick="Explorer.closeModal()">Close Inspector</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-stack" id="toast-stack" aria-live="polite"></div>
+
+<script src="../js/api.js"></script>
+<script src="../js/merkle-verifier.js"></script>
+<script src="../js/explorer-api.js"></script>
+<script src="../js/explorer.js"></script>
+</body>
+</html>
+

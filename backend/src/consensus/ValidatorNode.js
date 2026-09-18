@@ -62,8 +62,9 @@ class ValidatorNode {
     const blockHash = String(blockProposal.blockHash || blockProposal.hash || '');
     const stateRoot = String(blockProposal.stateRoot || '');
 
+    const reqChainId = options.chainId !== undefined ? options.chainId : blockProposal.chainId;
     const createVote = (voteType, reason = '') => {
-      const vote = new ValidatorVote({
+      const voteData = {
         validatorId: this.validatorId,
         validatorAddress: this.address,
         validatorPublicKey: this.publicKey,
@@ -75,7 +76,11 @@ class ValidatorNode {
         vote: voteType,
         reason,
         timestamp: new Date().toISOString()
-      });
+      };
+      if (reqChainId !== undefined && reqChainId !== null) {
+        voteData.chainId = reqChainId;
+      }
+      const vote = new ValidatorVote(voteData);
 
       const privKey = this.getPrivateKey();
       if (privKey) {

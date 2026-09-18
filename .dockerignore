@@ -1,0 +1,42 @@
+# Git and repository metadata
+.git
+.gitignore
+.vscode
+.gemini
+
+# Dependencies
+node_modules
+*/node_modules
+
+# Tests and Coverage
+backend/tests
+coverage
+.nyc_output
+
+# Documentation
+docs
+
+# Local databases, journals, and runtime files
+database/*.sqlite
+database/*.sqlite-wal
+database/*.sqlite-shm
+database/validators
+database/checkpoints
+*.log
+*.pid
+*.tmp
+*.corrupt*
+
+# Smart contract build artifacts
+contracts
+
+# Frontend static files (served independently)
+frontend
+
+# Environment and secrets
+.env
+.env.*
+identity*.json
+*.key
+*.pem
+

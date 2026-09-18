@@ -9,6 +9,11 @@ const Transaction = require('./Transaction');
 const Block = require('./Block');
 const Validator = require('./Validator');
 const StockTransfer = require('./StockTransfer');
+const Receipt = require('./Receipt');
+const EventRecord = require('./EventRecord');
+const CheckpointRecord = require('./CheckpointRecord');
+const SchemaMigration = require('./SchemaMigration');
+const DatabaseAuditRecord = require('./DatabaseAuditRecord');
 
 const db = {
   sequelize,
@@ -22,7 +27,12 @@ const db = {
   Transaction,
   Block,
   Validator,
-  StockTransfer
+  StockTransfer,
+  Receipt,
+  EventRecord,
+  CheckpointRecord,
+  SchemaMigration,
+  DatabaseAuditRecord
 };
 
 module.exports = db;

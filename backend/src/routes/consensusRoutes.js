@@ -6,6 +6,10 @@ const roleMiddleware = require('../middleware/roleMiddleware');
 
 router.get('/status', optionalAuthMiddleware, consensusController.getStatus);
 router.get('/quorum', optionalAuthMiddleware, consensusController.getQuorum);
+router.get('/state', optionalAuthMiddleware, consensusController.getState);
+router.get('/conflicts', optionalAuthMiddleware, consensusController.getConflicts);
+router.get('/votes/height/:height', optionalAuthMiddleware, consensusController.getVotesByHeight);
+router.get('/journal', optionalAuthMiddleware, consensusController.getJournal);
 router.post('/propose', authMiddleware, roleMiddleware('SHOP', 'ADMIN', 'VALIDATOR'), consensusController.propose);
 
 module.exports = router;

@@ -33,7 +33,9 @@
       <div class="sidebar-group-label">Navigation</div>
       <ul>
         <li><a href="index.html" class="sidebar-link"><i class="bi bi-house" aria-hidden="true"></i><span>Landing Page</span></a></li>
-        <li><a href="blockchain.html" class="sidebar-link is-active" aria-current="page"><i class="bi bi-diagram-3" aria-hidden="true"></i><span>Explorer</span></a></li>
+        <li><a href="explorer.html" class="sidebar-link"><i class="bi bi-compass" aria-hidden="true"></i><span>Pro Explorer (v15)</span></a></li>
+        <li><a href="blockchain.html" class="sidebar-link is-active" aria-current="page"><i class="bi bi-diagram-3" aria-hidden="true"></i><span>Ledger Overview</span></a></li>
+        <li><a href="events.html" class="sidebar-link"><i class="bi bi-activity" aria-hidden="true"></i><span>Events & Logs</span></a></li>
         <li><a href="transaction.html" class="sidebar-link"><i class="bi bi-arrow-left-right" aria-hidden="true"></i><span>Verify Transaction</span></a></li>
       </ul>
       <div class="sidebar-group-label">Dashboards</div>
@@ -89,8 +91,9 @@
           <p>Real-time cryptographic audit log of all distribution blocks, Merkle roots, and FBA consensus rounds.</p>
         </div>
         <div class="page-header-meta" style="display:flex;align-items:center;gap:10px;">
+          <a href="explorer.html" class="btn btn-primary btn-sm" style="background:#6366f1;border-color:#6366f1;"><i class="bi bi-compass"></i> Open Pro Explorer (v15)</a>
           <span id="chain-validity-badge" class="badge badge-success" style="font-size:13px;padding:7px 14px;"><i class="bi bi-patch-check-fill"></i> CHAIN VALID</span>
-          <button class="btn btn-primary btn-sm" id="btn-validate-chain" type="button" onclick="validateChainLive()"><i class="bi bi-shield-check"></i> Re-Verify Ledger</button>
+          <button class="btn btn-secondary btn-sm" id="btn-validate-chain" type="button" onclick="validateChainLive()"><i class="bi bi-shield-check"></i> Re-Verify Ledger</button>
         </div>
       </div>
 

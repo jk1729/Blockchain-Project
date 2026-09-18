@@ -67,18 +67,36 @@ class ABIEncoder {
 
     for (const log of rawLogs) {
       try {
+        const rawTopics = Array.isArray(log) ? log[1] : (log.topics || []);
+        const rawData = Array.isArray(log) ? log[2] : (log.data !== undefined ? log.data : '0x');
         const parsed = iface.parseLog({
-          topics: log.topics.map(t => typeof t === 'string' ? t : '0x' + Buffer.from(t).toString('hex')),
-          data: typeof log.data === 'string' ? log.data : '0x' + Buffer.from(log.data).toString('hex')
+          topics: (rawTopics || []).map(t => typeof t === 'string' ? t : '0x' + Buffer.from(t).toString('hex')),
+          data: typeof rawData === 'string' ? rawData : '0x' + Buffer.from(rawData || []).toString('hex')
         });
         if (parsed) {
+          let rawArgs = {};
+          if (typeof parsed.args.toObject === 'function') {
+            rawArgs = parsed.args.toObject();
+          } else if (parsed.fragment && parsed.fragment.inputs) {
+            parsed.fragment.inputs.forEach((input, idx) => {
+              rawArgs[input.name || `arg${idx}`] = parsed.args[idx];
+            });
+          } else {
+            rawArgs = parsed.args;
+          }
+
           decodedEvents.push({
             name: parsed.name,
             signature: parsed.signature,
             args: Object.fromEntries(
-              Object.entries(parsed.args)
+              Object.entries(rawArgs)
                 .filter(([k]) => isNaN(parseInt(k, 10))) // filter out numeric indices
-                .map(([k, v]) => [k, typeof v === 'bigint' ? v.toString() : v])
+                .map(([k, v]) => {
+                  let val = v;
+                  if (typeof v === 'bigint') val = v.toString();
+                  else if (v && typeof v === 'object' && v.hash) val = v.hash;
+                  return [k, val];
+                })
             )
           });
         }
