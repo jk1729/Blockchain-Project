@@ -1023,6 +1023,98 @@ const PermissionDefinitions = Object.freeze({
     requiresMFA: false,
     auditRequired: true,
     description: 'Transfer commodity stock from warehouse to shop'
+  },
+
+  // --- Simulation Permissions (Phase 20) ---
+  'simulation:read:scenarios': {
+    resource: 'simulation',
+    action: 'read-scenarios',
+    scope: ScopeType.GLOBAL,
+    isPublic: false,
+    isMutating: false,
+    isConsensusCritical: false,
+    requiresMFA: false,
+    auditRequired: false,
+    description: 'Read available simulation scenarios and catalog metadata'
+  },
+  'simulation:run:scenario': {
+    resource: 'simulation',
+    action: 'run-scenario',
+    scope: ScopeType.GLOBAL,
+    isPublic: false,
+    isMutating: true,
+    isConsensusCritical: false,
+    requiresMFA: false,
+    auditRequired: true,
+    description: 'Execute controlled attack and failure simulation scenario'
+  },
+  'simulation:read:evidence': {
+    resource: 'simulation',
+    action: 'read-evidence',
+    scope: ScopeType.GLOBAL,
+    isPublic: false,
+    isMutating: false,
+    isConsensusCritical: false,
+    requiresMFA: false,
+    auditRequired: false,
+    description: 'Read simulation execution reports and evidence'
+  },
+  'simulation:stop:scenario': {
+    resource: 'simulation',
+    action: 'stop-scenario',
+    scope: ScopeType.GLOBAL,
+    isPublic: false,
+    isMutating: true,
+    isConsensusCritical: false,
+    requiresMFA: false,
+    auditRequired: true,
+    description: 'Trigger emergency stop or cancel active simulation'
+  },
+
+  // --- Performance Permissions (Phase 21) ---
+  'performance:read:workloads': {
+    resource: 'performance',
+    action: 'read-workloads',
+    scope: ScopeType.GLOBAL,
+    isPublic: false,
+    isMutating: false,
+    isConsensusCritical: false,
+    requiresMFA: false,
+    auditRequired: false,
+    description: 'Read available performance workloads and configuration parameters'
+  },
+  'performance:run:workload': {
+    resource: 'performance',
+    action: 'run-workload',
+    scope: ScopeType.GLOBAL,
+    isPublic: false,
+    isMutating: true,
+    isConsensusCritical: false,
+    requiresMFA: false,
+    auditRequired: true,
+    description: 'Execute controlled performance or load testing workload'
+  },
+  'performance:read:evidence': {
+    resource: 'performance',
+    action: 'read-evidence',
+    scope: ScopeType.GLOBAL,
+    isPublic: false,
+    isMutating: false,
+    isConsensusCritical: false,
+    requiresMFA: false,
+    auditRequired: false,
+    description: 'Read performance benchmark reports, percentiles, and statistics'
+  },
+  'performance:stop:run': {
+    resource: 'performance',
+    action: 'stop-run',
+    scope: ScopeType.GLOBAL,
+    isPublic: false,
+    isMutating: true,
+    isConsensusCritical: false,
+    requiresMFA: false,
+    auditRequired: true,
+    description: 'Stop or cancel an active performance load test'
   }
 });
 

@@ -111,7 +111,15 @@ const OPERATOR_BASE = Object.freeze([
   'security:read:tls-status',
   'security:read:certificate-metadata',
   'security:read:key-metadata',
-  'recovery:read:status'
+  'recovery:read:status',
+  'simulation:read:scenarios',
+  'simulation:run:scenario',
+  'simulation:read:evidence',
+  'simulation:stop:scenario',
+  'performance:read:workloads',
+  'performance:run:workload',
+  'performance:read:evidence',
+  'performance:stop:run'
 ]);
 
 const VALIDATOR_OPERATOR_PERMISSIONS = Object.freeze([

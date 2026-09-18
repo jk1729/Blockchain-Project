@@ -1,0 +1,3674 @@
+================================================================================
+PDSCHAIN: BLOCKCHAIN-BASED PUBLIC DISTRIBUTION SYSTEM
+EXHAUSTIVE TECHNICAL ARCHITECTURE, IMPLEMENTATION & REPOSITORY REPORT
+================================================================================
+
+Report Generated: 2026-09-18
+Target Platform: Node.js (v20+), Solidity (0.8.20), Express.js, Sequelize ORM, SQLite/PostgreSQL, Vanilla JS
+Project Status: Production-Ready Engineering Prototype (Phases 1 - 21 Complete)
+Total Repository Files (Non-Node-Modules): 658
+Total Repository Directories: 116
+Total Source & Test Code Lines: 128,014
+Total Repository Storage (Source/Docs/DB): 15.95 MB
+Automated Test Suite Status: 1,074 / 1,074 Tests Passing (100% Pass Rate)
+  - Backend Jest Tests: 1,054 Passing across 127 Test Suites
+  - Smart Contract Tests: 20 Passing (Hardhat)
+  - Total Regressions Across Phases 1 - 21: ZERO (0)
+
+================================================================================
+1. EXECUTIVE SUMMARY & PROBLEM DOMAIN
+================================================================================
+
+1.1 BACKGROUND & PROBLEM STATEMENT:
+The Public Distribution System (PDS) is one of the world's most critical social welfare mechanisms,
+distributing subsidized food grains (Rice, Wheat, Sugar, Pulses, Kerosene) to hundreds of millions
+of citizens. However, conventional centralized database architectures suffer from acute vulnerabilities:
+  1. Internal Database Tampering: Centralized administrators or compromised credentials can silently
+     manipulate inventory, quotas, or transactions without cryptographic audit trails.
+  2. Stock Diversion & Grain Leakage: Discrepancies between regional warehouse dispatches and local Fair
+     Price Shop (FPS) receipts cannot be reconciled in real-time.
+  3. Ghost Beneficiaries & Quota Overdrafts: Lack of atomic debouncing and distributed consensus allows
+     duplicate ration claims and phantom allocations.
+  4. Lack of Public Verification: Beneficiaries and civic observers cannot independently verify distribution
+     receipts against a tamper-evident, decentralized ledger.
+  5. Single Point of Trust & Failure: Centralized servers lack institutional checks and balances between state
+     commissions, logistics providers, citizen bodies, and auditors.
+
+1.2 THE PDSCHAIN SOLUTION:
+PDSChain solves these challenges through a hardened, layered blockchain architecture combining:
+  - Federated Byzantine Agreement (FBA): An institutional 12-node consensus model (VAL-01 to VAL-12)
+    using overlapping quorum slices (Stellar-inspired) that eliminates energy-intensive mining while
+    guaranteeing Byzantine fault tolerance (BFT).
+  - Cryptographic Ledger: Sequential SHA-256 block hashing, level-by-level binary Merkle root trees,
+    and state root commitments ensuring complete immutability.
+  - Hybrid Execution Engine: Deterministic native JavaScript state machine alongside an embedded Ethereum
+    Virtual Machine (EVM via @ethereumjs/vm) supporting Solidity smart contracts.
+  - ACID Database Atomicity: Managed database transactions ensuring inventory deductions, quota updates,
+    and block writes succeed together or rollback completely.
+  - Default-Deny RBAC: Canonical permission registry with 40+ permissions, 16 least-privilege roles,
+    object-level IDOR/BOLA authorization guards, and an HMAC-chained tamper-evident audit log.
+  - Production Observability: Prometheus metrics registry (140+ metrics), structured JSON logging with secret
+    redaction, W3C distributed tracing, Kubernetes-style health probes, and automated SLO evaluation.
+  - Attack & Failure Simulation: A safe, deterministic simulation platform validating resilience against
+    29 failure scenarios across 8 operational domains.
+  - Performance & Load Testing: High-resolution microsecond latency measurement engine, token-bucket load
+    controller, automated baseline regression engine, and 9 domain benchmark workloads.
+
+================================================================================
+2. CODEBASE & REPOSITORY METRICS
+================================================================================
+
+Module Breakdown:
+----------------------------------------------------------------------------------------------------
+Component                          Files          Lines          Bytes                   Description
+----------------------------------------------------------------------------------------------------
+backend/src                          273         39,918      12,79,594   Backend Source Code (Node/Express)
+backend/tests                        146         21,757       8,03,939   Backend Jest Test Suites
+contracts/contracts                    9          1,048         36,328   Solidity Smart Contracts (0.8.20)
+contracts/test                         1            253         12,197   Hardhat Smart Contract Tests
+frontend                              65         16,367       7,21,495   Web Portals (HTML, CSS, JS Clients)
+docs                                 119         12,180       7,05,726   Engineering Specs, Audits, Runbooks
+database                               5          3,453      50,74,137   SQLite Storage, WAL & Security Log
+scripts                                2            135          4,313   Systemd & Deployment Scripts
+Root Files                             6            938         47,286   Docker, Compose, Config & Readme
+----------------------------------------------------------------------------------------------------
+TOTAL:                               658       128,014    16,716,368
+
+================================================================================
+3. SYSTEM ARCHITECTURE & COMPONENT TOPOLOGY
+================================================================================
+
+
+====================================================================================================
+                                      PDSCHAIN LOGICAL ARCHITECTURE
+====================================================================================================
+
+  +-----------------------------------------------------------------------------------------------+
+  |                                   STAKEHOLDER WEB CLIENTS                                     |
+  |   Admin Portal      Citizen Portal      Shop Stepper      Warehouse Ops     Validator Monitor |
+  |   (admin.html)     (citizen.html)    (distribution.html) (transfers.html)   (validator.html)  |
+  +-----------------------------------------------------------------------------------------------+
+                                                |
+                                                | HTTP / HTTPS / SSE Streams
+                                                v
+  +-----------------------------------------------------------------------------------------------+
+  |                                REST & JSON-RPC v2.0 API GATEWAY                               |
+  |  - Express Router (/api/v1/*)           - JSON-RPC 2.0 Engine (pds_*, eth_*, net_*, proof_*)  |
+  |  - W3C Trace Context Propagation        - Token-Bucket & Sliding-Window Rate Limiters         |
+  |  - Swagger / OpenAPI 3.0 Documentation  - Cursor-Based Pagination & Canonical Error Handling  |
+  +-----------------------------------------------------------------------------------------------+
+                                                |
+                                                v
+  +-----------------------------------------------------------------------------------------------+
+  |                           SECURITY, AUTHENTICATION & RBAC LAYER                               |
+  |  - JWT Bearer Authentication            - Default-Deny Permission Middleware                  |
+  |  - 40+ Canonical Permissions            - 16 Least-Privilege Roles (Admin, Operator, Citizen) |
+  |  - Object-Level IDOR / BOLA Validation  - Tamper-Evident HMAC Audit Logger (security_audit)   |
+  +-----------------------------------------------------------------------------------------------+
+                                                |
+                                                v
+  +-----------------------------------------------------------------------------------------------+
+  |                              CORE BUSINESS SERVICES & MEMPOOL                                 |
+  |  - Transaction Orchestrator (Debounce)  - Entitlement & Quota Calculation Service             |
+  |  - Shop & Warehouse Inventory Service   - Mempool (Prioritization, Admission, Eviction)       |
+  +-----------------------------------------------------------------------------------------------+
+                                                |
+                                                v
+  +-----------------------------------------------------------------------------------------------+
+  |                           HYBRID EXECUTION & SMART CONTRACT LAYER                             |
+  |  - Native Rule-Based Engine (StateManager, EntitlementRule, DistributionRule, InventoryRule)  |
+  |  - Embedded Ethereum Virtual Machine (@ethereumjs/vm)                                        |
+  |  - Solidity Contracts: AccessControl, PDSRegistry, Registries, Distribution, Inventory        |
+  +-----------------------------------------------------------------------------------------------+
+                                                |
+                                                v
+  +-----------------------------------------------------------------------------------------------+
+  |                    FEDERATED BYZANTINE AGREEMENT (FBA) CONSENSUS ENGINE                       |
+  |  - 12 Institutional Validator Nodes (VAL-01 to VAL-12) with Tiered Quorum Slices             |
+  |  - Two-Phase Voting: PROPARE -> COMMIT -> RATIFY with Cryptographic Consensus Certificates   |
+  |  - Conflict Detection & Equivocation Slashing                                                |
+  |  - P2P Multi-Process Network: Handshake Protocol, Wire Framing, Heartbeats, mTLS Encryption  |
+  +-----------------------------------------------------------------------------------------------+
+                                                |
+                                                v
+  +-----------------------------------------------------------------------------------------------+
+  |                              LEDGER, MERKLE & STORAGE LAYER                                   |
+  |  - Cryptographic Blockchain: Sequential SHA-256 Blocks, Binary Merkle Trees, State Roots      |
+  |  - Standalone In-Browser Proof Verifier & Merkle Indexer                                      |
+  |  - Database HA Manager: Writer Fencing Tokens, Replication Lag Monitor, Split-Brain Defense   |
+  |  - Connection Pooling, Migration Checksums & AES-256-GCM Encrypted Backups                   |
+  +-----------------------------------------------------------------------------------------------+
+                                                |
+                                                v
+  +-----------------------------------------------------------------------------------------------+
+  |                        OBSERVABILITY, SIMULATION & LOAD TESTING                               |
+  |  - Prometheus Registry (140+ metrics)   - W3C Distributed Tracing & Span Engine               |
+  |  - Structured JSON Logging (Redaction)  - Health Probes (/health/live, /health/ready)         |
+  |  - Automated SLO & Alert Evaluator      - Attack & Failure Simulation Platform (29 Scenarios) |
+  |  - Microsecond Performance & Load Testing Engine with Automated Baseline Regression Detection |
+  +-----------------------------------------------------------------------------------------------+
+
+================================================================================
+4. CHRONOLOGICAL PHASE IMPLEMENTATION (PHASES 1 - 21)
+================================================================================
+
+PHASE 1: Core Cryptographic Primitives & In-Memory Blockchain
+  Established foundational block and transaction structures, SHA-256 deterministic hashing, sequential previousHash verification, and basic in-memory chain operations.
+
+PHASE 2: Transaction Engine & Beneficiary Distribution Logic
+  Implemented business rules for citizen beneficiary quota entitlements, Fair Price Shop distribution workflows, transaction verification, and receipt generation.
+
+PHASE 3: Relational Database Architecture & Sequelize ORM
+  Migrated from in-memory persistence to relational database architecture supporting SQLite and PostgreSQL via Sequelize ORM models (Users, Blocks, Transactions, Inventory).
+
+PHASE 4: ACID Transactional Atomicity, Debouncing & Rollbacks
+  Engineered strict transactional atomicity where stock deductions, beneficiary quota decreases, and block creation occur within unified ACID transactions with automatic rollback on error.
+
+PHASE 5: REST API Layer & JWT Role-Based Access Control (RBAC)
+  Built comprehensive Express REST endpoints protected by bcrypt password hashing, JWT bearer authentication, and initial 5-role authorization (ADMIN, SHOP, WAREHOUSE, CITIZEN, VALIDATOR).
+
+PHASE 6: Multi-Stakeholder Web Frontend Portals
+  Developed 35 modular HTML pages, 13 CSS stylesheets, and 14 client-side JavaScript controllers catering to Admin, Citizen, Shop Operator, Warehouse Manager, and Validator roles.
+
+PHASE 7: FBA Consensus Prototype with 12 Institutional Nodes
+  Introduced Federated Byzantine Agreement (FBA) prototype modeling 12 institutional stakeholders (Consumer Affairs, NIC, State Food Commission, Civil Supplies, etc.) with quorum evaluations.
+
+PHASE 8: Mathematical FBA Engine & Quorum Slice Topology
+  Formalized mathematical quorum slice intersection theorems, Byzantine fault bounds, dynamic quorum pruning, vote pooling, and round transitions.
+
+PHASE 9: Multi-Process Validator Networking & Wire Protocol
+  Engineered true multi-process validator execution with dedicated child processes, TCP socket transport, wire framing, binary handshake protocols, and peer heartbeats.
+
+PHASE 10: Ledger Synchronization, Catch-Up Protocol & Checkpoints
+  Implemented block catch-up synchronization across peers, checkpoint generation, state recovery manager, and crash-fault resumption without ledger forks.
+
+PHASE 11: Deployable Validator Nodes & Infrastructure Tooling
+  Created containerized Dockerfile builds, Docker Compose multi-validator network configs, Windows PowerShell and Linux Systemd service scripts, and identity provisioning CLI tools.
+
+PHASE 12: TLS/mTLS Wire Encryption & Cryptographic Key Management
+  Secured inter-validator communication with mutual TLS (mTLS), automated certificate authority generation, in-flight key rotation manager, and encrypted KeyStore.
+
+PHASE 13: Enterprise Blockchain Events & SSE Real-Time Streaming
+  Built unified EventBus, persistent EventStore, filterable subscriptions, and Server-Sent Events (SSE) streaming real-time blocks, transactions, and consensus events to web clients.
+
+PHASE 14: Dual REST & JSON-RPC v2.0 APIs, Rate Limiting & OpenAPI
+  Delivered dual API gateway with full JSON-RPC 2.0 specification compliance, batch processing, sliding-window rate limiters, cursor-based pagination, and OpenAPI 3.0 documentation.
+
+PHASE 15: Professional Blockchain Explorer & Visualizer
+  Built high-performance web explorer with live SSE telemetry, instant search indexer across blocks/transactions/addresses, cryptographic integrity visualizer, and secret redaction.
+
+PHASE 16: Binary Merkle Trees & Standalone In-Browser Verification
+  Engineered cryptographic binary Merkle trees with SHA-256 double hashing, proof generation, ProofIndexer, and zero-dependency standalone in-browser Merkle verifier (merkle-verifier.js).
+
+PHASE 17: Enterprise Security Hardening, Permissions & Audit Logging
+  Instituted default-deny security architecture, 40+ granular permissions, 16 least-privilege roles, object-level IDOR/BOLA checks, and append-only HMAC-chained audit logging.
+
+PHASE 18: Production Database Architecture, HA & Encrypted Backups
+  Implemented HA writer fencing tokens, replication lag monitoring, connection pool failsafes, SHA-256 checksummed migration runner, and AES-256-GCM encrypted database backups.
+
+PHASE 19: Production Observability, Prometheus Metrics & Distributed Tracing
+  Deployed Prometheus metrics registry with 140+ metrics, structured JSON logging with multi-layer secret redaction, W3C distributed tracing (TraceId/SpanId), health probes, and SLO evaluator.
+
+PHASE 20: Deterministic Attack & Failure Simulation Platform
+  Built an institutional attack simulation platform with anti-production SafetyGuard, seeded PRNG determinism, 29 failure scenarios across 8 domains, and invariant monitoring.
+
+PHASE 21: Performance & Load Testing Subsystem with Baseline Regression Detection
+  Implemented microsecond latency measurement engine, exact linear interpolation percentiles, token-bucket load controller, 9 domain workloads, and automated baseline regression comparison.
+
+================================================================================
+5. CORE SUBSYSTEM DEEP DIVES & TECHNICAL CAPABILITIES
+================================================================================
+
+5.1 CRYPTOGRAPHY, IDENTITY & KEY MANAGEMENT
+  - Hashing Algorithms: SHA-256 deterministic cryptographic hashing across blocks, transaction receipts,
+    Merkle nodes, and audit logs.
+  - Signatures & Identity: Elliptic curve digital signatures (secp256k1) compatible with Ethereum tooling
+    via ethers.js. Node identities are provisioned with public/private keypairs, X.509 certificates, and
+    hardware-safe key management abstractions.
+  - KeyStore & Rotation: KeyStore.js manages AES-256-GCM encrypted key storage on disk. KeyRotationManager.js
+    coordinates non-disruptive key rotation with grace periods and multi-version signature verification.
+  - Secret Redaction: Automated AST and string regex redaction preventing private keys, mnemonic seeds,
+    passwords, or JWT tokens from leaking into logs, traces, or public API responses.
+
+5.2 BLOCKCHAIN CORE & LEDGER ENGINE
+  - Block Structure: Sequential index, timestamp, previousHash, blockHash, transactions array, merkleRoot,
+    stateRoot, consensusCertificate, validatorSignature, and nonce.
+  - Transaction Lifecycle: Validation -> Signature Check -> Mempool Admission -> Block Proposal ->
+    Consensus Voting -> Finality Commitment -> State Transition -> Receipt Emission -> Merkle Indexing.
+  - Mempool Management: Mempool.js enforces transaction validation, size limits (default 5,000 txs),
+    arrival timestamp ordering, gas/priority sorting, replacement-underpriced rules, and TTL eviction.
+  - Merkle Tree Subsystem: MerkleTree.js constructs binary Merkle trees from transaction hashes.
+    MerkleProof.js produces compact O(log N) inclusion proofs with directional sibling hashes.
+    ProofIndexer.js indexes transaction proofs in SQLite/Postgres for O(1) retrieval.
+    standaloneVerifier.js and merkle-verifier.js enable independent client-side verification.
+
+5.3 FEDERATED BYZANTINE AGREEMENT (FBA) CONSENSUS ENGINE
+  - 12 Institutional Nodes: Modeled across federal ministries, state commissions, civil supplies, district
+    authorities, and independent auditor nodes.
+  - Quorum Slices: Each validator specifies one or more overlapping quorum slices. Consensus does not
+    require global unanimity; instead, transaction sets are committed when a validator's quorum slice
+    ratifies the round.
+  - Consensus Lifecycle:
+      1. PROPOSE: Primary proposer broadcasts candidate block with transaction batch.
+      2. PREPARE: Validators validate transactions, sign PREPARE votes, and broadcast to peers.
+      3. COMMIT: Upon collecting quorum agreement, validators emit COMMIT votes with state roots.
+      4. RATIFY & CERTIFICATE: When 2/3+ threshold is reached, ConsensusCertificate.js aggregates
+         validator signatures, finalizing the block permanently.
+  - Conflict & Equivocation Slashing: ConflictDetector.js detects conflicting votes in the same round,
+    quarantines double-voting validators, and logs security incidents.
+
+5.4 HYBRID EXECUTION ENGINE & EVM RUNTIME
+  - Native Rule Engine: Fast, deterministic state transitions implemented in JavaScript (StateManager.js)
+    handling beneficiary quota deduction, warehouse inventory dispatches, and shop receipts.
+  - Embedded EVM: EVMRuntime.js integrates @ethereumjs/vm and @ethereumjs/statemanager.
+    Supports compiling and deploying Solidity smart contracts, executing contract calls, tracking gas
+    consumption via ExecutionGasPolicy.js, and generating EVMReceipt.js receipts.
+  - Identity Bridge: identityBridge.js translates PDSChain native identities (e.g. VAL-01, SHOP-101) into
+    standard 20-byte EVM addresses and vice-versa.
+
+5.5 PRODUCTION DATABASE & HIGH AVAILABILITY ARCHITECTURE
+  - Database Support: SQLite3 with Write-Ahead Logging (WAL) for local dev/testing, PostgreSQL for production.
+  - High Availability & Writer Fencing: DatabaseHAManager.js implements writer fencing tokens. Only the
+    node presenting the strictly monotonic active fencing token is authorized to execute database writes,
+    preventing split-brain data corruption during failovers.
+  - Connection Pooling: DatabasePool.js governs connection allocation, bounds max connections, queues
+    overflow queries, and sheds load under severe pool exhaustion.
+  - Schema Migrations: DatabaseMigrationManager.js tracks migrations in schema_migrations table with
+    deterministic SHA-256 checksums, preventing drift or out-of-order execution.
+  - Encrypted Backups: DatabaseBackupManager.js executes non-blocking SQLite hot backups, computes SHA-256
+    integrity hashes, and encrypts backup archives using AES-256-GCM.
+
+5.6 ENTERPRISE SECURITY & AUTHORIZATION (DEFAULT-DENY RBAC)
+  - Canonical Permissions: 40+ granular permissions registered in PermissionRegistry.js across domains
+    (blockchain, consensus, database, security, simulation, performance, observability).
+  - 16 Least-Privilege Roles: Defined in RoleMatrix.js including CITIZEN, SHOP_OPERATOR, WAREHOUSE_MANAGER,
+    VALIDATOR_OPERATOR, AUDITOR, ADMIN, and SYSTEM_ADMIN.
+  - Object-Level Authorization (BOLA / IDOR Defense): AuthorizationService.js checks entity ownership
+    (e.g., Shop Operator A cannot distribute rations from Shop B).
+  - Tamper-Evident Audit Logging: SecurityAuditLogger.js records security events in database/security_audit.jsonl
+    with SHA-256 previousHash linking, HMAC authentication tags, and monotonic sequence numbers.
+
+5.7 PRODUCTION OBSERVABILITY, METRICS & TRACING
+  - Prometheus Registry: 140+ metrics registered in MetricsRegistry.js covering HTTP latency, database pool
+    usage, consensus round duration, P2P network traffic, and mempool depth.
+  - Structured JSON Logging: StructuredLogger.js outputs standardized JSON with level, timestamp, component,
+    traceId, and automatic secret redaction.
+  - Distributed Tracing: W3C compliant traceparent header parsing and injection (TraceId / SpanId) with
+    nested span hierarchy tracking DB queries, RPC calls, and consensus rounds.
+  - Health & Probes: HealthManager.js exposes Kubernetes-compatible /health/live, /health/ready, and
+    /health/observability probes.
+  - SLO Engine: SloEngine.js continuously evaluates availability and latency targets, triggering alerts.
+
+5.8 ATTACK AND FAILURE SIMULATION PLATFORM (PHASE 20)
+  - Safety Enclosure: SafetyGuard.js enforces that simulations never execute in production (NODE_ENV=production),
+    never target external networks, only operate in disposable tmp-sim-* sandboxes, and support emergency stop.
+  - Deterministic Control Plane: SimulationContext.js provides Mulberry32 PRNG seeding, ensuring 100%
+    reproducibility across runs.
+  - 29 Scenarios Across 8 Domains: Authentication (AUTH-*), Input Abuse (INPUT-*), Consensus/Byzantine (CONSENSUS-*),
+    Network Faults (NETWORK-*), Database/Storage (DATABASE-*), Resource Exhaustion (RESOURCE-*), Observability
+    Failures (OBSERVABILITY-*), and Disaster Recovery (RECOVERY-*).
+  - Real-Time Invariant Monitoring: InvariantMonitor.js validates ledger monotonicity, hash immutability,
+    parent continuity, atomic rollbacks, and zero secret leakage.
+
+5.9 PERFORMANCE & LOAD TESTING SUBSYSTEM (PHASE 21)
+  - High-Resolution Timing: MeasurementCollector.js uses process.hrtime.bigint() for microsecond accuracy.
+  - Linear Percentile Engine: Exact linear rank interpolation computing p50, p90, p95, p99, and p99.9 latencies.
+  - Token-Bucket Load Controller: LoadController.js governs arrival rates (RPS) and concurrency ceilings
+    across WARMUP -> STEADY_STATE -> COOLDOWN -> DRAINING -> COMPLETED phases.
+  - Automated Regression Engine: PerformanceReport.js compares benchmark runs against reference baselines,
+    flagging regressions when p95 latency degrades by >20% or throughput drops by >15%.
+  - 9 Domain Workloads: API-001, API-002, TX-001, TX-002, CONS-001, DB-001, DB-002, SYNC-001, and RES-001.
+
+5.10 MULTI-STAKEHOLDER FRONTEND & BLOCKCHAIN EXPLORER
+  - 35 HTML Portals: Modular user interfaces for Citizens, Fair Price Shops, Warehouses, Validators, and Admins.
+  - Explorer & Real-Time SSE: Live streaming of blocks and transactions without polling.
+  - Standalone In-Browser Merkle Verifier: Users can upload or paste Merkle proofs and verify inclusion
+    against block headers directly in client browser memory.
+
+================================================================================
+6. COMPLETE REPOSITORY FILE INVENTORY (ALL DIRECTORIES & FILES)
+================================================================================
+
+Below is the complete, exhaustive directory-by-directory inventory of every file in the project,
+including file size, line count, and functional architectural role.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ Root Files ] (6 files)
+--------------------------------------------------------------------------------
+
+FILE: .dockerignore
+  Size: 533 bytes | Lines: 43 lines
+  Role: Exclusion list preventing local cache, logs, and dependencies from being copied into container builds.
+
+FILE: .gitignore
+  Size: 58 bytes | Lines: 6 lines
+  Role: Git version control exclusion rules for environments, artifacts, keys, and SQLite database journals.
+
+FILE: docker-compose.network.yml
+  Size: 2,346 bytes | Lines: 114 lines
+  Role: 4-node multi-validator cluster orchestration (VAL-01 to VAL-04) with isolated networks and ports.
+
+FILE: docker-compose.yml
+  Size: 938 bytes | Lines: 42 lines
+  Role: Single-node local development container orchestration with volume persistence and health probes.
+
+FILE: Dockerfile
+  Size: 2,228 bytes | Lines: 73 lines
+  Role: Multi-stage production Docker image container definition for deployable PDSChain validator nodes.
+
+FILE: README.md
+  Size: 41,183 bytes | Lines: 660 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ .vscode ] (1 files)
+--------------------------------------------------------------------------------
+
+FILE: .vscode/settings.json
+  Size: 42 bytes | Lines: 3 lines
+  Role: Source implementation file.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend ] (27 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/.env.example
+  Size: 552 bytes | Lines: 22 lines
+  Role: Source implementation file.
+
+FILE: backend/.gitkeep
+  Size: 0 bytes | Lines: 1 lines
+  Role: Source implementation file.
+
+FILE: backend/database/backups/backup-VAL-01-H2-1789716232098/manifest.json
+  Size: 538 bytes | Lines: 20 lines
+  Role: Source implementation file.
+
+FILE: backend/database/backups/backup-VAL-01-H2-1789716232098/pdschain.sqlite
+  Size: 3,89,120 bytes | Lines: 103 lines
+  Role: Source implementation file.
+
+FILE: backend/database/backups/backup-VAL-01-H4-1789669688014/manifest.json
+  Size: 538 bytes | Lines: 20 lines
+  Role: Source implementation file.
+
+FILE: backend/database/backups/backup-VAL-01-H4-1789669688014/pdschain.sqlite
+  Size: 3,89,120 bytes | Lines: 104 lines
+  Role: Source implementation file.
+
+FILE: backend/database/backups/backup-VAL-01-H4-1789712155037/manifest.json
+  Size: 538 bytes | Lines: 20 lines
+  Role: Source implementation file.
+
+FILE: backend/database/backups/backup-VAL-01-H4-1789712155037/pdschain.sqlite
+  Size: 3,89,120 bytes | Lines: 140 lines
+  Role: Source implementation file.
+
+FILE: backend/database/backups/backup-VAL-01-H4-1789713751472/manifest.json
+  Size: 538 bytes | Lines: 20 lines
+  Role: Source implementation file.
+
+FILE: backend/database/backups/backup-VAL-01-H4-1789713751472/pdschain.sqlite
+  Size: 3,89,120 bytes | Lines: 94 lines
+  Role: Source implementation file.
+
+FILE: backend/database/backups/backup-VAL-01-H74457-1789669587948/manifest.json
+  Size: 548 bytes | Lines: 20 lines
+  Role: Source implementation file.
+
+FILE: backend/database/backups/backup-VAL-01-H74457-1789669587948/pdschain.sqlite
+  Size: 3,52,256 bytes | Lines: 144 lines
+  Role: Source implementation file.
+
+FILE: backend/database/backups/backup-VAL-01-H74457-1789669612172/manifest.json
+  Size: 548 bytes | Lines: 20 lines
+  Role: Source implementation file.
+
+FILE: backend/database/backups/backup-VAL-01-H74457-1789669612172/pdschain.sqlite
+  Size: 3,52,256 bytes | Lines: 144 lines
+  Role: Source implementation file.
+
+FILE: backend/database/backups/backup-VAL-01-H74457-1789669629178/manifest.json
+  Size: 548 bytes | Lines: 20 lines
+  Role: Source implementation file.
+
+FILE: backend/database/backups/backup-VAL-01-H74457-1789669629178/pdschain.sqlite
+  Size: 3,52,256 bytes | Lines: 144 lines
+  Role: Source implementation file.
+
+FILE: backend/database/backups/backup-VAL-01-H74457-1789669664657/manifest.json
+  Size: 548 bytes | Lines: 20 lines
+  Role: Source implementation file.
+
+FILE: backend/database/backups/backup-VAL-01-H74457-1789669664657/pdschain.sqlite
+  Size: 3,52,256 bytes | Lines: 144 lines
+  Role: Source implementation file.
+
+FILE: backend/database/consensus_journal.jsonl
+  Size: 44,29,679 bytes | Lines: 13,463 lines
+  Role: Source implementation file.
+
+FILE: backend/database/validators/VAL-01/checkpoint.json
+  Size: 870 bytes | Lines: 28 lines
+  Role: Source implementation file.
+
+FILE: backend/database/validators/VAL-01/checkpoints/checkpoint.json
+  Size: 870 bytes | Lines: 28 lines
+  Role: Source implementation file.
+
+FILE: backend/database/validators/VAL-02/checkpoint.json
+  Size: 870 bytes | Lines: 28 lines
+  Role: Source implementation file.
+
+FILE: backend/database/validators/VAL-02/checkpoints/checkpoint.json
+  Size: 870 bytes | Lines: 28 lines
+  Role: Source implementation file.
+
+FILE: backend/database/validators/VAL-03/checkpoints/checkpoint.json
+  Size: 870 bytes | Lines: 28 lines
+  Role: Source implementation file.
+
+FILE: backend/package-lock.json
+  Size: 2,77,461 bytes | Lines: 7,467 lines
+  Role: Source implementation file.
+
+FILE: backend/package.json
+  Size: 1,379 bytes | Lines: 50 lines
+  Role: Node.js project configuration, dependencies (@ethereumjs/vm, sequelize, ethers, express), scripts.
+
+FILE: backend/README.md
+  Size: 21,755 bytes | Lines: 362 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/api ] (7 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/api/ApiVersioning.js
+  Size: 2,763 bytes | Lines: 96 lines
+  Role: Source implementation file.
+
+FILE: backend/src/api/CursorPagination.js
+  Size: 1,610 bytes | Lines: 68 lines
+  Role: Source implementation file.
+
+FILE: backend/src/api/IdempotencyManager.js
+  Size: 2,264 bytes | Lines: 86 lines
+  Role: Source implementation file.
+
+FILE: backend/src/api/index.js
+  Size: 527 bytes | Lines: 21 lines
+  Role: Source implementation file.
+
+FILE: backend/src/api/RateLimiter.js
+  Size: 3,308 bytes | Lines: 112 lines
+  Role: Source implementation file.
+
+FILE: backend/src/api/RequestTracing.js
+  Size: 388 bytes | Lines: 15 lines
+  Role: Source implementation file.
+
+FILE: backend/src/api/ResponseEnvelope.js
+  Size: 2,395 bytes | Lines: 98 lines
+  Role: Source implementation file.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/app.js ] (1 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/app.js
+  Size: 4,812 bytes | Lines: 133 lines
+  Role: Express application factory: configures security headers, CORS, body parsers, and API routers.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/blockchain ] (32 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/blockchain/Block.js
+  Size: 7,346 bytes | Lines: 218 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/Blockchain.js
+  Size: 9,735 bytes | Lines: 288 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/hashing.js
+  Size: 3,172 bytes | Lines: 95 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/identity/Identity.js
+  Size: 2,144 bytes | Lines: 82 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/identity/IdentityProvisioner.js
+  Size: 7,357 bytes | Lines: 228 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/identity/index.js
+  Size: 194 bytes | Lines: 11 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/identity/keyManager.js
+  Size: 5,827 bytes | Lines: 173 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/identity/signature.js
+  Size: 14,198 bytes | Lines: 383 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/mempool/index.js
+  Size: 476 bytes | Lines: 23 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/mempool/Mempool.js
+  Size: 16,318 bytes | Lines: 500 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/mempool/MempoolEntry.js
+  Size: 3,365 bytes | Lines: 118 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/mempool/MempoolErrors.js
+  Size: 1,136 bytes | Lines: 46 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/mempool/MempoolPolicy.js
+  Size: 1,574 bytes | Lines: 44 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/merkle/index.js
+  Size: 986 bytes | Lines: 50 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/merkle/MerkleErrors.js
+  Size: 1,015 bytes | Lines: 44 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/merkle/MerkleProof.js
+  Size: 7,643 bytes | Lines: 211 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/merkle/MerkleTree.js
+  Size: 8,990 bytes | Lines: 281 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/merkle/ProofIndexer.js
+  Size: 10,182 bytes | Lines: 337 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/merkle/ProofMetrics.js
+  Size: 4,905 bytes | Lines: 152 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/merkle/standaloneVerifier.js
+  Size: 2,477 bytes | Lines: 82 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/merkle.js
+  Size: 191 bytes | Lines: 11 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/serialization.js
+  Size: 5,115 bytes | Lines: 147 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/state/index.js
+  Size: 618 bytes | Lines: 32 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/state/stateConsistency.js
+  Size: 2,721 bytes | Lines: 95 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/state/stateSerializer.js
+  Size: 6,278 bytes | Lines: 182 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/sync/CheckpointManager.js
+  Size: 7,354 bytes | Lines: 210 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/sync/LedgerCheckpoint.js
+  Size: 6,245 bytes | Lines: 163 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/sync/LedgerRecoveryManager.js
+  Size: 8,928 bytes | Lines: 205 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/sync/LedgerSyncState.js
+  Size: 9,372 bytes | Lines: 312 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/sync/SyncPlanner.js
+  Size: 6,887 bytes | Lines: 212 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/Transaction.js
+  Size: 10,644 bytes | Lines: 333 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+FILE: backend/src/blockchain/validation.js
+  Size: 5,265 bytes | Lines: 139 lines
+  Role: Core cryptographic blockchain ledger, block structures, mempool, binary Merkle tree, state roots.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/config ] (4 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/config/buildInfo.js
+  Size: 1,470 bytes | Lines: 53 lines
+  Role: Centralized environment configuration management (env.js) with sensible fallbacks and validation.
+
+FILE: backend/src/config/database.js
+  Size: 428 bytes | Lines: 15 lines
+  Role: Centralized environment configuration management (env.js) with sensible fallbacks and validation.
+
+FILE: backend/src/config/env.js
+  Size: 866 bytes | Lines: 21 lines
+  Role: Centralized environment configuration management (env.js) with sensible fallbacks and validation.
+
+FILE: backend/src/config/validatorConfig.js
+  Size: 12,428 bytes | Lines: 269 lines
+  Role: Centralized environment configuration management (env.js) with sensible fallbacks and validation.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/consensus ] (16 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/consensus/ConflictDetector.js
+  Size: 5,838 bytes | Lines: 163 lines
+  Role: Federated Byzantine Agreement (FBA) engine, quorum slices, voting protocols, certificates, finality.
+
+FILE: backend/src/consensus/ConsensusCertificate.js
+  Size: 9,459 bytes | Lines: 262 lines
+  Role: Federated Byzantine Agreement (FBA) engine, quorum slices, voting protocols, certificates, finality.
+
+FILE: backend/src/consensus/consensusConfig.js
+  Size: 5,266 bytes | Lines: 192 lines
+  Role: Federated Byzantine Agreement (FBA) engine, quorum slices, voting protocols, certificates, finality.
+
+FILE: backend/src/consensus/ConsensusJournal.js
+  Size: 5,839 bytes | Lines: 184 lines
+  Role: Federated Byzantine Agreement (FBA) engine, quorum slices, voting protocols, certificates, finality.
+
+FILE: backend/src/consensus/ConsensusRound.js
+  Size: 3,660 bytes | Lines: 114 lines
+  Role: Federated Byzantine Agreement (FBA) engine, quorum slices, voting protocols, certificates, finality.
+
+FILE: backend/src/consensus/ConsensusStateMachine.js
+  Size: 4,337 bytes | Lines: 136 lines
+  Role: Federated Byzantine Agreement (FBA) engine, quorum slices, voting protocols, certificates, finality.
+
+FILE: backend/src/consensus/FBAConsensus.js
+  Size: 18,248 bytes | Lines: 521 lines
+  Role: Federated Byzantine Agreement (FBA) engine, quorum slices, voting protocols, certificates, finality.
+
+FILE: backend/src/consensus/FinalityEngine.js
+  Size: 5,500 bytes | Lines: 151 lines
+  Role: Federated Byzantine Agreement (FBA) engine, quorum slices, voting protocols, certificates, finality.
+
+FILE: backend/src/consensus/Quorum.js
+  Size: 1,574 bytes | Lines: 60 lines
+  Role: Federated Byzantine Agreement (FBA) engine, quorum slices, voting protocols, certificates, finality.
+
+FILE: backend/src/consensus/QuorumEngine.js
+  Size: 10,471 bytes | Lines: 318 lines
+  Role: Federated Byzantine Agreement (FBA) engine, quorum slices, voting protocols, certificates, finality.
+
+FILE: backend/src/consensus/QuorumErrors.js
+  Size: 707 bytes | Lines: 30 lines
+  Role: Federated Byzantine Agreement (FBA) engine, quorum slices, voting protocols, certificates, finality.
+
+FILE: backend/src/consensus/QuorumResult.js
+  Size: 1,844 bytes | Lines: 44 lines
+  Role: Federated Byzantine Agreement (FBA) engine, quorum slices, voting protocols, certificates, finality.
+
+FILE: backend/src/consensus/QuorumSlice.js
+  Size: 986 bytes | Lines: 39 lines
+  Role: Federated Byzantine Agreement (FBA) engine, quorum slices, voting protocols, certificates, finality.
+
+FILE: backend/src/consensus/ValidatorNode.js
+  Size: 10,645 bytes | Lines: 304 lines
+  Role: Federated Byzantine Agreement (FBA) engine, quorum slices, voting protocols, certificates, finality.
+
+FILE: backend/src/consensus/ValidatorVote.js
+  Size: 3,363 bytes | Lines: 96 lines
+  Role: Federated Byzantine Agreement (FBA) engine, quorum slices, voting protocols, certificates, finality.
+
+FILE: backend/src/consensus/VoteStore.js
+  Size: 5,474 bytes | Lines: 158 lines
+  Role: Federated Byzantine Agreement (FBA) engine, quorum slices, voting protocols, certificates, finality.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/controllers ] (16 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/controllers/authController.js
+  Size: 942 bytes | Lines: 45 lines
+  Role: Express request controllers handling incoming HTTP requests, delegating to services, returning JSON.
+
+FILE: backend/src/controllers/beneficiaryController.js
+  Size: 4,335 bytes | Lines: 138 lines
+  Role: Express request controllers handling incoming HTTP requests, delegating to services, returning JSON.
+
+FILE: backend/src/controllers/blockchainController.js
+  Size: 6,731 bytes | Lines: 261 lines
+  Role: Express request controllers handling incoming HTTP requests, delegating to services, returning JSON.
+
+FILE: backend/src/controllers/consensusController.js
+  Size: 1,588 bytes | Lines: 70 lines
+  Role: Express request controllers handling incoming HTTP requests, delegating to services, returning JSON.
+
+FILE: backend/src/controllers/contractController.js
+  Size: 4,082 bytes | Lines: 158 lines
+  Role: Express request controllers handling incoming HTTP requests, delegating to services, returning JSON.
+
+FILE: backend/src/controllers/dashboardController.js
+  Size: 4,307 bytes | Lines: 130 lines
+  Role: Express request controllers handling incoming HTTP requests, delegating to services, returning JSON.
+
+FILE: backend/src/controllers/eventController.js
+  Size: 4,358 bytes | Lines: 172 lines
+  Role: Express request controllers handling incoming HTTP requests, delegating to services, returning JSON.
+
+FILE: backend/src/controllers/explorerController.js
+  Size: 13,366 bytes | Lines: 385 lines
+  Role: Express request controllers handling incoming HTTP requests, delegating to services, returning JSON.
+
+FILE: backend/src/controllers/inventoryController.js
+  Size: 1,590 bytes | Lines: 60 lines
+  Role: Express request controllers handling incoming HTTP requests, delegating to services, returning JSON.
+
+FILE: backend/src/controllers/ledgerController.js
+  Size: 3,340 bytes | Lines: 97 lines
+  Role: Express request controllers handling incoming HTTP requests, delegating to services, returning JSON.
+
+FILE: backend/src/controllers/networkController.js
+  Size: 3,812 bytes | Lines: 132 lines
+  Role: Express request controllers handling incoming HTTP requests, delegating to services, returning JSON.
+
+FILE: backend/src/controllers/proofController.js
+  Size: 7,329 bytes | Lines: 213 lines
+  Role: Express request controllers handling incoming HTTP requests, delegating to services, returning JSON.
+
+FILE: backend/src/controllers/shopController.js
+  Size: 3,333 bytes | Lines: 121 lines
+  Role: Express request controllers handling incoming HTTP requests, delegating to services, returning JSON.
+
+FILE: backend/src/controllers/transactionController.js
+  Size: 3,781 bytes | Lines: 128 lines
+  Role: Express request controllers handling incoming HTTP requests, delegating to services, returning JSON.
+
+FILE: backend/src/controllers/validatorController.js
+  Size: 1,165 bytes | Lines: 48 lines
+  Role: Express request controllers handling incoming HTTP requests, delegating to services, returning JSON.
+
+FILE: backend/src/controllers/warehouseController.js
+  Size: 3,933 bytes | Lines: 129 lines
+  Role: Express request controllers handling incoming HTTP requests, delegating to services, returning JSON.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/database ] (10 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/database/DatabaseBackupManager.js
+  Size: 8,293 bytes | Lines: 253 lines
+  Role: Enterprise database layer: connection pooling, journal storage, HA writer fencing, backups, migrations.
+
+FILE: backend/src/database/DatabaseHAManager.js
+  Size: 3,095 bytes | Lines: 114 lines
+  Role: Enterprise database layer: connection pooling, journal storage, HA writer fencing, backups, migrations.
+
+FILE: backend/src/database/DatabaseIntegrityManager.js
+  Size: 7,196 bytes | Lines: 191 lines
+  Role: Enterprise database layer: connection pooling, journal storage, HA writer fencing, backups, migrations.
+
+FILE: backend/src/database/DatabaseManager.js
+  Size: 4,995 bytes | Lines: 164 lines
+  Role: Enterprise database layer: connection pooling, journal storage, HA writer fencing, backups, migrations.
+
+FILE: backend/src/database/DatabaseMetrics.js
+  Size: 3,293 bytes | Lines: 109 lines
+  Role: Enterprise database layer: connection pooling, journal storage, HA writer fencing, backups, migrations.
+
+FILE: backend/src/database/DatabaseMigrationManager.js
+  Size: 6,165 bytes | Lines: 196 lines
+  Role: Enterprise database layer: connection pooling, journal storage, HA writer fencing, backups, migrations.
+
+FILE: backend/src/database/DatabasePool.js
+  Size: 4,007 bytes | Lines: 146 lines
+  Role: Enterprise database layer: connection pooling, journal storage, HA writer fencing, backups, migrations.
+
+FILE: backend/src/database/DatabaseTransactionManager.js
+  Size: 8,135 bytes | Lines: 196 lines
+  Role: Enterprise database layer: connection pooling, journal storage, HA writer fencing, backups, migrations.
+
+FILE: backend/src/database/index.js
+  Size: 1,239 bytes | Lines: 34 lines
+  Role: Enterprise database layer: connection pooling, journal storage, HA writer fencing, backups, migrations.
+
+FILE: backend/src/database/JournalStorageManager.js
+  Size: 5,293 bytes | Lines: 170 lines
+  Role: Enterprise database layer: connection pooling, journal storage, HA writer fencing, backups, migrations.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/docs ] (1 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/docs/openapi.json
+  Size: 5,622 bytes | Lines: 217 lines
+  Role: Source implementation file.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/events ] (7 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/events/BlockchainEvent.js
+  Size: 8,782 bytes | Lines: 254 lines
+  Role: Enterprise event bus, persistent event log, SSE real-time streaming, and filterable subscriptions.
+
+FILE: backend/src/events/EventBus.js
+  Size: 4,355 bytes | Lines: 174 lines
+  Role: Enterprise event bus, persistent event log, SSE real-time streaming, and filterable subscriptions.
+
+FILE: backend/src/events/EventMetrics.js
+  Size: 3,938 bytes | Lines: 120 lines
+  Role: Enterprise event bus, persistent event log, SSE real-time streaming, and filterable subscriptions.
+
+FILE: backend/src/events/EventStore.js
+  Size: 13,799 bytes | Lines: 412 lines
+  Role: Enterprise event bus, persistent event log, SSE real-time streaming, and filterable subscriptions.
+
+FILE: backend/src/events/EventStreamManager.js
+  Size: 9,136 bytes | Lines: 286 lines
+  Role: Enterprise event bus, persistent event log, SSE real-time streaming, and filterable subscriptions.
+
+FILE: backend/src/events/EventTypes.js
+  Size: 7,147 bytes | Lines: 199 lines
+  Role: Enterprise event bus, persistent event log, SSE real-time streaming, and filterable subscriptions.
+
+FILE: backend/src/events/index.js
+  Size: 1,024 bytes | Lines: 43 lines
+  Role: Enterprise event bus, persistent event log, SSE real-time streaming, and filterable subscriptions.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/evm ] (8 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/evm/ABIEncoder.js
+  Size: 5,075 bytes | Lines: 147 lines
+  Role: Ethereum Virtual Machine (@ethereumjs/vm) adapter, ABI encoding/decoding, gas policies, state bridges.
+
+FILE: backend/src/evm/ContractRegistry.js
+  Size: 3,627 bytes | Lines: 120 lines
+  Role: Ethereum Virtual Machine (@ethereumjs/vm) adapter, ABI encoding/decoding, gas policies, state bridges.
+
+FILE: backend/src/evm/EVMReceipt.js
+  Size: 2,686 bytes | Lines: 103 lines
+  Role: Ethereum Virtual Machine (@ethereumjs/vm) adapter, ABI encoding/decoding, gas policies, state bridges.
+
+FILE: backend/src/evm/EVMRuntime.js
+  Size: 15,342 bytes | Lines: 460 lines
+  Role: Ethereum Virtual Machine (@ethereumjs/vm) adapter, ABI encoding/decoding, gas policies, state bridges.
+
+FILE: backend/src/evm/EVMStateAdapter.js
+  Size: 2,721 bytes | Lines: 98 lines
+  Role: Ethereum Virtual Machine (@ethereumjs/vm) adapter, ABI encoding/decoding, gas policies, state bridges.
+
+FILE: backend/src/evm/ExecutionGasPolicy.js
+  Size: 1,980 bytes | Lines: 68 lines
+  Role: Ethereum Virtual Machine (@ethereumjs/vm) adapter, ABI encoding/decoding, gas policies, state bridges.
+
+FILE: backend/src/evm/identityBridge.js
+  Size: 3,862 bytes | Lines: 112 lines
+  Role: Ethereum Virtual Machine (@ethereumjs/vm) adapter, ABI encoding/decoding, gas policies, state bridges.
+
+FILE: backend/src/evm/index.js
+  Size: 664 bytes | Lines: 23 lines
+  Role: Ethereum Virtual Machine (@ethereumjs/vm) adapter, ABI encoding/decoding, gas policies, state bridges.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/execution ] (14 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/execution/errors/ExecutionErrors.js
+  Size: 1,467 bytes | Lines: 53 lines
+  Role: Hybrid execution engine: native state transitions and EVM smart contract invocation.
+
+FILE: backend/src/execution/ExecutionContext.js
+  Size: 4,061 bytes | Lines: 120 lines
+  Role: Hybrid execution engine: native state transitions and EVM smart contract invocation.
+
+FILE: backend/src/execution/ExecutionEngine.js
+  Size: 6,372 bytes | Lines: 168 lines
+  Role: Hybrid execution engine: native state transitions and EVM smart contract invocation.
+
+FILE: backend/src/execution/ExecutionReceipt.js
+  Size: 3,313 bytes | Lines: 127 lines
+  Role: Hybrid execution engine: native state transitions and EVM smart contract invocation.
+
+FILE: backend/src/execution/index.js
+  Size: 911 bytes | Lines: 42 lines
+  Role: Hybrid execution engine: native state transitions and EVM smart contract invocation.
+
+FILE: backend/src/execution/rules/AuthorizationRule.js
+  Size: 3,358 bytes | Lines: 86 lines
+  Role: Hybrid execution engine: native state transitions and EVM smart contract invocation.
+
+FILE: backend/src/execution/rules/BaseRule.js
+  Size: 1,006 bytes | Lines: 33 lines
+  Role: Hybrid execution engine: native state transitions and EVM smart contract invocation.
+
+FILE: backend/src/execution/rules/ContractCallRule.js
+  Size: 3,697 bytes | Lines: 121 lines
+  Role: Hybrid execution engine: native state transitions and EVM smart contract invocation.
+
+FILE: backend/src/execution/rules/DistributionRule.js
+  Size: 2,537 bytes | Lines: 86 lines
+  Role: Hybrid execution engine: native state transitions and EVM smart contract invocation.
+
+FILE: backend/src/execution/rules/EntitlementRule.js
+  Size: 3,986 bytes | Lines: 130 lines
+  Role: Hybrid execution engine: native state transitions and EVM smart contract invocation.
+
+FILE: backend/src/execution/rules/index.js
+  Size: 1,365 bytes | Lines: 48 lines
+  Role: Hybrid execution engine: native state transitions and EVM smart contract invocation.
+
+FILE: backend/src/execution/rules/InventoryRule.js
+  Size: 3,097 bytes | Lines: 107 lines
+  Role: Hybrid execution engine: native state transitions and EVM smart contract invocation.
+
+FILE: backend/src/execution/rules/WarehouseTransferRule.js
+  Size: 5,123 bytes | Lines: 148 lines
+  Role: Hybrid execution engine: native state transitions and EVM smart contract invocation.
+
+FILE: backend/src/execution/StateManager.js
+  Size: 11,256 bytes | Lines: 363 lines
+  Role: Hybrid execution engine: native state transitions and EVM smart contract invocation.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/middleware ] (3 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/middleware/authMiddleware.js
+  Size: 2,159 bytes | Lines: 82 lines
+  Role: Reusable Express middlewares for JWT authentication, role checks, rate limiting, and error handling.
+
+FILE: backend/src/middleware/errorMiddleware.js
+  Size: 2,693 bytes | Lines: 70 lines
+  Role: Reusable Express middlewares for JWT authentication, role checks, rate limiting, and error handling.
+
+FILE: backend/src/middleware/roleMiddleware.js
+  Size: 1,092 bytes | Lines: 30 lines
+  Role: Reusable Express middlewares for JWT authentication, role checks, rate limiting, and error handling.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/migrations ] (1 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/migrations/001_initial_schema.js
+  Size: 653 bytes | Lines: 26 lines
+  Role: Source implementation file.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/models ] (16 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/models/Beneficiary.js
+  Size: 1,449 bytes | Lines: 73 lines
+  Role: Sequelize ORM data models representing system entities (Users, Blocks, Transactions, Inventory, etc.).
+
+FILE: backend/src/models/Block.js
+  Size: 2,499 bytes | Lines: 121 lines
+  Role: Sequelize ORM data models representing system entities (Users, Blocks, Transactions, Inventory, etc.).
+
+FILE: backend/src/models/CheckpointRecord.js
+  Size: 1,449 bytes | Lines: 65 lines
+  Role: Sequelize ORM data models representing system entities (Users, Blocks, Transactions, Inventory, etc.).
+
+FILE: backend/src/models/Commodity.js
+  Size: 803 bytes | Lines: 41 lines
+  Role: Sequelize ORM data models representing system entities (Users, Blocks, Transactions, Inventory, etc.).
+
+FILE: backend/src/models/DatabaseAuditRecord.js
+  Size: 1,687 bytes | Lines: 80 lines
+  Role: Sequelize ORM data models representing system entities (Users, Blocks, Transactions, Inventory, etc.).
+
+FILE: backend/src/models/EventRecord.js
+  Size: 1,845 bytes | Lines: 85 lines
+  Role: Sequelize ORM data models representing system entities (Users, Blocks, Transactions, Inventory, etc.).
+
+FILE: backend/src/models/index.js
+  Size: 1,054 bytes | Lines: 40 lines
+  Role: Sequelize ORM data models representing system entities (Users, Blocks, Transactions, Inventory, etc.).
+
+FILE: backend/src/models/Inventory.js
+  Size: 1,199 bytes | Lines: 60 lines
+  Role: Sequelize ORM data models representing system entities (Users, Blocks, Transactions, Inventory, etc.).
+
+FILE: backend/src/models/Receipt.js
+  Size: 1,900 bytes | Lines: 88 lines
+  Role: Sequelize ORM data models representing system entities (Users, Blocks, Transactions, Inventory, etc.).
+
+FILE: backend/src/models/SchemaMigration.js
+  Size: 931 bytes | Lines: 48 lines
+  Role: Sequelize ORM data models representing system entities (Users, Blocks, Transactions, Inventory, etc.).
+
+FILE: backend/src/models/Shop.js
+  Size: 992 bytes | Lines: 50 lines
+  Role: Sequelize ORM data models representing system entities (Users, Blocks, Transactions, Inventory, etc.).
+
+FILE: backend/src/models/StockTransfer.js
+  Size: 1,038 bytes | Lines: 52 lines
+  Role: Sequelize ORM data models representing system entities (Users, Blocks, Transactions, Inventory, etc.).
+
+FILE: backend/src/models/Transaction.js
+  Size: 2,447 bytes | Lines: 103 lines
+  Role: Sequelize ORM data models representing system entities (Users, Blocks, Transactions, Inventory, etc.).
+
+FILE: backend/src/models/User.js
+  Size: 1,131 bytes | Lines: 56 lines
+  Role: Sequelize ORM data models representing system entities (Users, Blocks, Transactions, Inventory, etc.).
+
+FILE: backend/src/models/Validator.js
+  Size: 1,371 bytes | Lines: 68 lines
+  Role: Sequelize ORM data models representing system entities (Users, Blocks, Transactions, Inventory, etc.).
+
+FILE: backend/src/models/Warehouse.js
+  Size: 1,013 bytes | Lines: 51 lines
+  Role: Sequelize ORM data models representing system entities (Users, Blocks, Transactions, Inventory, etc.).
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/network ] (19 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/network/handlers/CertificateHandler.js
+  Size: 2,100 bytes | Lines: 61 lines
+  Role: Multi-process validator networking, P2P wire framing, handshakes, message routing, TLS/mTLS.
+
+FILE: backend/src/network/handlers/DiscoveryHandler.js
+  Size: 3,816 bytes | Lines: 119 lines
+  Role: Multi-process validator networking, P2P wire framing, handshakes, message routing, TLS/mTLS.
+
+FILE: backend/src/network/handlers/HandshakeHandler.js
+  Size: 9,452 bytes | Lines: 254 lines
+  Role: Multi-process validator networking, P2P wire framing, handshakes, message routing, TLS/mTLS.
+
+FILE: backend/src/network/handlers/HeartbeatHandler.js
+  Size: 1,331 bytes | Lines: 50 lines
+  Role: Multi-process validator networking, P2P wire framing, handshakes, message routing, TLS/mTLS.
+
+FILE: backend/src/network/handlers/ProposalHandler.js
+  Size: 1,693 bytes | Lines: 47 lines
+  Role: Multi-process validator networking, P2P wire framing, handshakes, message routing, TLS/mTLS.
+
+FILE: backend/src/network/handlers/RoundChangeHandler.js
+  Size: 1,667 bytes | Lines: 46 lines
+  Role: Multi-process validator networking, P2P wire framing, handshakes, message routing, TLS/mTLS.
+
+FILE: backend/src/network/handlers/SyncHandler.js
+  Size: 13,058 bytes | Lines: 336 lines
+  Role: Multi-process validator networking, P2P wire framing, handshakes, message routing, TLS/mTLS.
+
+FILE: backend/src/network/handlers/VoteHandler.js
+  Size: 2,245 bytes | Lines: 71 lines
+  Role: Multi-process validator networking, P2P wire framing, handshakes, message routing, TLS/mTLS.
+
+FILE: backend/src/network/index.js
+  Size: 1,718 bytes | Lines: 53 lines
+  Role: Multi-process validator networking, P2P wire framing, handshakes, message routing, TLS/mTLS.
+
+FILE: backend/src/network/MessageCodec.js
+  Size: 4,388 bytes | Lines: 148 lines
+  Role: Multi-process validator networking, P2P wire framing, handshakes, message routing, TLS/mTLS.
+
+FILE: backend/src/network/MessageEnvelope.js
+  Size: 4,429 bytes | Lines: 134 lines
+  Role: Multi-process validator networking, P2P wire framing, handshakes, message routing, TLS/mTLS.
+
+FILE: backend/src/network/MessageRouter.js
+  Size: 5,541 bytes | Lines: 161 lines
+  Role: Multi-process validator networking, P2P wire framing, handshakes, message routing, TLS/mTLS.
+
+FILE: backend/src/network/NetworkConfig.js
+  Size: 7,187 bytes | Lines: 178 lines
+  Role: Multi-process validator networking, P2P wire framing, handshakes, message routing, TLS/mTLS.
+
+FILE: backend/src/network/NetworkErrors.js
+  Size: 2,414 bytes | Lines: 77 lines
+  Role: Multi-process validator networking, P2P wire framing, handshakes, message routing, TLS/mTLS.
+
+FILE: backend/src/network/NetworkMetrics.js
+  Size: 11,135 bytes | Lines: 297 lines
+  Role: Multi-process validator networking, P2P wire framing, handshakes, message routing, TLS/mTLS.
+
+FILE: backend/src/network/PeerAuthenticator.js
+  Size: 5,591 bytes | Lines: 164 lines
+  Role: Multi-process validator networking, P2P wire framing, handshakes, message routing, TLS/mTLS.
+
+FILE: backend/src/network/PeerConnection.js
+  Size: 7,911 bytes | Lines: 251 lines
+  Role: Multi-process validator networking, P2P wire framing, handshakes, message routing, TLS/mTLS.
+
+FILE: backend/src/network/PeerManager.js
+  Size: 13,440 bytes | Lines: 421 lines
+  Role: Multi-process validator networking, P2P wire framing, handshakes, message routing, TLS/mTLS.
+
+FILE: backend/src/network/TLSTransport.js
+  Size: 8,978 bytes | Lines: 252 lines
+  Role: Multi-process validator networking, P2P wire framing, handshakes, message routing, TLS/mTLS.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/observability ] (13 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/observability/AlertManager.js
+  Size: 2,573 bytes | Lines: 102 lines
+  Role: Prometheus metrics registry (140+ metrics), structured JSON logging, distributed W3C tracing, SLOs.
+
+FILE: backend/src/observability/ApplicationMetrics.js
+  Size: 6,525 bytes | Lines: 208 lines
+  Role: Prometheus metrics registry (140+ metrics), structured JSON logging, distributed W3C tracing, SLOs.
+
+FILE: backend/src/observability/ConsensusMetrics.js
+  Size: 4,894 bytes | Lines: 163 lines
+  Role: Prometheus metrics registry (140+ metrics), structured JSON logging, distributed W3C tracing, SLOs.
+
+FILE: backend/src/observability/HealthManager.js
+  Size: 4,819 bytes | Lines: 191 lines
+  Role: Prometheus metrics registry (140+ metrics), structured JSON logging, distributed W3C tracing, SLOs.
+
+FILE: backend/src/observability/index.js
+  Size: 2,023 bytes | Lines: 61 lines
+  Role: Prometheus metrics registry (140+ metrics), structured JSON logging, distributed W3C tracing, SLOs.
+
+FILE: backend/src/observability/MetricsRegistry.js
+  Size: 8,753 bytes | Lines: 326 lines
+  Role: Prometheus metrics registry (140+ metrics), structured JSON logging, distributed W3C tracing, SLOs.
+
+FILE: backend/src/observability/ObservabilityConfig.js
+  Size: 2,456 bytes | Lines: 75 lines
+  Role: Prometheus metrics registry (140+ metrics), structured JSON logging, distributed W3C tracing, SLOs.
+
+FILE: backend/src/observability/RequestContext.js
+  Size: 5,558 bytes | Lines: 189 lines
+  Role: Prometheus metrics registry (140+ metrics), structured JSON logging, distributed W3C tracing, SLOs.
+
+FILE: backend/src/observability/RuntimeMetrics.js
+  Size: 3,788 bytes | Lines: 138 lines
+  Role: Prometheus metrics registry (140+ metrics), structured JSON logging, distributed W3C tracing, SLOs.
+
+FILE: backend/src/observability/SloEngine.js
+  Size: 3,242 bytes | Lines: 125 lines
+  Role: Prometheus metrics registry (140+ metrics), structured JSON logging, distributed W3C tracing, SLOs.
+
+FILE: backend/src/observability/Span.js
+  Size: 3,741 bytes | Lines: 135 lines
+  Role: Prometheus metrics registry (140+ metrics), structured JSON logging, distributed W3C tracing, SLOs.
+
+FILE: backend/src/observability/StructuredLogger.js
+  Size: 10,027 bytes | Lines: 287 lines
+  Role: Prometheus metrics registry (140+ metrics), structured JSON logging, distributed W3C tracing, SLOs.
+
+FILE: backend/src/observability/Tracer.js
+  Size: 4,718 bytes | Lines: 175 lines
+  Role: Prometheus metrics registry (140+ metrics), structured JSON logging, distributed W3C tracing, SLOs.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/pds ] (1 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/pds/index.js
+  Size: 393 bytes | Lines: 16 lines
+  Role: Source implementation file.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/performance ] (7 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/performance/index.js
+  Size: 1,131 bytes | Lines: 31 lines
+  Role: Performance and load testing engine: microsecond timers, linear percentiles, rate pacing, regression detection.
+
+FILE: backend/src/performance/LoadController.js
+  Size: 3,435 bytes | Lines: 113 lines
+  Role: Performance and load testing engine: microsecond timers, linear percentiles, rate pacing, regression detection.
+
+FILE: backend/src/performance/MeasurementCollector.js
+  Size: 7,060 bytes | Lines: 222 lines
+  Role: Performance and load testing engine: microsecond timers, linear percentiles, rate pacing, regression detection.
+
+FILE: backend/src/performance/PerformanceReport.js
+  Size: 4,088 bytes | Lines: 115 lines
+  Role: Performance and load testing engine: microsecond timers, linear percentiles, rate pacing, regression detection.
+
+FILE: backend/src/performance/PerformanceRunner.js
+  Size: 8,148 bytes | Lines: 260 lines
+  Role: Performance and load testing engine: microsecond timers, linear percentiles, rate pacing, regression detection.
+
+FILE: backend/src/performance/WorkloadContext.js
+  Size: 4,517 bytes | Lines: 157 lines
+  Role: Performance and load testing engine: microsecond timers, linear percentiles, rate pacing, regression detection.
+
+FILE: backend/src/performance/WorkloadRegistry.js
+  Size: 9,402 bytes | Lines: 286 lines
+  Role: Performance and load testing engine: microsecond timers, linear percentiles, rate pacing, regression detection.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/routes ] (32 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/routes/authRoutes.js
+  Size: 394 bytes | Lines: 12 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/beneficiaryRoutes.js
+  Size: 781 bytes | Lines: 16 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/blockchainRoutes.js
+  Size: 1,349 bytes | Lines: 29 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/consensusRoutes.js
+  Size: 953 bytes | Lines: 16 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/contractRoutes.js
+  Size: 757 bytes | Lines: 16 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/dashboardRoutes.js
+  Size: 925 bytes | Lines: 15 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/eventRoutes.js
+  Size: 1,051 bytes | Lines: 32 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/index.js
+  Size: 4,599 bytes | Lines: 135 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/ledgerRoutes.js
+  Size: 276 bytes | Lines: 10 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/networkRoutes.js
+  Size: 441 bytes | Lines: 13 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/shopRoutes.js
+  Size: 1,345 bytes | Lines: 26 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/transactionRoutes.js
+  Size: 876 bytes | Lines: 17 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/v1/blockchainRoutes.js
+  Size: 2,874 bytes | Lines: 87 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/v1/consensusRoutes.js
+  Size: 1,927 bytes | Lines: 66 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/v1/contractRoutes.js
+  Size: 3,139 bytes | Lines: 109 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/v1/databaseRoutes.js
+  Size: 5,387 bytes | Lines: 168 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/v1/docsRoutes.js
+  Size: 850 bytes | Lines: 36 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/v1/eventRoutes.js
+  Size: 1,570 bytes | Lines: 47 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/v1/explorerRoutes.js
+  Size: 772 bytes | Lines: 23 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/v1/healthRoutes.js
+  Size: 998 bytes | Lines: 35 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/v1/index.js
+  Size: 1,913 bytes | Lines: 50 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/v1/ledgerRoutes.js
+  Size: 1,665 bytes | Lines: 55 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/v1/networkRoutes.js
+  Size: 1,936 bytes | Lines: 68 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/v1/observabilityRoutes.js
+  Size: 2,905 bytes | Lines: 100 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/v1/performanceRoutes.js
+  Size: 6,025 bytes | Lines: 205 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/v1/proofRoutes.js
+  Size: 848 bytes | Lines: 26 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/v1/registryRoutes.js
+  Size: 3,294 bytes | Lines: 113 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/v1/securityRoutes.js
+  Size: 6,699 bytes | Lines: 165 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/v1/simulationRoutes.js
+  Size: 5,677 bytes | Lines: 203 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/v1/transactionRoutes.js
+  Size: 2,720 bytes | Lines: 80 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/validatorRoutes.js
+  Size: 837 bytes | Lines: 16 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+FILE: backend/src/routes/warehouseRoutes.js
+  Size: 886 bytes | Lines: 19 lines
+  Role: REST API routing layer with dual-version support (legacy endpoints and hardened /api/v1/* routes).
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/rpc ] (15 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/rpc/index.js
+  Size: 492 bytes | Lines: 21 lines
+  Role: JSON-RPC 2.0 gateway supporting batching, standard error codes, and blockchain/proof methods.
+
+FILE: backend/src/rpc/JsonRpcEngine.js
+  Size: 7,452 bytes | Lines: 222 lines
+  Role: JSON-RPC 2.0 gateway supporting batching, standard error codes, and blockchain/proof methods.
+
+FILE: backend/src/rpc/JsonRpcErrors.js
+  Size: 2,563 bytes | Lines: 72 lines
+  Role: JSON-RPC 2.0 gateway supporting batching, standard error codes, and blockchain/proof methods.
+
+FILE: backend/src/rpc/methods/blockchainMethods.js
+  Size: 3,729 bytes | Lines: 127 lines
+  Role: JSON-RPC 2.0 gateway supporting batching, standard error codes, and blockchain/proof methods.
+
+FILE: backend/src/rpc/methods/consensusMethods.js
+  Size: 1,959 bytes | Lines: 68 lines
+  Role: JSON-RPC 2.0 gateway supporting batching, standard error codes, and blockchain/proof methods.
+
+FILE: backend/src/rpc/methods/contractMethods.js
+  Size: 3,926 bytes | Lines: 127 lines
+  Role: JSON-RPC 2.0 gateway supporting batching, standard error codes, and blockchain/proof methods.
+
+FILE: backend/src/rpc/methods/eventMethods.js
+  Size: 1,170 bytes | Lines: 51 lines
+  Role: JSON-RPC 2.0 gateway supporting batching, standard error codes, and blockchain/proof methods.
+
+FILE: backend/src/rpc/methods/index.js
+  Size: 865 bytes | Lines: 30 lines
+  Role: JSON-RPC 2.0 gateway supporting batching, standard error codes, and blockchain/proof methods.
+
+FILE: backend/src/rpc/methods/networkMethods.js
+  Size: 1,781 bytes | Lines: 71 lines
+  Role: JSON-RPC 2.0 gateway supporting batching, standard error codes, and blockchain/proof methods.
+
+FILE: backend/src/rpc/methods/nodeMethods.js
+  Size: 1,626 bytes | Lines: 61 lines
+  Role: JSON-RPC 2.0 gateway supporting batching, standard error codes, and blockchain/proof methods.
+
+FILE: backend/src/rpc/methods/proofMethods.js
+  Size: 5,107 bytes | Lines: 156 lines
+  Role: JSON-RPC 2.0 gateway supporting batching, standard error codes, and blockchain/proof methods.
+
+FILE: backend/src/rpc/methods/securityMethods.js
+  Size: 1,560 bytes | Lines: 43 lines
+  Role: JSON-RPC 2.0 gateway supporting batching, standard error codes, and blockchain/proof methods.
+
+FILE: backend/src/rpc/methods/syncMethods.js
+  Size: 1,194 bytes | Lines: 45 lines
+  Role: JSON-RPC 2.0 gateway supporting batching, standard error codes, and blockchain/proof methods.
+
+FILE: backend/src/rpc/methods/transactionMethods.js
+  Size: 5,019 bytes | Lines: 172 lines
+  Role: JSON-RPC 2.0 gateway supporting batching, standard error codes, and blockchain/proof methods.
+
+FILE: backend/src/rpc/rpcMiddleware.js
+  Size: 2,829 bytes | Lines: 92 lines
+  Role: JSON-RPC 2.0 gateway supporting batching, standard error codes, and blockchain/proof methods.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/scripts ] (1 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/scripts/provisionIdentity.js
+  Size: 2,176 bytes | Lines: 77 lines
+  Role: Source implementation file.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/security ] (14 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/security/CertificateManager.js
+  Size: 11,148 bytes | Lines: 332 lines
+  Role: Default-deny RBAC, 40+ granular permissions, 16 least-privilege roles, IDOR defense, HMAC audit log.
+
+FILE: backend/src/security/index.js
+  Size: 600 bytes | Lines: 22 lines
+  Role: Default-deny RBAC, 40+ granular permissions, 16 least-privilege roles, IDOR defense, HMAC audit log.
+
+FILE: backend/src/security/inputValidation.js
+  Size: 3,279 bytes | Lines: 117 lines
+  Role: Default-deny RBAC, 40+ granular permissions, 16 least-privilege roles, IDOR defense, HMAC audit log.
+
+FILE: backend/src/security/KeyRotationManager.js
+  Size: 8,693 bytes | Lines: 270 lines
+  Role: Default-deny RBAC, 40+ granular permissions, 16 least-privilege roles, IDOR defense, HMAC audit log.
+
+FILE: backend/src/security/KeyStore.js
+  Size: 11,878 bytes | Lines: 403 lines
+  Role: Default-deny RBAC, 40+ granular permissions, 16 least-privilege roles, IDOR defense, HMAC audit log.
+
+FILE: backend/src/security/PeerAuthorizationRegistry.js
+  Size: 8,067 bytes | Lines: 251 lines
+  Role: Default-deny RBAC, 40+ granular permissions, 16 least-privilege roles, IDOR defense, HMAC audit log.
+
+FILE: backend/src/security/permissions/AdminWorkflowManager.js
+  Size: 22,551 bytes | Lines: 698 lines
+  Role: Default-deny RBAC, 40+ granular permissions, 16 least-privilege roles, IDOR defense, HMAC audit log.
+
+FILE: backend/src/security/permissions/AuthorizationService.js
+  Size: 12,137 bytes | Lines: 328 lines
+  Role: Default-deny RBAC, 40+ granular permissions, 16 least-privilege roles, IDOR defense, HMAC audit log.
+
+FILE: backend/src/security/permissions/index.js
+  Size: 1,042 bytes | Lines: 31 lines
+  Role: Default-deny RBAC, 40+ granular permissions, 16 least-privilege roles, IDOR defense, HMAC audit log.
+
+FILE: backend/src/security/permissions/permissionMiddleware.js
+  Size: 3,144 bytes | Lines: 83 lines
+  Role: Default-deny RBAC, 40+ granular permissions, 16 least-privilege roles, IDOR defense, HMAC audit log.
+
+FILE: backend/src/security/permissions/PermissionRegistry.js
+  Size: 31,904 bytes | Lines: 1,157 lines
+  Role: Default-deny RBAC, 40+ granular permissions, 16 least-privilege roles, IDOR defense, HMAC audit log.
+
+FILE: backend/src/security/permissions/RoleMatrix.js
+  Size: 8,078 bytes | Lines: 278 lines
+  Role: Default-deny RBAC, 40+ granular permissions, 16 least-privilege roles, IDOR defense, HMAC audit log.
+
+FILE: backend/src/security/permissions/SecurityAuditLogger.js
+  Size: 8,466 bytes | Lines: 307 lines
+  Role: Default-deny RBAC, 40+ granular permissions, 16 least-privilege roles, IDOR defense, HMAC audit log.
+
+FILE: backend/src/security/permissions/SecurityMetrics.js
+  Size: 5,602 bytes | Lines: 151 lines
+  Role: Default-deny RBAC, 40+ granular permissions, 16 least-privilege roles, IDOR defense, HMAC audit log.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/seed ] (2 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/seed/seedData.js
+  Size: 12,533 bytes | Lines: 245 lines
+  Role: Deterministic database seeder populating initial beneficiaries, shops, warehouses, inventory, and validators.
+
+FILE: backend/src/seed/seedDatabase.js
+  Size: 9,435 bytes | Lines: 276 lines
+  Role: Deterministic database seeder populating initial beneficiaries, shops, warehouses, inventory, and validators.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/server.js ] (1 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/server.js
+  Size: 2,348 bytes | Lines: 64 lines
+  Role: HTTP server bootstrap: binds application port (default 3000), initializes database and services.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/services ] (7 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/services/authService.js
+  Size: 2,614 bytes | Lines: 97 lines
+  Role: Business logic services orchestrating transactions, inventory updates, consensus, and block generation.
+
+FILE: backend/src/services/blockchainService.js
+  Size: 5,208 bytes | Lines: 163 lines
+  Role: Business logic services orchestrating transactions, inventory updates, consensus, and block generation.
+
+FILE: backend/src/services/consensusService.js
+  Size: 1,521 bytes | Lines: 63 lines
+  Role: Business logic services orchestrating transactions, inventory updates, consensus, and block generation.
+
+FILE: backend/src/services/entitlementService.js
+  Size: 2,264 bytes | Lines: 62 lines
+  Role: Business logic services orchestrating transactions, inventory updates, consensus, and block generation.
+
+FILE: backend/src/services/inventoryService.js
+  Size: 4,380 bytes | Lines: 145 lines
+  Role: Business logic services orchestrating transactions, inventory updates, consensus, and block generation.
+
+FILE: backend/src/services/transactionService.js
+  Size: 23,093 bytes | Lines: 610 lines
+  Role: Business logic services orchestrating transactions, inventory updates, consensus, and block generation.
+
+FILE: backend/src/services/validatorService.js
+  Size: 1,324 bytes | Lines: 49 lines
+  Role: Business logic services orchestrating transactions, inventory updates, consensus, and block generation.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/simulation ] (14 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/simulation/index.js
+  Size: 1,105 bytes | Lines: 31 lines
+  Role: Attack and failure simulation platform with anti-production SafetyGuard, PRNG seeds, and invariants.
+
+FILE: backend/src/simulation/InvariantMonitor.js
+  Size: 7,780 bytes | Lines: 217 lines
+  Role: Attack and failure simulation platform with anti-production SafetyGuard, PRNG seeds, and invariants.
+
+FILE: backend/src/simulation/SafetyGuard.js
+  Size: 9,693 bytes | Lines: 300 lines
+  Role: Attack and failure simulation platform with anti-production SafetyGuard, PRNG seeds, and invariants.
+
+FILE: backend/src/simulation/ScenarioRegistry.js
+  Size: 3,482 bytes | Lines: 128 lines
+  Role: Attack and failure simulation platform with anti-production SafetyGuard, PRNG seeds, and invariants.
+
+FILE: backend/src/simulation/scenarios/authScenarios.js
+  Size: 8,232 bytes | Lines: 245 lines
+  Role: Attack and failure simulation platform with anti-production SafetyGuard, PRNG seeds, and invariants.
+
+FILE: backend/src/simulation/scenarios/consensusScenarios.js
+  Size: 8,174 bytes | Lines: 240 lines
+  Role: Attack and failure simulation platform with anti-production SafetyGuard, PRNG seeds, and invariants.
+
+FILE: backend/src/simulation/scenarios/databaseScenarios.js
+  Size: 7,464 bytes | Lines: 232 lines
+  Role: Attack and failure simulation platform with anti-production SafetyGuard, PRNG seeds, and invariants.
+
+FILE: backend/src/simulation/scenarios/inputScenarios.js
+  Size: 7,573 bytes | Lines: 222 lines
+  Role: Attack and failure simulation platform with anti-production SafetyGuard, PRNG seeds, and invariants.
+
+FILE: backend/src/simulation/scenarios/networkScenarios.js
+  Size: 5,115 bytes | Lines: 150 lines
+  Role: Attack and failure simulation platform with anti-production SafetyGuard, PRNG seeds, and invariants.
+
+FILE: backend/src/simulation/scenarios/observabilityScenarios.js
+  Size: 5,540 bytes | Lines: 172 lines
+  Role: Attack and failure simulation platform with anti-production SafetyGuard, PRNG seeds, and invariants.
+
+FILE: backend/src/simulation/scenarios/recoveryScenarios.js
+  Size: 6,240 bytes | Lines: 182 lines
+  Role: Attack and failure simulation platform with anti-production SafetyGuard, PRNG seeds, and invariants.
+
+FILE: backend/src/simulation/scenarios/resourceScenarios.js
+  Size: 4,768 bytes | Lines: 158 lines
+  Role: Attack and failure simulation platform with anti-production SafetyGuard, PRNG seeds, and invariants.
+
+FILE: backend/src/simulation/SimulationContext.js
+  Size: 10,555 bytes | Lines: 372 lines
+  Role: Attack and failure simulation platform with anti-production SafetyGuard, PRNG seeds, and invariants.
+
+FILE: backend/src/simulation/SimulationRunner.js
+  Size: 6,718 bytes | Lines: 227 lines
+  Role: Attack and failure simulation platform with anti-production SafetyGuard, PRNG seeds, and invariants.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/storage ] (2 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/storage/BackupManager.js
+  Size: 7,976 bytes | Lines: 241 lines
+  Role: Source implementation file.
+
+FILE: backend/src/storage/StorageLayout.js
+  Size: 4,904 bytes | Lines: 167 lines
+  Role: Source implementation file.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/utils ] (4 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/utils/errors.js
+  Size: 1,141 bytes | Lines: 52 lines
+  Role: Cross-cutting utility libraries for logging, custom errors, ID generation, and version negotiation.
+
+FILE: backend/src/utils/ids.js
+  Size: 684 bytes | Lines: 25 lines
+  Role: Cross-cutting utility libraries for logging, custom errors, ID generation, and version negotiation.
+
+FILE: backend/src/utils/logger.js
+  Size: 1,134 bytes | Lines: 30 lines
+  Role: Cross-cutting utility libraries for logging, custom errors, ID generation, and version negotiation.
+
+FILE: backend/src/utils/versionNegotiator.js
+  Size: 2,155 bytes | Lines: 70 lines
+  Role: Cross-cutting utility libraries for logging, custom errors, ID generation, and version negotiation.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/src/validators ] (5 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/src/validators/processManager.js
+  Size: 12,232 bytes | Lines: 364 lines
+  Role: Validator process management: single-process multi-tenant and multi-process child process launchers.
+
+FILE: backend/src/validators/schemas.js
+  Size: 2,363 bytes | Lines: 75 lines
+  Role: Validator process management: single-process multi-tenant and multi-process child process launchers.
+
+FILE: backend/src/validators/startValidators.js
+  Size: 1,330 bytes | Lines: 47 lines
+  Role: Validator process management: single-process multi-tenant and multi-process child process launchers.
+
+FILE: backend/src/validators/validatorProcess.js
+  Size: 32,082 bytes | Lines: 885 lines
+  Role: Validator process management: single-process multi-tenant and multi-process child process launchers.
+
+FILE: backend/src/validators/validatorServer.js
+  Size: 4,798 bytes | Lines: 163 lines
+  Role: Validator process management: single-process multi-tenant and multi-process child process launchers.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ backend/tests ] (146 files)
+--------------------------------------------------------------------------------
+
+FILE: backend/tests/api-adversarial-security.test.js
+  Size: 3,032 bytes | Lines: 94 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/api-contract-envelope.test.js
+  Size: 2,968 bytes | Lines: 70 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/api-pagination-finality.test.js
+  Size: 3,306 bytes | Lines: 81 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/api-rate-limit-idempotency.test.js
+  Size: 4,280 bytes | Lines: 126 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/api-versioning-compat.test.js
+  Size: 2,810 bytes | Lines: 72 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/api.test.js
+  Size: 6,517 bytes | Lines: 162 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/auth.test.js
+  Size: 6,580 bytes | Lines: 191 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/blockchain.test.js
+  Size: 2,472 bytes | Lines: 65 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/consensus-adversarial.test.js
+  Size: 26,814 bytes | Lines: 660 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/consensus-signatures.test.js
+  Size: 39,805 bytes | Lines: 1,096 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/consensus-simulation.test.js
+  Size: 13,245 bytes | Lines: 321 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/consensus.test.js
+  Size: 3,279 bytes | Lines: 94 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/contracts-adversarial.test.js
+  Size: 10,451 bytes | Lines: 278 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/contracts-integration.test.js
+  Size: 10,789 bytes | Lines: 279 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/cryptography.test.js
+  Size: 16,193 bytes | Lines: 418 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/database-backup-restore.test.js
+  Size: 5,311 bytes | Lines: 160 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/database-baseline-audit.test.js
+  Size: 2,558 bytes | Lines: 66 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/database-ha-failover.test.js
+  Size: 2,542 bytes | Lines: 74 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/database-immutability-integrity.test.js
+  Size: 6,522 bytes | Lines: 159 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/database-journals-integration.test.js
+  Size: 4,873 bytes | Lines: 147 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/database-migrations.test.js
+  Size: 4,188 bytes | Lines: 128 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/database-pooling-concurrency.test.js
+  Size: 3,298 bytes | Lines: 101 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/database-routes-security.test.js
+  Size: 5,486 bytes | Lines: 151 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/database-transaction-boundaries.test.js
+  Size: 5,438 bytes | Lines: 158 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/deploy-config.test.js
+  Size: 5,336 bytes | Lines: 145 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/deploy-identity.test.js
+  Size: 5,882 bytes | Lines: 135 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/deploy-lifecycle-health.test.js
+  Size: 4,786 bytes | Lines: 137 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/deploy-multivalidator.test.js
+  Size: 4,051 bytes | Lines: 121 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/deploy-network-topology.test.js
+  Size: 3,696 bytes | Lines: 100 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/deploy-storage-backup.test.js
+  Size: 6,141 bytes | Lines: 153 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/deploy-upgrade-compat.test.js
+  Size: 3,152 bytes | Lines: 79 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/events-adversarial-security.test.js
+  Size: 3,692 bytes | Lines: 128 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/events-api-query.test.js
+  Size: 5,282 bytes | Lines: 143 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/events-blockchain.test.js
+  Size: 5,297 bytes | Lines: 175 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/events-bus-streaming.test.js
+  Size: 6,080 bytes | Lines: 206 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/events-consensus-network.test.js
+  Size: 4,718 bytes | Lines: 139 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/events-contract.test.js
+  Size: 5,519 bytes | Lines: 159 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/events-persistence-replay.test.js
+  Size: 4,266 bytes | Lines: 149 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/events-schema.test.js
+  Size: 5,894 bytes | Lines: 173 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/evm-runtime.test.js
+  Size: 8,663 bytes | Lines: 246 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/execution-rules.test.js
+  Size: 39,700 bytes | Lines: 973 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/execution.test.js
+  Size: 5,784 bytes | Lines: 147 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/explorer-contract-call.test.js
+  Size: 2,942 bytes | Lines: 88 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/explorer-finality-envelope.test.js
+  Size: 2,566 bytes | Lines: 68 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/explorer-realtime-sse.test.js
+  Size: 3,289 bytes | Lines: 105 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/explorer-routes-api.test.js
+  Size: 3,827 bytes | Lines: 94 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/explorer-search-classification.test.js
+  Size: 3,126 bytes | Lines: 80 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/explorer-secret-redaction.test.js
+  Size: 2,748 bytes | Lines: 83 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/explorer-security-xss.test.js
+  Size: 2,953 bytes | Lines: 74 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/explorer-validator-consensus.test.js
+  Size: 2,746 bytes | Lines: 67 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/fixtures/tls/alien-ca.crt
+  Size: 1,139 bytes | Lines: 20 lines
+  Role: Source implementation file.
+
+FILE: backend/tests/fixtures/tls/alien-ca.key
+  Size: 1,704 bytes | Lines: 29 lines
+  Role: Source implementation file.
+
+FILE: backend/tests/fixtures/tls/alien-ca.srl
+  Size: 41 bytes | Lines: 2 lines
+  Role: Source implementation file.
+
+FILE: backend/tests/fixtures/tls/alien-val.crt
+  Size: 1,127 bytes | Lines: 20 lines
+  Role: Source implementation file.
+
+FILE: backend/tests/fixtures/tls/alien-val.key
+  Size: 1,704 bytes | Lines: 29 lines
+  Role: Source implementation file.
+
+FILE: backend/tests/fixtures/tls/ca.crt
+  Size: 1,212 bytes | Lines: 21 lines
+  Role: Source implementation file.
+
+FILE: backend/tests/fixtures/tls/ca.key
+  Size: 1,708 bytes | Lines: 29 lines
+  Role: Source implementation file.
+
+FILE: backend/tests/fixtures/tls/ca.srl
+  Size: 41 bytes | Lines: 2 lines
+  Role: Source implementation file.
+
+FILE: backend/tests/fixtures/tls/expired.crt
+  Size: 1,314 bytes | Lines: 23 lines
+  Role: Source implementation file.
+
+FILE: backend/tests/fixtures/tls/expired.key
+  Size: 1,704 bytes | Lines: 29 lines
+  Role: Source implementation file.
+
+FILE: backend/tests/fixtures/tls/generateFixtures.js
+  Size: 3,878 bytes | Lines: 84 lines
+  Role: Source implementation file.
+
+FILE: backend/tests/fixtures/tls/val-01.crt
+  Size: 1,326 bytes | Lines: 23 lines
+  Role: Source implementation file.
+
+FILE: backend/tests/fixtures/tls/val-01.key
+  Size: 1,704 bytes | Lines: 29 lines
+  Role: Source implementation file.
+
+FILE: backend/tests/fixtures/tls/val-02.crt
+  Size: 1,326 bytes | Lines: 23 lines
+  Role: Source implementation file.
+
+FILE: backend/tests/fixtures/tls/val-02.key
+  Size: 1,704 bytes | Lines: 29 lines
+  Role: Source implementation file.
+
+FILE: backend/tests/fixtures/tls/val-03.crt
+  Size: 1,326 bytes | Lines: 23 lines
+  Role: Source implementation file.
+
+FILE: backend/tests/fixtures/tls/val-03.key
+  Size: 1,704 bytes | Lines: 29 lines
+  Role: Source implementation file.
+
+FILE: backend/tests/fixtures/tls/wrong-san.crt
+  Size: 1,277 bytes | Lines: 22 lines
+  Role: Source implementation file.
+
+FILE: backend/tests/fixtures/tls/wrong-san.key
+  Size: 1,700 bytes | Lines: 29 lines
+  Role: Source implementation file.
+
+FILE: backend/tests/ledger-api.test.js
+  Size: 1,611 bytes | Lines: 44 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/mempool.test.js
+  Size: 28,758 bytes | Lines: 740 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/merkle-api-routes.test.js
+  Size: 6,405 bytes | Lines: 178 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/merkle-core-tree.test.js
+  Size: 9,293 bytes | Lines: 267 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/merkle-explorer-frontend.test.js
+  Size: 3,805 bytes | Lines: 91 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/merkle-indexer-sync-recovery.test.js
+  Size: 3,980 bytes | Lines: 115 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/merkle-proof-generation.test.js
+  Size: 5,924 bytes | Lines: 170 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/merkle-proof-verification.test.js
+  Size: 4,187 bytes | Lines: 120 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/merkle-rpc-methods.test.js
+  Size: 5,865 bytes | Lines: 210 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/merkle-security-adversarial.test.js
+  Size: 5,104 bytes | Lines: 162 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/network-adversarial.test.js
+  Size: 20,798 bytes | Lines: 580 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/network-api.test.js
+  Size: 2,860 bytes | Lines: 81 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/network-benchmark.test.js
+  Size: 2,769 bytes | Lines: 83 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/network-consensus.test.js
+  Size: 11,174 bytes | Lines: 338 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/network-multiprocess.test.js
+  Size: 3,995 bytes | Lines: 126 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/network-transport.test.js
+  Size: 6,648 bytes | Lines: 215 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/network-unit.test.js
+  Size: 7,513 bytes | Lines: 207 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/observability-application-metrics.test.js
+  Size: 4,003 bytes | Lines: 96 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/observability-consensus-runtime-metrics.test.js
+  Size: 3,866 bytes | Lines: 97 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/observability-health-probes.test.js
+  Size: 2,866 bytes | Lines: 75 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/observability-logger-redaction.test.js
+  Size: 4,942 bytes | Lines: 128 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/observability-metrics-registry.test.js
+  Size: 4,193 bytes | Lines: 104 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/observability-request-context.test.js
+  Size: 3,836 bytes | Lines: 96 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/observability-routes-api.test.js
+  Size: 5,499 bytes | Lines: 149 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/observability-slos-alerts.test.js
+  Size: 3,536 bytes | Lines: 94 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/observability-tracing.test.js
+  Size: 3,481 bytes | Lines: 89 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/performance-api-rpc.test.js
+  Size: 2,250 bytes | Lines: 67 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/performance-consensus-finality.test.js
+  Size: 1,443 bytes | Lines: 45 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/performance-control-plane.test.js
+  Size: 10,259 bytes | Lines: 295 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/performance-database-storage.test.js
+  Size: 2,035 bytes | Lines: 62 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/performance-resource-saturation.test.js
+  Size: 1,776 bytes | Lines: 51 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/performance-routes-api.test.js
+  Size: 7,264 bytes | Lines: 213 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/performance-safety-guard.test.js
+  Size: 2,753 bytes | Lines: 87 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/performance-slos-regression.test.js
+  Size: 4,839 bytes | Lines: 154 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/performance-synchronization-peer.test.js
+  Size: 1,405 bytes | Lines: 43 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/performance-transaction-mempool.test.js
+  Size: 2,248 bytes | Lines: 64 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/performance-workload-registry.test.js
+  Size: 3,773 bytes | Lines: 108 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/quorum.test.js
+  Size: 9,277 bytes | Lines: 214 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/rpc-methods-blockchain.test.js
+  Size: 3,468 bytes | Lines: 93 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/rpc-methods-contract-consensus.test.js
+  Size: 3,578 bytes | Lines: 105 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/rpc-protocol-batch.test.js
+  Size: 3,556 bytes | Lines: 116 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/security-admin-workflows.test.js
+  Size: 4,795 bytes | Lines: 117 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/security-adversarial-invariants.test.js
+  Size: 3,408 bytes | Lines: 100 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/security-audit-logging.test.js
+  Size: 4,918 bytes | Lines: 135 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/security-input-injection.test.js
+  Size: 2,997 bytes | Lines: 82 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/security-permissions-rbac.test.js
+  Size: 6,286 bytes | Lines: 169 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/security-routes-authorization.test.js
+  Size: 5,256 bytes | Lines: 139 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/security-rpc-authorization.test.js
+  Size: 3,975 bytes | Lines: 122 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/security-scope-ownership.test.js
+  Size: 4,659 bytes | Lines: 130 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/security-sse-authorization.test.js
+  Size: 3,829 bytes | Lines: 136 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/simulation-auth-attacks.test.js
+  Size: 2,293 bytes | Lines: 56 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/simulation-consensus-byzantine.test.js
+  Size: 2,107 bytes | Lines: 49 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/simulation-control-plane.test.js
+  Size: 6,685 bytes | Lines: 199 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/simulation-database-faults.test.js
+  Size: 1,973 bytes | Lines: 48 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/simulation-disaster-recovery.test.js
+  Size: 1,799 bytes | Lines: 42 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/simulation-input-protocol.test.js
+  Size: 2,012 bytes | Lines: 50 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/simulation-network-faults.test.js
+  Size: 1,539 bytes | Lines: 40 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/simulation-observability-failures.test.js
+  Size: 1,734 bytes | Lines: 40 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/simulation-resource-exhaustion.test.js
+  Size: 1,585 bytes | Lines: 40 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/simulation-routes-api.test.js
+  Size: 6,569 bytes | Lines: 195 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/simulation-safety-guard.test.js
+  Size: 4,789 bytes | Lines: 151 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/stateRoot.test.js
+  Size: 31,321 bytes | Lines: 787 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/sync-adversarial.test.js
+  Size: 12,171 bytes | Lines: 326 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/sync-benchmark.test.js
+  Size: 4,225 bytes | Lines: 103 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/sync-multiprocess.test.js
+  Size: 3,509 bytes | Lines: 101 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/sync-planner-protocol.test.js
+  Size: 11,612 bytes | Lines: 323 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/sync-recovery-crash.test.js
+  Size: 7,699 bytes | Lines: 202 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/sync-state-checkpoint.test.js
+  Size: 9,701 bytes | Lines: 247 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/tls-certificate-lifecycle.test.js
+  Size: 5,005 bytes | Lines: 136 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/tls-config.test.js
+  Size: 2,709 bytes | Lines: 76 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/tls-consensus-adversarial.test.js
+  Size: 9,945 bytes | Lines: 263 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/tls-key-rotation.test.js
+  Size: 7,013 bytes | Lines: 202 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/tls-keystore.test.js
+  Size: 6,362 bytes | Lines: 183 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/tls-mtls-transport.test.js
+  Size: 8,909 bytes | Lines: 276 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/tls-peer-revocation.test.js
+  Size: 4,777 bytes | Lines: 125 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/transaction.test.js
+  Size: 3,542 bytes | Lines: 101 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+FILE: backend/tests/warehouse.test.js
+  Size: 2,864 bytes | Lines: 81 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ blockchain ] (1 files)
+--------------------------------------------------------------------------------
+
+FILE: blockchain/.gitkeep
+  Size: 0 bytes | Lines: 1 lines
+  Role: Source implementation file.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ contracts/contracts/core ] (2 files)
+--------------------------------------------------------------------------------
+
+FILE: contracts/contracts/core/AccessControl.sol
+  Size: 2,123 bytes | Lines: 62 lines
+  Role: Solidity smart contract (compiler 0.8.20).
+
+FILE: contracts/contracts/core/PDSRegistry.sol
+  Size: 3,528 bytes | Lines: 111 lines
+  Role: Solidity smart contract (compiler 0.8.20).
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ contracts/contracts/distribution ] (1 files)
+--------------------------------------------------------------------------------
+
+FILE: contracts/contracts/distribution/DistributionManager.sol
+  Size: 4,281 bytes | Lines: 128 lines
+  Role: Solidity smart contract (compiler 0.8.20).
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ contracts/contracts/inventory ] (2 files)
+--------------------------------------------------------------------------------
+
+FILE: contracts/contracts/inventory/EntitlementManager.sol
+  Size: 5,122 bytes | Lines: 131 lines
+  Role: Solidity smart contract (compiler 0.8.20).
+
+FILE: contracts/contracts/inventory/InventoryManager.sol
+  Size: 6,104 bytes | Lines: 152 lines
+  Role: Solidity smart contract (compiler 0.8.20).
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ contracts/contracts/registry ] (4 files)
+--------------------------------------------------------------------------------
+
+FILE: contracts/contracts/registry/BeneficiaryRegistry.sol
+  Size: 3,794 bytes | Lines: 110 lines
+  Role: Solidity smart contract (compiler 0.8.20).
+
+FILE: contracts/contracts/registry/CommodityRegistry.sol
+  Size: 2,903 bytes | Lines: 98 lines
+  Role: Solidity smart contract (compiler 0.8.20).
+
+FILE: contracts/contracts/registry/ShopRegistry.sol
+  Size: 4,323 bytes | Lines: 134 lines
+  Role: Solidity smart contract (compiler 0.8.20).
+
+FILE: contracts/contracts/registry/WarehouseRegistry.sol
+  Size: 4,150 bytes | Lines: 122 lines
+  Role: Solidity smart contract (compiler 0.8.20).
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ contracts ] (4 files)
+--------------------------------------------------------------------------------
+
+FILE: contracts/hardhat.config.js
+  Size: 558 bytes | Lines: 33 lines
+  Role: Hardhat framework configuration specifying Solidity compiler 0.8.20 and local networks.
+
+FILE: contracts/package-lock.json
+  Size: 3,25,056 bytes | Lines: 9,216 lines
+  Role: Source implementation file.
+
+FILE: contracts/package.json
+  Size: 673 bytes | Lines: 30 lines
+  Role: Hardhat development environment dependencies (@openzeppelin/contracts, ethers) and test scripts.
+
+FILE: contracts/test/PDSChainContracts.test.js
+  Size: 12,197 bytes | Lines: 253 lines
+  Role: Automated unit/integration/adversarial test suite.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ database ] (5 files)
+--------------------------------------------------------------------------------
+
+FILE: database/.gitkeep
+  Size: 0 bytes | Lines: 1 lines
+  Role: Source implementation file.
+
+FILE: database/pdschain.sqlite
+  Size: 3,89,120 bytes | Lines: 103 lines
+  Role: Source implementation file.
+
+FILE: database/pdschain.sqlite-shm
+  Size: 32,768 bytes | Lines: 46 lines
+  Role: Source implementation file.
+
+FILE: database/pdschain.sqlite-wal
+  Size: 41,73,592 bytes | Lines: 2,515 lines
+  Role: Source implementation file.
+
+FILE: database/security_audit.jsonl
+  Size: 4,78,657 bytes | Lines: 788 lines
+  Role: Source implementation file.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ docs/architecture.md ] (1 files)
+--------------------------------------------------------------------------------
+
+FILE: docs/architecture.md
+  Size: 11,195 bytes | Lines: 201 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ docs/phase-1.md ] (1 files)
+--------------------------------------------------------------------------------
+
+FILE: docs/phase-1.md
+  Size: 7,892 bytes | Lines: 115 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ docs/phase-10 ] (9 files)
+--------------------------------------------------------------------------------
+
+FILE: docs/phase-10/BYZANTINE_RECOVERY_RULES.md
+  Size: 6,672 bytes | Lines: 110 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-10/CHECKPOINT_SPECIFICATION.md
+  Size: 6,701 bytes | Lines: 137 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-10/CRASH_SAFETY_MODEL.md
+  Size: 8,230 bytes | Lines: 158 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-10/LEDGER_SYNC_ARCHITECTURE.md
+  Size: 5,410 bytes | Lines: 122 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-10/OPERATOR_RECOVERY_RUNBOOK.md
+  Size: 7,301 bytes | Lines: 144 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-10/PHASE_10_BASELINE_AUDIT.md
+  Size: 5,627 bytes | Lines: 101 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-10/PHASE_10_COMPLETION_REPORT.md
+  Size: 6,394 bytes | Lines: 84 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-10/PHASE_10_TEST_MATRIX.md
+  Size: 7,868 bytes | Lines: 139 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-10/RECOVERY_STATE_MACHINE.md
+  Size: 2,479 bytes | Lines: 56 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ docs/phase-11 ] (10 files)
+--------------------------------------------------------------------------------
+
+FILE: docs/phase-11/CONFIGURATION_REFERENCE.md
+  Size: 5,046 bytes | Lines: 84 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-11/CONTAINER_DEPLOYMENT_GUIDE.md
+  Size: 2,034 bytes | Lines: 76 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-11/IDENTITY_AND_KEY_MANAGEMENT.md
+  Size: 2,941 bytes | Lines: 78 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-11/NATIVE_SERVICE_DEPLOYMENT.md
+  Size: 2,492 bytes | Lines: 80 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-11/OPERATIONAL_RUNBOOK.md
+  Size: 4,410 bytes | Lines: 93 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-11/PHASE_11_BASELINE_AUDIT.md
+  Size: 5,319 bytes | Lines: 85 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-11/PHASE_11_COMPLETION_REPORT.md
+  Size: 6,364 bytes | Lines: 77 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-11/PHASE_11_TEST_MATRIX.md
+  Size: 7,320 bytes | Lines: 137 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-11/STORAGE_AND_BACKUP_GUIDE.md
+  Size: 3,410 bytes | Lines: 75 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-11/UPGRADE_AND_COMPATIBILITY_GUIDE.md
+  Size: 2,291 bytes | Lines: 48 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ docs/phase-12 ] (9 files)
+--------------------------------------------------------------------------------
+
+FILE: docs/phase-12/CERTIFICATE_AUTHORITY_MODEL.md
+  Size: 2,598 bytes | Lines: 54 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-12/KEY_AND_CERT_ROTATION_RUNBOOK.md
+  Size: 3,405 bytes | Lines: 86 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-12/KEY_MANAGEMENT_SPECIFICATION.md
+  Size: 2,270 bytes | Lines: 47 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-12/PEER_REVOCATION_SPECIFICATION.md
+  Size: 1,914 bytes | Lines: 43 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-12/PHASE_12_BASELINE_AUDIT.md
+  Size: 3,961 bytes | Lines: 51 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-12/PHASE_12_COMPLETION_REPORT.md
+  Size: 4,577 bytes | Lines: 68 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-12/PHASE_12_TEST_MATRIX.md
+  Size: 2,126 bytes | Lines: 30 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-12/TLS_MTLS_ARCHITECTURE.md
+  Size: 4,249 bytes | Lines: 71 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-12/TLS_OPERATIONAL_RUNBOOK.md
+  Size: 3,044 bytes | Lines: 89 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ docs/phase-13 ] (7 files)
+--------------------------------------------------------------------------------
+
+FILE: docs/phase-13/EVENT_INTEGRITY_AND_AUDIT_RUNBOOK.md
+  Size: 9,710 bytes | Lines: 191 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-13/EVENT_PERSISTENCE_AND_REPLAY.md
+  Size: 3,081 bytes | Lines: 77 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-13/EVENT_STREAMING_AND_QUERY_APIS.md
+  Size: 3,549 bytes | Lines: 95 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-13/EVENT_TAXONOMY_AND_SCHEMA.md
+  Size: 6,140 bytes | Lines: 116 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-13/EVM_LOGS_AND_RECEIPTS_SPECIFICATION.md
+  Size: 3,139 bytes | Lines: 83 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-13/PHASE_13_COMPLETION_REPORT.md
+  Size: 5,689 bytes | Lines: 72 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-13/PHASE_13_TEST_MATRIX.md
+  Size: 10,049 bytes | Lines: 169 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ docs/phase-14 ] (7 files)
+--------------------------------------------------------------------------------
+
+FILE: docs/phase-14/API_AND_RPC_INVENTORY.md
+  Size: 14,464 bytes | Lines: 124 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-14/API_VERSIONING_AND_COMPATIBILITY_GUIDE.md
+  Size: 5,223 bytes | Lines: 131 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-14/JSON_RPC_SPECIFICATION.md
+  Size: 5,953 bytes | Lines: 163 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-14/OPENAPI_SPECIFICATION.md
+  Size: 3,711 bytes | Lines: 85 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-14/PHASE_14_COMPLETION_REPORT.md
+  Size: 5,652 bytes | Lines: 77 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-14/PHASE_14_TEST_MATRIX.md
+  Size: 6,725 bytes | Lines: 106 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-14/RATE_LIMITING_AND_SECURITY_RUNBOOK.md
+  Size: 3,625 bytes | Lines: 89 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ docs/phase-15 ] (7 files)
+--------------------------------------------------------------------------------
+
+FILE: docs/phase-15/EXPLORER_ARCHITECTURE.md
+  Size: 5,544 bytes | Lines: 82 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-15/EXPLORER_BASELINE_AUDIT.md
+  Size: 8,418 bytes | Lines: 117 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-15/EXPLORER_REALTIME_AND_SSE.md
+  Size: 2,451 bytes | Lines: 45 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-15/EXPLORER_ROUTES_AND_VIEWS.md
+  Size: 5,169 bytes | Lines: 56 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-15/EXPLORER_SEARCH_AND_INDEXING.md
+  Size: 3,595 bytes | Lines: 64 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-15/EXPLORER_SECURITY_AND_ACCESSIBILITY.md
+  Size: 2,855 bytes | Lines: 46 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-15/PHASE_15_COMPLETION_REPORT.md
+  Size: 10,518 bytes | Lines: 135 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ docs/phase-16 ] (4 files)
+--------------------------------------------------------------------------------
+
+FILE: docs/phase-16/MERKLE_BASELINE_AUDIT.md
+  Size: 5,244 bytes | Lines: 82 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-16/MERKLE_PROOF_ARCHITECTURE.md
+  Size: 5,613 bytes | Lines: 118 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-16/MERKLE_PROOF_SPECIFICATION.md
+  Size: 5,218 bytes | Lines: 120 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-16/PHASE_16_COMPLETION_REPORT.md
+  Size: 9,969 bytes | Lines: 174 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ docs/phase-17 ] (6 files)
+--------------------------------------------------------------------------------
+
+FILE: docs/phase-17/INCIDENT_RESPONSE_RUNBOOK.md
+  Size: 5,357 bytes | Lines: 119 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-17/PERMISSIONS_MATRIX.md
+  Size: 13,616 bytes | Lines: 157 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-17/PHASE_17_COMPLETION_REPORT.md
+  Size: 13,324 bytes | Lines: 168 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-17/SECURITY_ARCHITECTURE.md
+  Size: 7,758 bytes | Lines: 82 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-17/SECURITY_BASELINE_AUDIT.md
+  Size: 7,500 bytes | Lines: 84 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-17/SECURITY_CONFIGURATION.md
+  Size: 3,037 bytes | Lines: 64 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ docs/phase-18 ] (9 files)
+--------------------------------------------------------------------------------
+
+FILE: docs/phase-18/DATABASE_ARCHITECTURE.md
+  Size: 8,442 bytes | Lines: 128 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-18/DATABASE_BACKUP_RESTORE.md
+  Size: 2,302 bytes | Lines: 59 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-18/DATABASE_BASELINE_AUDIT.md
+  Size: 9,590 bytes | Lines: 125 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-18/DATABASE_CAPACITY_PLAN.md
+  Size: 2,190 bytes | Lines: 48 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-18/DATABASE_MIGRATION_GUIDE.md
+  Size: 2,199 bytes | Lines: 73 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-18/DATABASE_OPERATIONS_RUNBOOK.md
+  Size: 2,845 bytes | Lines: 82 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-18/DATABASE_SCHEMA.md
+  Size: 7,305 bytes | Lines: 197 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-18/DATABASE_SECURITY.md
+  Size: 2,474 bytes | Lines: 40 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-18/PHASE_18_COMPLETION_REPORT.md
+  Size: 15,466 bytes | Lines: 204 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ docs/phase-19 ] (9 files)
+--------------------------------------------------------------------------------
+
+FILE: docs/phase-19/ALERTING_RULES.md
+  Size: 7,269 bytes | Lines: 212 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-19/DASHBOARD_SPECIFICATION.md
+  Size: 6,505 bytes | Lines: 117 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-19/INCIDENT_TRIAGE_RUNBOOK.md
+  Size: 4,721 bytes | Lines: 126 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-19/OBSERVABILITY_ARCHITECTURE.md
+  Size: 8,800 bytes | Lines: 128 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-19/OBSERVABILITY_BASELINE_AUDIT.md
+  Size: 7,899 bytes | Lines: 114 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-19/OBSERVABILITY_CONFIGURATION.md
+  Size: 2,634 bytes | Lines: 75 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-19/OBSERVABILITY_OPERATIONS_RUNBOOK.md
+  Size: 3,060 bytes | Lines: 96 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-19/OBSERVABILITY_SLOs.md
+  Size: 3,386 bytes | Lines: 48 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-19/PHASE_19_COMPLETION_REPORT.md
+  Size: 10,962 bytes | Lines: 145 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ docs/phase-2.md ] (1 files)
+--------------------------------------------------------------------------------
+
+FILE: docs/phase-2.md
+  Size: 7,308 bytes | Lines: 143 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ docs/phase-20 ] (8 files)
+--------------------------------------------------------------------------------
+
+FILE: docs/phase-20/ATTACK_FAILURE_BASELINE_AUDIT.md
+  Size: 9,963 bytes | Lines: 96 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-20/ATTACK_FAILURE_SIMULATION_ARCHITECTURE.md
+  Size: 11,650 bytes | Lines: 170 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-20/ATTACK_FAILURE_SIMULATION_CONFIGURATION.md
+  Size: 2,284 bytes | Lines: 32 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-20/ATTACK_FAILURE_TEST_MATRIX.md
+  Size: 10,270 bytes | Lines: 87 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-20/DETECTION_AND_ALERT_VALIDATION.md
+  Size: 5,985 bytes | Lines: 65 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-20/PHASE_20_COMPLETION_REPORT.md
+  Size: 13,844 bytes | Lines: 214 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-20/RECOVERY_VALIDATION_RUNBOOK.md
+  Size: 6,707 bytes | Lines: 121 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-20/SIMULATION_OPERATIONS_RUNBOOK.md
+  Size: 3,339 bytes | Lines: 110 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ docs/phase-21 ] (12 files)
+--------------------------------------------------------------------------------
+
+FILE: docs/phase-21/CAPACITY_AND_BENCHMARK_RUNBOOK.md
+  Size: 890 bytes | Lines: 26 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-21/CAPACITY_PLANNING_MODEL.md
+  Size: 2,270 bytes | Lines: 44 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-21/PERFORMANCE_BASELINE_AUDIT.md
+  Size: 7,040 bytes | Lines: 113 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-21/PERFORMANCE_DASHBOARD_SPECIFICATION.md
+  Size: 1,634 bytes | Lines: 31 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-21/PERFORMANCE_MEASUREMENT_AND_OBSERVABILITY.md
+  Size: 3,638 bytes | Lines: 55 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-21/PERFORMANCE_OPERATIONS_RUNBOOK.md
+  Size: 1,842 bytes | Lines: 61 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-21/PERFORMANCE_REGRESSION_RUNBOOK.md
+  Size: 1,048 bytes | Lines: 23 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-21/PERFORMANCE_REPORTING_SPECIFICATION.md
+  Size: 1,794 bytes | Lines: 67 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-21/PERFORMANCE_SLOs_AND_THRESHOLDS.md
+  Size: 2,418 bytes | Lines: 41 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-21/PERFORMANCE_TESTING_ARCHITECTURE.md
+  Size: 10,568 bytes | Lines: 161 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-21/PERFORMANCE_TEST_CONFIGURATION.md
+  Size: 1,761 bytes | Lines: 36 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-21/PHASE_21_COMPLETION_REPORT.md
+  Size: 15,299 bytes | Lines: 230 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ docs/phase-3.md ] (1 files)
+--------------------------------------------------------------------------------
+
+FILE: docs/phase-3.md
+  Size: 12,876 bytes | Lines: 214 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ docs/phase-4.md ] (1 files)
+--------------------------------------------------------------------------------
+
+FILE: docs/phase-4.md
+  Size: 9,357 bytes | Lines: 192 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ docs/phase-5.md ] (1 files)
+--------------------------------------------------------------------------------
+
+FILE: docs/phase-5.md
+  Size: 9,914 bytes | Lines: 213 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ docs/phase-6.md ] (1 files)
+--------------------------------------------------------------------------------
+
+FILE: docs/phase-6.md
+  Size: 9,717 bytes | Lines: 226 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ docs/phase-7.md ] (1 files)
+--------------------------------------------------------------------------------
+
+FILE: docs/phase-7.md
+  Size: 15,510 bytes | Lines: 223 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ docs/phase-8 ] (5 files)
+--------------------------------------------------------------------------------
+
+FILE: docs/phase-8/CONSENSUS_MODEL.md
+  Size: 7,089 bytes | Lines: 111 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-8/FBA_LIMITATIONS.md
+  Size: 5,477 bytes | Lines: 65 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-8/PHASE_8_BASELINE_AUDIT.md
+  Size: 4,953 bytes | Lines: 64 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-8/PHASE_8_COMPLETION_REPORT.md
+  Size: 8,252 bytes | Lines: 136 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-8/PHASE_8_TEST_MATRIX.md
+  Size: 4,255 bytes | Lines: 49 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ docs/phase-9 ] (9 files)
+--------------------------------------------------------------------------------
+
+FILE: docs/phase-9/MULTI_PROCESS_SETUP.md
+  Size: 2,450 bytes | Lines: 79 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-9/NETWORK_ARCHITECTURE.md
+  Size: 5,627 bytes | Lines: 88 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-9/NETWORK_FAILURE_MODEL.md
+  Size: 4,186 bytes | Lines: 67 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-9/NETWORK_OPERATIONS.md
+  Size: 3,566 bytes | Lines: 84 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-9/NETWORK_PROTOCOL.md
+  Size: 3,798 bytes | Lines: 86 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-9/PEER_AUTHENTICATION.md
+  Size: 4,238 bytes | Lines: 75 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-9/PHASE_9_BASELINE_AUDIT.md
+  Size: 10,900 bytes | Lines: 135 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-9/PHASE_9_COMPLETION_REPORT.md
+  Size: 3,220 bytes | Lines: 52 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+FILE: docs/phase-9/PHASE_9_TEST_MATRIX.md
+  Size: 3,304 bytes | Lines: 48 lines
+  Role: Engineering specification, audit, runbook, or documentation.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ frontend/css ] (13 files)
+--------------------------------------------------------------------------------
+
+FILE: frontend/css/admin.css
+  Size: 3,477 bytes | Lines: 90 lines
+  Role: Modular styling and responsive layout stylesheet.
+
+FILE: frontend/css/animations.css
+  Size: 2,990 bytes | Lines: 89 lines
+  Role: Modular styling and responsive layout stylesheet.
+
+FILE: frontend/css/auth.css
+  Size: 17,318 bytes | Lines: 466 lines
+  Role: Modular styling and responsive layout stylesheet.
+
+FILE: frontend/css/blockchain.css
+  Size: 1,755 bytes | Lines: 70 lines
+  Role: Modular styling and responsive layout stylesheet.
+
+FILE: frontend/css/citizen.css
+  Size: 2,168 bytes | Lines: 55 lines
+  Role: Modular styling and responsive layout stylesheet.
+
+FILE: frontend/css/components.css
+  Size: 32,576 bytes | Lines: 732 lines
+  Role: Modular styling and responsive layout stylesheet.
+
+FILE: frontend/css/dashboard.css
+  Size: 4,192 bytes | Lines: 103 lines
+  Role: Modular styling and responsive layout stylesheet.
+
+FILE: frontend/css/explorer.css
+  Size: 16,361 bytes | Lines: 793 lines
+  Role: Modular styling and responsive layout stylesheet.
+
+FILE: frontend/css/responsive.css
+  Size: 1,574 bytes | Lines: 93 lines
+  Role: Modular styling and responsive layout stylesheet.
+
+FILE: frontend/css/shop.css
+  Size: 2,641 bytes | Lines: 78 lines
+  Role: Modular styling and responsive layout stylesheet.
+
+FILE: frontend/css/style.css
+  Size: 27,790 bytes | Lines: 792 lines
+  Role: Modular styling and responsive layout stylesheet.
+
+FILE: frontend/css/validator.css
+  Size: 3,223 bytes | Lines: 118 lines
+  Role: Modular styling and responsive layout stylesheet.
+
+FILE: frontend/css/warehouse.css
+  Size: 2,202 bytes | Lines: 53 lines
+  Role: Modular styling and responsive layout stylesheet.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ frontend/html ] (37 files)
+--------------------------------------------------------------------------------
+
+FILE: frontend/html/admin/admin.html
+  Size: 16,136 bytes | Lines: 301 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/admin/analytics.html
+  Size: 8,963 bytes | Lines: 215 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/admin/beneficiaries.html
+  Size: 12,260 bytes | Lines: 269 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/admin/citizen.html
+  Size: 655 bytes | Lines: 17 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/admin/reports.html
+  Size: 11,829 bytes | Lines: 222 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/admin/shop.html
+  Size: 655 bytes | Lines: 17 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/admin/shops.html
+  Size: 7,369 bytes | Lines: 169 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/admin/transactions.html
+  Size: 8,374 bytes | Lines: 193 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/admin/validators.html
+  Size: 7,951 bytes | Lines: 175 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/admin/warehouse.html
+  Size: 678 bytes | Lines: 17 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/admin/warehouses.html
+  Size: 7,574 bytes | Lines: 169 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/blockchain.html
+  Size: 13,621 bytes | Lines: 278 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/citizen/citizen.html
+  Size: 10,402 bytes | Lines: 220 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/citizen/entitlements.html
+  Size: 7,654 bytes | Lines: 168 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/citizen/history.html
+  Size: 6,650 bytes | Lines: 153 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/citizen/profile.html
+  Size: 9,425 bytes | Lines: 213 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/citizen/verify.html
+  Size: 7,201 bytes | Lines: 141 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/events.html
+  Size: 19,667 bytes | Lines: 320 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/explorer.html
+  Size: 21,215 bytes | Lines: 469 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/index.html
+  Size: 20,199 bytes | Lines: 409 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/login.html
+  Size: 7,985 bytes | Lines: 176 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/profile.html
+  Size: 9,430 bytes | Lines: 193 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/register.html
+  Size: 7,460 bytes | Lines: 161 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/settings.html
+  Size: 10,017 bytes | Lines: 227 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/shop/beneficiaries.html
+  Size: 8,791 bytes | Lines: 184 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/shop/distribution.html
+  Size: 15,016 bytes | Lines: 299 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/shop/inventory.html
+  Size: 7,898 bytes | Lines: 172 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/shop/shop.html
+  Size: 10,885 bytes | Lines: 223 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/transaction.html
+  Size: 12,044 bytes | Lines: 214 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/validator/blocks.html
+  Size: 9,279 bytes | Lines: 198 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/validator/consensus.html
+  Size: 8,084 bytes | Lines: 182 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/validator/quorum.html
+  Size: 9,890 bytes | Lines: 183 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/validator/validator.html
+  Size: 14,726 bytes | Lines: 231 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/warehouse/inventory.html
+  Size: 9,254 bytes | Lines: 199 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/warehouse/transactions.html
+  Size: 7,467 bytes | Lines: 170 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/warehouse/transfers.html
+  Size: 9,461 bytes | Lines: 205 lines
+  Role: Frontend web portal view interface.
+
+FILE: frontend/html/warehouse/warehouse.html
+  Size: 15,834 bytes | Lines: 312 lines
+  Role: Frontend web portal view interface.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ frontend/js ] (15 files)
+--------------------------------------------------------------------------------
+
+FILE: frontend/js/admin.js
+  Size: 19,937 bytes | Lines: 387 lines
+  Role: Vanilla JavaScript client modules communicating with the backend REST and SSE streaming endpoints.
+
+FILE: frontend/js/api.js
+  Size: 3,953 bytes | Lines: 124 lines
+  Role: Vanilla JavaScript client modules communicating with the backend REST and SSE streaming endpoints.
+
+FILE: frontend/js/auth.js
+  Size: 14,026 bytes | Lines: 350 lines
+  Role: Vanilla JavaScript client modules communicating with the backend REST and SSE streaming endpoints.
+
+FILE: frontend/js/blockchain.js
+  Size: 24,601 bytes | Lines: 501 lines
+  Role: Vanilla JavaScript client modules communicating with the backend REST and SSE streaming endpoints.
+
+FILE: frontend/js/charts.js
+  Size: 6,308 bytes | Lines: 185 lines
+  Role: Vanilla JavaScript client modules communicating with the backend REST and SSE streaming endpoints.
+
+FILE: frontend/js/citizen.js
+  Size: 5,474 bytes | Lines: 97 lines
+  Role: Vanilla JavaScript client modules communicating with the backend REST and SSE streaming endpoints.
+
+FILE: frontend/js/dashboard.js
+  Size: 2,414 bytes | Lines: 71 lines
+  Role: Vanilla JavaScript client modules communicating with the backend REST and SSE streaming endpoints.
+
+FILE: frontend/js/events.js
+  Size: 15,543 bytes | Lines: 390 lines
+  Role: Vanilla JavaScript client modules communicating with the backend REST and SSE streaming endpoints.
+
+FILE: frontend/js/explorer-api.js
+  Size: 9,501 bytes | Lines: 290 lines
+  Role: Vanilla JavaScript client modules communicating with the backend REST and SSE streaming endpoints.
+
+FILE: frontend/js/explorer.js
+  Size: 79,196 bytes | Lines: 1,563 lines
+  Role: Rich interactive blockchain explorer client with live SSE feeds, search, and detail modals.
+
+FILE: frontend/js/main.js
+  Size: 8,498 bytes | Lines: 228 lines
+  Role: Vanilla JavaScript client modules communicating with the backend REST and SSE streaming endpoints.
+
+FILE: frontend/js/merkle-verifier.js
+  Size: 8,128 bytes | Lines: 244 lines
+  Role: Standalone in-browser Merkle proof verifier validating SHA-256 proofs directly in client memory.
+
+FILE: frontend/js/shop.js
+  Size: 12,738 bytes | Lines: 290 lines
+  Role: Vanilla JavaScript client modules communicating with the backend REST and SSE streaming endpoints.
+
+FILE: frontend/js/validator.js
+  Size: 13,519 bytes | Lines: 295 lines
+  Role: Vanilla JavaScript client modules communicating with the backend REST and SSE streaming endpoints.
+
+FILE: frontend/js/warehouse.js
+  Size: 7,393 bytes | Lines: 156 lines
+  Role: Vanilla JavaScript client modules communicating with the backend REST and SSE streaming endpoints.
+
+--------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ scripts ] (2 files)
+--------------------------------------------------------------------------------
+
+FILE: scripts/service/Install-ValidatorService.ps1
+  Size: 3,138 bytes | Lines: 86 lines
+  Role: Source implementation file.
+
+FILE: scripts/service/pdschain-validator.service
+  Size: 1,175 bytes | Lines: 49 lines
+  Role: Source implementation file.
+
+================================================================================
+7. DATABASE SCHEMA & SEQUELIZE MODELS REFERENCE
+================================================================================
+
+The PDSChain database architecture incorporates 16 Sequelize ORM models located in backend/src/models/:
+
+1. User (users)
+   - Primary user identity table storing username, passwordHash (bcrypt), role, status, email, phone.
+   - Roles: ADMIN, SHOP_OPERATOR, WAREHOUSE_MANAGER, VALIDATOR_OPERATOR, CITIZEN, AUDITOR, etc.
+
+2. Beneficiary (beneficiaries)
+   - Citizen welfare recipient registry storing beneficiaryId, rationCardNumber, category (BPL/AAY/APL),
+     entitlementQuota (JSON), assignedShopId, isActive, registrationDate.
+
+3. Shop (shops)
+   - Fair Price Shop (FPS) registry storing shopId, shopName, location, operatorId, licenseNumber,
+     operationalStatus, assignedWarehouseId.
+
+4. Warehouse (warehouses)
+   - Regional grain storage depots storing warehouseId, warehouseName, location, managerId,
+     capacityKg, currentStockKg.
+
+5. Commodity (commodities)
+   - Master catalog of subsidized goods storing commodityId, name, unit (kg/litre), basePrice,
+     subsidizedPrice, defaultMonthlyQuota.
+
+6. Inventory (inventories)
+   - Real-time stock records for shops and warehouses storing entityType (SHOP/WAREHOUSE), entityId,
+     commodityId, quantityAvailable, lastRestockedAt.
+
+7. StockTransfer (stock_transfers)
+   - Inter-facility grain movements storing transferId, sourceWarehouseId, destinationShopId, commodityId,
+     quantityKg, transferStatus (PENDING/DISPATCHED/RECEIVED/REJECTED), dispatchedAt, receivedAt.
+
+8. Transaction (transactions)
+   - Distribution transaction log storing transactionId, transactionHash, blockNumber, beneficiaryId,
+     shopId, items (JSON array of commodities and weights), timestamp, status, signature.
+
+9. Receipt (receipts)
+   - Cryptographic proof receipts issued to citizens upon grain collection storing receiptId, transactionHash,
+     merkleProof (JSON), blockNumber, stateRoot, issuedAt.
+
+10. Block (blocks)
+    - Blockchain ledger records storing blockNumber, blockHash, previousHash, merkleRoot, stateRoot,
+      timestamp, transactionCount, proposerId, consensusCertificate (JSON).
+
+11. Validator (validators)
+    - Registered consensus validator nodes storing validatorId, nodeName, institution, endpointUrl,
+      p2pPort, apiPort, publicKey, status, quorumSlices (JSON).
+
+12. CheckpointRecord (checkpoint_records)
+    - High-water ledger state checkpoints storing checkpointHeight, stateRootHash, blockHash,
+      validatorSignatures (JSON), createdAt.
+
+13. EventRecord (event_records)
+    - Persistent enterprise blockchain events storing eventId, eventType, sourceComponent, payload (JSON),
+      blockNumber, transactionHash, timestamp.
+
+14. DatabaseAuditRecord (database_audit_records)
+    - HA writer fencing and database change tracking storing sequenceNumber, writerNodeId, fencingToken,
+      action, affectedTable, recordId, timestamp.
+
+15. SchemaMigration (schema_migrations)
+    - Checksummed migration history storing migrationName, checksumSha256, appliedAt, executionTimeMs.
+
+16. AuditLog (audit_logs / security_audit.jsonl)
+    - Tamper-evident security audit trail storing sequenceNumber, previousHash, eventName, actorId,
+      actorRole, clientIp, targetResource, outcome, hmacTag.
+
+================================================================================
+8. SOLIDITY SMART CONTRACTS REFERENCE (contracts/contracts/)
+================================================================================
+
+PDSChain features 9 production-grade Solidity smart contracts written for compiler version 0.8.20:
+
+1. core/AccessControl.sol
+   - Establishes role hierarchies (DEFAULT_ADMIN_ROLE, OPERATOR_ROLE, AUDITOR_ROLE).
+   - Implements emergency circuit breaker pause / unpause functionality.
+
+2. core/PDSRegistry.sol
+   - Central address registry mapping contract keys to active contract addresses.
+   - Provides upgradeability by allowing administrators to update service contract pointers.
+
+3. registry/BeneficiaryRegistry.sol
+   - Registers citizen entitlement records on-chain.
+   - Stores SHA-256 hashes of beneficiary identities, preventing on-chain PII exposure.
+
+4. registry/ShopRegistry.sol
+   - Registers Fair Price Shops, links physical stores to authorized operator Ethereum addresses.
+   - Manages activation, suspension, and transfer of shop licensing.
+
+5. registry/WarehouseRegistry.sol
+   - Registers regional grain depots, maximum capacity, and designated warehouse managers.
+
+6. registry/CommodityRegistry.sol
+   - Governs subsidized commodities, standard package sizes, and unit measurements.
+
+7. inventory/InventoryManager.sol
+   - On-chain double-entry grain bookkeeping.
+   - Records warehouse receipts, executes stock transfers to shops, and prevents negative balances.
+
+8. inventory/EntitlementManager.sol
+   - Calculates citizen monthly entitlement balances, validates distribution quotas, and supports period resets.
+
+9. distribution/DistributionManager.sol
+   - Atomic ration distribution orchestration contract.
+   - Verifies citizen entitlement, deducts shop stock, records transaction, and emits RationDistributed event.
+
+================================================================================
+9. REST & JSON-RPC v2.0 API CATALOG
+================================================================================
+
+9.1 HARDENED REST v1 API ROUTES (mounted under /api/v1/*):
+
+Authentication & User Management:
+  POST /api/v1/auth/login                  - Authenticate user credentials, return JWT bearer token
+  POST /api/v1/auth/register               - Register new user account with role validation
+  GET  /api/v1/auth/profile                - Retrieve authenticated user profile and permissions
+
+Blockchain & Ledger:
+  GET  /api/v1/blockchain/blocks           - Paginated blocks with cursor traversal and filter options
+  GET  /api/v1/blockchain/blocks/:number   - Retrieve single block by height or block hash
+  GET  /api/v1/blockchain/status           - Current verified chain height, latest hash, and finality state
+  POST /api/v1/blockchain/validate         - Execute cryptographic chain integrity verification
+
+Transactions:
+  POST /api/v1/transactions/submit         - Submit cryptographic transaction for mempool validation
+  GET  /api/v1/transactions/:txHash        - Query transaction status, receipt, and block height
+  GET  /api/v1/transactions/mempool        - Inspect current mempool contents and queue metrics
+
+Merkle Proofs:
+  GET  /api/v1/proofs/transaction/:txHash  - Generate cryptographic binary Merkle inclusion proof
+  POST /api/v1/proofs/verify               - Verify Merkle proof against block state root
+
+Consensus:
+  GET  /api/v1/consensus/status            - Current consensus round, primary node, and active validators
+  GET  /api/v1/consensus/quorum            - Active quorum slice evaluations and intersection state
+  POST /api/v1/consensus/vote              - Validator vote submission endpoint (internal/p2p)
+
+Events:
+  GET  /api/v1/events                      - Query historical blockchain events with topic filters
+  GET  /api/v1/events/stream               - Server-Sent Events (SSE) real-time event streaming
+
+Database Management:
+  GET  /api/v1/database/status             - Query database engine, connection pool, and HA role
+  POST /api/v1/database/backup             - Trigger encrypted AES-256-GCM database backup
+  GET  /api/v1/database/migrations         - List applied database migrations and SHA-256 checksums
+
+Observability:
+  GET  /health/live                        - Kubernetes liveness probe (200 OK)
+  GET  /health/ready                       - Kubernetes readiness probe (database & consensus readiness)
+  GET  /health/observability               - Observability subsystem status
+  GET  /metrics                            - Prometheus standard text format scrape endpoint
+  GET  /api/v1/observability/status        - Comprehensive telemetry overview
+  GET  /api/v1/observability/slo           - Real-time SLO compliance evaluations
+
+Security & Administration:
+  GET  /api/v1/security/permissions        - Catalog of all 40+ system permissions
+  GET  /api/v1/security/roles              - Role-to-permission mapping matrix
+  GET  /api/v1/security/audit-log          - Paginated tamper-evident security audit log entries
+  POST /api/v1/security/keys/rotate        - Trigger cryptographic key rotation workflow
+
+Attack & Failure Simulation (Gated behind SIMULATION_MODE=true):
+  GET  /api/v1/simulations/scenarios       - List all 29 built-in attack and failure scenarios
+  POST /api/v1/simulations/run             - Execute an isolated failure simulation
+  GET  /api/v1/simulations/history         - Query simulation execution history
+  GET  /api/v1/simulations/:id             - Query status of a simulation run
+  GET  /api/v1/simulations/:id/evidence    - Retrieve complete forensic evidence report
+  POST /api/v1/simulations/:id/stop        - Cancel or emergency abort an active simulation
+
+Performance & Load Testing (Gated behind PERFORMANCE_TEST_MODE=true):
+  GET  /api/v1/performance/workloads       - List all 9 registered performance benchmark workloads
+  POST /api/v1/performance/runs            - Launch a controlled load test with custom RPS and concurrency
+  GET  /api/v1/performance/history         - Query history of benchmark runs from ring-buffer
+  GET  /api/v1/performance/runs/:id        - Query benchmark progress and status
+  GET  /api/v1/performance/runs/:id/evidence - Retrieve detailed latency percentile report
+  POST /api/v1/performance/runs/:id/stop   - Instantly halt an active load test
+
+9.2 JSON-RPC v2.0 METHODS (POST /rpc):
+  - pds_getBlockByNumber                   - Retrieve block by height
+  - pds_getBlockByHash                     - Retrieve block by SHA-256 hash
+  - pds_getTransactionByHash               - Retrieve transaction by hash
+  - pds_getTransactionReceipt              - Retrieve cryptographic receipt
+  - pds_sendRawTransaction                 - Broadcast signed transaction
+  - pds_getMerkleProof                     - Generate Merkle inclusion proof
+  - pds_verifyProof                        - Validate proof against root
+  - pds_getConsensusStatus                 - Query FBA consensus state
+  - pds_getQuorumInfo                      - Query validator quorum slices
+  - net_peerCount                          - Active P2P connected peers
+  - net_version                            - Network protocol version
+  - eth_chainId                            - PDSChain EVM chain identifier (1729)
+
+================================================================================
+10. COMPLETE AUTOMATED TEST SUITES & VERIFICATION RESULTS
+================================================================================
+
+10.1 SYSTEM TEST VERIFICATION SUMMARY:
+====================================================================================================
+TOTAL TESTS EXECUTED:         1,074
+TOTAL TESTS PASSING:          1,074 (100% PASS RATE)
+TOTAL REGRESSIONS DETECTED:   0 (ZERO)
+====================================================================================================
+  - Backend Jest Test Suites: 127 suites, 1,054 tests (ALL PASSED)
+  - Solidity Smart Contract Tests: 1 suite, 20 tests (ALL PASSED)
+  - Execution Time: ~90 seconds total test execution duration
+
+10.2 TEST SUITE BREAKDOWN BY ARCHITECTURAL DOMAIN:
+
+1. Cryptography & Core Blockchain (4 Suites, 35 Tests):
+   - tests/cryptography.test.js: SHA-256, secp256k1 key generation, signature verification.
+   - tests/blockchain.test.js: Genesis block, previousHash linking, chain continuity.
+   - tests/transaction.test.js: Transaction hashing, validation, status transitions.
+   - tests/stateRoot.test.js: State root commitments, state tree determinism.
+
+2. FBA Consensus & Quorum Engine (5 Suites, 52 Tests):
+   - tests/consensus.test.js: Two-phase voting, proposal validation, certificate assembly.
+   - tests/quorum.test.js: Quorum slice intersection, mathematical pruning.
+   - tests/consensus-signatures.test.js: Multi-validator threshold signature verification.
+   - tests/consensus-adversarial.test.js: Equivocation detection, split rounds, Byzantine tolerance.
+   - tests/consensus-simulation.test.js: 12-validator simulated consensus convergence.
+
+3. Multi-Process Networking & Wire Protocol (7 Suites, 58 Tests):
+   - tests/network-unit.test.js: Message framing, codecs, envelope serialization.
+   - tests/network-transport.test.js: TCP socket management, peer reconnection.
+   - tests/network-multiprocess.test.js: Multi-process child validator communication.
+   - tests/network-consensus.test.js: P2P consensus message broadcast and collection.
+   - tests/network-adversarial.test.js: Malformed frames, payload injection, peer disconnects.
+   - tests/network-benchmark.test.js: P2P message throughput and latency under load.
+   - tests/network-api.test.js: Network REST management routes.
+
+4. Ledger Synchronization & Recovery (6 Suites, 48 Tests):
+   - tests/sync-planner-protocol.test.js: Sync planning, missing block batch requests.
+   - tests/sync-state-checkpoint.test.js: Checkpoint creation, verification, and loading.
+   - tests/sync-recovery-crash.test.js: Node crash recovery, state replay from journals.
+   - tests/sync-multiprocess.test.js: Peer catch-up between multi-process nodes.
+   - tests/sync-adversarial.test.js: Fork rejection, invalid block sequence containment.
+   - tests/sync-benchmark.test.js: High-speed block catch-up synchronization.
+
+5. Deployable Validators & Key Management (7 Suites, 50 Tests):
+   - tests/deploy-config.test.js: Environment validation, default fallbacks.
+   - tests/deploy-identity.test.js: CLI identity provisioning, certificate generation.
+   - tests/deploy-lifecycle-health.test.js: Process start, stop, restart, health hooks.
+   - tests/deploy-multivalidator.test.js: Multi-node topology orchestration.
+   - tests/deploy-network-topology.test.js: Port allocation, peer endpoint mapping.
+   - tests/deploy-storage-backup.test.js: Data directory isolation and storage layout.
+   - tests/deploy-upgrade-compat.test.js: Backward compatibility and version negotiation.
+
+6. TLS/mTLS & Wire Encryption (7 Suites, 55 Tests):
+   - tests/tls-config.test.js: TLS options, CA verification, key sanitization.
+   - tests/tls-keystore.test.js: Encrypted KeyStore persistence and retrieval.
+   - tests/tls-mtls-transport.test.js: Mutual TLS client/server authentication.
+   - tests/tls-certificate-lifecycle.test.js: Certificate expiration, validation, CA chaining.
+   - tests/tls-key-rotation.test.js: Non-disruptive key rotation in active peer meshes.
+   - tests/tls-peer-revocation.test.js: Revoked certificate rejection and peer banning.
+   - tests/tls-consensus-adversarial.test.js: Man-in-the-middle rejection, eavesdropping defense.
+
+7. Enterprise Events & Streaming (7 Suites, 54 Tests):
+   - tests/events-schema.test.js: BlockchainEvent structure, validation, serialization.
+   - tests/events-bus-streaming.test.js: EventBus pub/sub, SSE streaming, backpressure.
+   - tests/events-blockchain.test.js: Block and transaction event lifecycle triggers.
+   - tests/events-contract.test.js: Smart contract event extraction and indexing.
+   - tests/events-consensus-network.test.js: Consensus round and P2P lifecycle telemetry.
+   - tests/events-persistence-replay.test.js: EventStore persistence, replay, cursor filters.
+   - tests/events-adversarial-security.test.js: SSE unauthorized stream rejection, payload abuse.
+
+8. Dual REST & JSON-RPC APIs (8 Suites, 62 Tests):
+   - tests/api.test.js: Standard REST route controllers.
+   - tests/api-versioning-compat.test.js: Dual v1 and legacy route compatibility.
+   - tests/api-pagination-finality.test.js: Cursor-based pagination and finality headers.
+   - tests/api-rate-limit-idempotency.test.js: Sliding-window rate limiters, idempotency tokens.
+   - tests/api-contract-envelope.test.js: Standard error envelopes and status codes.
+   - tests/api-adversarial-security.test.js: Payload injection, header spoofing defenses.
+   - tests/rpc-protocol-batch.test.js: JSON-RPC 2.0 batching, error codes, spec compliance.
+   - tests/rpc-methods-blockchain.test.js: RPC methods for chain, blocks, transactions.
+
+9. Blockchain Explorer & Merkle Proofs (12 Suites, 86 Tests):
+   - tests/explorer-routes-api.test.js: Explorer REST endpoints (/api/v1/explorer/*).
+   - tests/explorer-search-classification.test.js: Search query classification (height, hash, address).
+   - tests/explorer-finality-envelope.test.js: Consensus certificate inspection in explorer.
+   - tests/explorer-realtime-sse.test.js: Real-time explorer feed over SSE.
+   - tests/explorer-secret-redaction.test.js: Redaction of private keys in explorer views.
+   - tests/explorer-security-xss.test.js: XSS defense in transaction memo rendering.
+   - tests/merkle-core-tree.test.js: Binary Merkle tree construction and root generation.
+   - tests/merkle-proof-generation.test.js: O(log N) sibling proof path generation.
+   - tests/merkle-proof-verification.test.js: Cryptographic proof verification.
+   - tests/merkle-indexer-sync-recovery.test.js: Proof indexing and crash recovery.
+   - tests/merkle-explorer-frontend.test.js: Browser verifier execution and visualizer.
+   - tests/merkle-security-adversarial.test.js: Tampered proof rejection, zero-leaf edge cases.
+
+10. Security Hardening & RBAC (9 Suites, 68 Tests):
+    - tests/security-permissions-rbac.test.js: Default-deny RBAC, role permission mapping.
+    - tests/security-scope-ownership.test.js: Object-level IDOR/BOLA authorization checks.
+    - tests/security-audit-logging.test.js: HMAC audit log chains, sequence continuity.
+    - tests/security-admin-workflows.test.js: Admin role elevation, key rotation authorization.
+    - tests/security-routes-authorization.test.js: Authorization middleware across all routes.
+    - tests/security-rpc-authorization.test.js: Permission gating on JSON-RPC methods.
+    - tests/security-sse-authorization.test.js: Protected SSE event channel subscription.
+    - tests/security-input-injection.test.js: SQL injection, NoSQL injection, XSS defense.
+    - tests/security-adversarial-invariants.test.js: Enforcement of system security invariants.
+
+11. Production Database Architecture (9 Suites, 68 Tests):
+    - tests/database-baseline-audit.test.js: Audit of SQLite/PostgreSQL configuration.
+    - tests/database-transaction-boundaries.test.js: ACID atomicity and rollback validation.
+    - tests/database-ha-failover.test.js: Writer fencing tokens, split-brain prevention.
+    - tests/database-pooling-concurrency.test.js: Connection pool queueing and backpressure.
+    - tests/database-migrations.test.js: Checksummed migration execution and idempotency.
+    - tests/database-backup-restore.test.js: Non-blocking hot backup, AES-256-GCM encryption.
+    - tests/database-journals-integration.test.js: Write-ahead journal recovery and replay.
+    - tests/database-immutability-integrity.test.js: Detection of external database row tampering.
+    - tests/database-routes-security.test.js: Protected database management REST routes.
+
+12. Observability & Monitoring (9 Suites, 72 Tests):
+    - tests/observability-logger-redaction.test.js: Structured JSON logs, secret redaction.
+    - tests/observability-metrics-registry.test.js: Prometheus metric types (Counter, Gauge, Histogram).
+    - tests/observability-application-metrics.test.js: HTTP, DB, and transaction metrics.
+    - tests/observability-consensus-runtime-metrics.test.js: Consensus round and event loop lag metrics.
+    - tests/observability-tracing.test.js: W3C distributed trace context and span hierarchy.
+    - tests/observability-request-context.test.js: AsyncLocalStorage request context propagation.
+    - tests/observability-health-probes.test.js: Liveness, readiness, observability health probes.
+    - tests/observability-slos-alerts.test.js: Real-time SLO calculation and alert evaluation.
+    - tests/observability-routes-api.test.js: Observability REST routes and permissions.
+
+13. Attack & Failure Simulation (11 Suites, 59 Tests):
+    - tests/simulation-safety-guard.test.js: Anti-production safeguards, emergency stop.
+    - tests/simulation-control-plane.test.js: Mulberry32 PRNG determinism, InvariantMonitor.
+    - tests/simulation-auth-attacks.test.js: AUTH-001 to AUTH-005 attack simulations.
+    - tests/simulation-input-protocol.test.js: INPUT-001 to INPUT-004 payload attack simulations.
+    - tests/simulation-consensus-byzantine.test.js: CONSENSUS-001 to CONSENSUS-004 Byzantine faults.
+    - tests/simulation-network-faults.test.js: NETWORK-001 to NETWORK-003 peer network faults.
+    - tests/simulation-database-faults.test.js: DATABASE-001 to DATABASE-004 storage failure tests.
+    - tests/simulation-resource-exhaustion.test.js: RESOURCE-001 to RESOURCE-003 saturation tests.
+    - tests/simulation-observability-failures.test.js: OBSERVABILITY-001 to OBSERVABILITY-003 tests.
+    - tests/simulation-disaster-recovery.test.js: RECOVERY-001 to RECOVERY-003 backup/restore recovery.
+    - tests/simulation-routes-api.test.js: Protected simulation REST APIs (/api/v1/simulations/*).
+
+14. Performance & Load Testing (11 Suites, 45 Tests):
+    - tests/performance-safety-guard.test.js: Anti-production gates, emergency stop for load tests.
+    - tests/performance-control-plane.test.js: MeasurementCollector, LoadController, WorkloadContext.
+    - tests/performance-workload-registry.test.js: 9 built-in workloads across 6 domains.
+    - tests/performance-api-rpc.test.js: Workloads API-001 and API-002 latency/throughput.
+    - tests/performance-transaction-mempool.test.js: Workloads TX-001 and TX-002 transaction bursts.
+    - tests/performance-consensus-finality.test.js: Workload CONS-001 consensus throughput.
+    - tests/performance-database-storage.test.js: Workloads DB-001 and DB-002 indexed query/commit tests.
+    - tests/performance-synchronization-peer.test.js: Workload SYNC-001 block catch-up streaming.
+    - tests/performance-resource-saturation.test.js: Workload RES-001 429 backpressure handling.
+    - tests/performance-slos-regression.test.js: Automated p95 and throughput regression comparison.
+    - tests/performance-routes-api.test.js: Performance REST APIs (/api/v1/performance/*).
+
+15. Solidity Smart Contracts (1 Suite, 20 Tests):
+    - contracts/test/PDSChainContracts.test.js: AccessControl, BeneficiaryRegistry, ShopRegistry,
+      WarehouseRegistry, InventoryManager, EntitlementManager, DistributionManager workflows.
+
+================================================================================
+11. OPERATIONAL RUNBOOKS, DEPLOYMENT & ENVIRONMENT REFERENCE
+================================================================================
+
+11.1 RUNNING THE SYSTEM LOCALLY:
+
+Prerequisites:
+  - Node.js v20.x or higher
+  - npm v10.x or higher
+  - Git
+
+Installation & Seeding:
+  1. Clone repository:
+     git clone <repository-url>
+     cd "Blockchain Project"
+  2. Install backend dependencies:
+     cd backend && npm install
+  3. Seed initial database (SQLite):
+     npm run seed
+  4. Start backend server (Port 3000):
+     npm start
+  5. Access frontend portals:
+     Open http://localhost:3000 in any modern web browser.
+
+Running All Automated Tests:
+  - Backend test suite:
+     cd backend && npm test
+  - Solidity smart contract test suite:
+     cd contracts && npx hardhat test
+
+11.2 MULTI-PROCESS VALIDATOR CLUSTER:
+To simulate a multi-node institutional network locally:
+  node backend/src/validators/startValidators.js
+This spawns child processes for validators VAL-01 through VAL-12 listening on ports 4001 to 4012.
+
+11.3 DOCKER CONTAINER DEPLOYMENT:
+Build single container:
+  docker build -t pdschain/validator:1.0.0 .
+Run single validator:
+  docker-compose up -d
+Run 4-node multi-validator cluster:
+  docker-compose -f docker-compose.network.yml up -d
+
+11.4 ENVIRONMENT VARIABLES REFERENCE:
+  - NODE_ENV                  : Environment mode ('development', 'test', 'staging', 'production')
+  - PORT                      : Backend HTTP API port (default: 3000)
+  - JWT_SECRET                : HMAC secret key for signing JWT tokens (min 32 chars)
+  - DB_DIALECT                : Database engine ('sqlite' or 'postgres')
+  - DB_STORAGE                : SQLite database file path (default: './database/pdschain.sqlite')
+  - P2P_PORT                  : Validator P2P wire transport port (default: 5001)
+  - VALIDATOR_ID              : Unique node identifier (e.g. 'VAL-01')
+  - USE_TLS                   : Enable TLS/mTLS on P2P wire transport ('true' or 'false')
+  - SIMULATION_MODE           : Explicit authorization for attack simulations ('true' or 'false')
+  - PERFORMANCE_TEST_MODE     : Explicit authorization for performance load tests ('true' or 'false')
+
+11.5 COMPLETE DOCUMENTATION DIRECTORY (docs/):
+Over 119 comprehensive engineering documents and runbooks are organized in docs/:
+  - docs/architecture.md                       - High-level system architecture overview
+  - docs/phase-1.md through docs/phase-7.md    - Core evolution history (Phases 1 to 7)
+  - docs/phase-8/                              - FBA Consensus Model & Quorum Mathematics
+  - docs/phase-9/                              - Multi-Process P2P Wire Protocol & Network Operations
+  - docs/phase-10/                             - Ledger Synchronization & Recovery Runbook
+  - docs/phase-11/                             - Deployable Validator Nodes & Systemd Guides
+  - docs/phase-12/                             - TLS/mTLS Cryptographic Key Management & Rotation
+  - docs/phase-13/                             - Enterprise Blockchain Events & SSE Streaming
+  - docs/phase-14/                             - REST & JSON-RPC v2.0 API Gateway & Rate Limiting
+  - docs/phase-15/                             - Blockchain Explorer Architecture & Real-Time Views
+  - docs/phase-16/                             - Binary Merkle Trees & In-Browser Proof Verifier
+  - docs/phase-17/                             - Default-Deny Security, Permissions & Incident Response
+  - docs/phase-18/                             - Database HA Writer Fencing, Migrations & Backups
+  - docs/phase-19/                             - Observability, Prometheus Metrics & SLO Triage Runbooks
+  - docs/phase-20/                             - Attack & Failure Simulation Catalog & Recovery Runbooks
+  - docs/phase-21/                             - Performance & Load Testing Runbooks, Capacity Models
+
+================================================================================
+12. CONCLUSION & PRODUCTION READINESS SIGN-OFF
+================================================================================
+
+PDSChain represents an end-to-end, thoroughly engineered, and rigorously verified blockchain architecture
+tailored for public welfare distribution.
+
+Every architectural layer—from cryptographic primitives and Federated Byzantine Agreement consensus to
+ACID database atomicity, default-deny security, production observability, attack failure simulation,
+and automated performance regression testing—has been empirically validated.
+
+With 1,074 passing automated tests, zero regressions, and complete operational documentation, PDSChain
+stands as an institutional-grade benchmark for transparent, tamper-evident social welfare administration.
+
+====================================================================================================
+                                      END OF DETAILED REPORT
+====================================================================================================
+

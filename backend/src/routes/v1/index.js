@@ -20,6 +20,8 @@ const proofRoutes = require('./proofRoutes');
 const securityRoutes = require('./securityRoutes');
 const databaseRoutes = require('./databaseRoutes');
 const observabilityRoutes = require('./observabilityRoutes');
+const simulationRoutes = require('./simulationRoutes');
+const performanceRoutes = require('./performanceRoutes');
 const { rpcMiddleware } = require('../../rpc');
 
 // Mount JSON-RPC endpoint under /api/v1/rpc (supports 405 on non-POST)
@@ -40,6 +42,8 @@ router.use('/proofs', proofRoutes);
 router.use('/security', securityRoutes);
 router.use('/database', databaseRoutes);
 router.use('/observability', observabilityRoutes);
+router.use('/simulations', simulationRoutes);
+router.use('/performance', performanceRoutes);
 router.use('/', registryRoutes);
 
 module.exports = router;
