@@ -296,7 +296,7 @@ BlockChain---Project/
 Clone the repository and install dependencies inside the `backend/` directory:
 
 ```bash
-git clone https://github.com/your-username/BlockChain---Project.git
+git clone https://github.com/jk1729/BlockChain---Project.git
 cd BlockChain---Project/backend
 npm install
 ```
