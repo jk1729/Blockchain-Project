@@ -225,6 +225,22 @@
         var txnLabel = document.getElementById("sim-txn-id");
         if (txnLabel) txnLabel.textContent = workflowState.txnId;
 
+        var consensusStage = document.getElementById("stage-consensus");
+        if (consensusStage) {
+          var valCount = workflowState.validators || 12;
+          var labelSpan = consensusStage.querySelector("span:not(.sim-icon)");
+          if (labelSpan) {
+            labelSpan.textContent = "Stage 5: " + valCount + " / 12 Validator agreement reached (" + Math.round((valCount / 12) * 100) + "% Consensus)";
+          }
+        }
+        var blockStage = document.getElementById("stage-block");
+        if (blockStage) {
+          var blkSpan = blockStage.querySelector("span:not(.sim-icon)");
+          if (blkSpan) {
+            blkSpan.textContent = "Stage 6: Merkle root computed and sealed onto Block " + workflowState.blockNumber;
+          }
+        }
+
         setTimeout(function () {
           // Add to local data array
           data.transactions.unshift({

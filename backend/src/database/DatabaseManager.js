@@ -14,23 +14,40 @@ const logger = require('../utils/logger');
 
 class DatabaseManager {
   constructor(options = {}) {
-    this.config = options.config || config;
+    this.options = options;
+    this.config = {
+      NODE_ENV: options.NODE_ENV || (options.config && options.config.NODE_ENV) || config.NODE_ENV,
+      DB_DIALECT: options.dialect || (options.config && options.config.DB_DIALECT) || config.DB_DIALECT,
+      DATABASE_URL: options.url || (options.config && options.config.DATABASE_URL) || config.DATABASE_URL,
+      DATABASE_STORAGE: options.storage || (options.config && options.config.DATABASE_STORAGE) || config.DATABASE_STORAGE
+    };
+    this.databaseUrl = this.config.DATABASE_URL;
     this.logger = options.logger || logger;
     this.pool = new DatabasePool({
-      maxConnections: parseInt(process.env.DB_POOL_MAX, 10) || 20,
-      minConnections: parseInt(process.env.DB_POOL_MIN, 10) || 2,
-      acquireTimeoutMs: parseInt(process.env.DB_ACQUIRE_TIMEOUT_MS, 10) || 10000,
-      idleTimeoutMs: parseInt(process.env.DB_IDLE_TIMEOUT_MS, 10) || 30000
+      maxConnections: (options.pool && options.pool.max) || parseInt(process.env.DB_POOL_MAX, 10) || 20,
+      minConnections: (options.pool && options.pool.min) || parseInt(process.env.DB_POOL_MIN, 10) || 2,
+      acquireTimeoutMs: (options.pool && options.pool.acquire) || parseInt(process.env.DB_ACQUIRE_TIMEOUT_MS, 10) || 10000,
+      idleTimeoutMs: (options.pool && options.pool.idle) || parseInt(process.env.DB_IDLE_TIMEOUT_MS, 10) || 30000
     });
 
     this.sequelize = this._initializeSequelize();
     this.isInitialized = false;
-    this.dialect = this.sequelize.getDialect();
+    this.dialect = options.dialect || this.sequelize.getDialect();
   }
 
   _initializeSequelize() {
-    if (this.config.DATABASE_URL && this.config.DATABASE_URL.trim() !== '') {
+    const isPostgres = (this.config.DB_DIALECT === 'postgres') || (this.config.DATABASE_URL && this.config.DATABASE_URL.trim() !== '');
+    if (isPostgres && this.config.DATABASE_URL && this.config.DATABASE_URL.trim() !== '') {
       // PostgreSQL Production Connection
+      const sslConfig = this.options.ssl !== undefined
+        ? (this.options.ssl === true ? { require: true, rejectUnauthorized: false } : this.options.ssl)
+        : (process.env.DB_SSL === 'false' ? false : {
+            require: true,
+            rejectUnauthorized: false
+          });
+
+      const isProdOrSSL = this.config.NODE_ENV === 'production' || process.env.NODE_ENV === 'production' || this.options.ssl;
+
       return new Sequelize(this.config.DATABASE_URL, {
         dialect: 'postgres',
         logging: this.config.NODE_ENV === 'test' ? false : (msg) => this.logger.debug(msg),
@@ -40,11 +57,8 @@ class DatabaseManager {
           acquire: this.pool.acquireTimeoutMs,
           idle: this.pool.idleTimeoutMs
         },
-        dialectOptions: this.config.NODE_ENV === 'production' ? {
-          ssl: {
-            require: true,
-            rejectUnauthorized: false
-          },
+        dialectOptions: isProdOrSSL ? {
+          ...(sslConfig ? { ssl: sslConfig } : {}),
           statement_timeout: 10000,
           idle_in_transaction_session_timeout: 5000
         } : {}
@@ -159,6 +173,22 @@ class DatabaseManager {
     } finally {
       this.pool.release();
     }
+  }
+
+  /**
+   * Safe non-destructive schema synchronization.
+   * Prohibits force: true in production.
+   */
+  async syncSafe(options = {}) {
+    if (this.config.NODE_ENV === 'production' && options && options.force === true) {
+      throw new Error('FATAL SAFETY ERROR: Destructive database sync ({ force: true }) is strictly forbidden in production.');
+    }
+    const safeOptions = {
+      ...options,
+      force: this.config.NODE_ENV === 'production' ? false : (options.force || false),
+      alter: false
+    };
+    return await this.sequelize.sync(safeOptions);
   }
 
   /**

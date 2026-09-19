@@ -178,34 +178,116 @@
 
       <!-- Live Consensus Round Box -->
       <div class="consensus-live-card">
-        <div class="section-block-head">
+        <div class="section-block-head" style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:flex-start; gap:16px;">
           <div>
-            <span class="round-badge"><i class="bi bi-broadcast"></i> ROUND #4281 LIVE</span>
-            <h2 style="margin-top:10px;">FBA Quorum Vote Matrix</h2>
-            <div class="sub">12 validator nodes evaluating current batch of grain distribution signatures.</div>
+            <span class="round-badge" id="live-round-badge"><i class="bi bi-broadcast"></i> ROUND #4281 LIVE</span>
+            <h2 style="margin-top:10px;">Federated Byzantine Agreement (FBA) — 12-Validator Consensus</h2>
+            <div class="sub">Dynamic 4-stage consensus telemetry: verification, Ed25519 signing, quorum evaluation, and block finalization.</div>
           </div>
-          <a href="quorum.html" class="btn btn-secondary btn-sm"><i class="bi bi-sliders"></i> Quorum Simulator</a>
+          <div style="display:flex; flex-wrap:wrap; gap:8px;">
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-val-fail-7" title="Simulate VAL-07 node failure to demonstrate resilience"><i class="bi bi-lightning-charge text-warning"></i> Fail VAL-07 (Resilient)</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-val-fail-4" title="Simulate 4 nodes failure to breach 9/12 threshold"><i class="bi bi-exclamation-octagon text-danger"></i> Fail 4 Nodes (Breach Quorum)</button>
+            <button type="button" class="btn btn-primary btn-sm" id="btn-val-restore-all" title="Restore all nodes to 100% online"><i class="bi bi-arrow-clockwise"></i> Restore 12 Nodes</button>
+            <a href="quorum.html" class="btn btn-secondary btn-sm"><i class="bi bi-sliders"></i> Quorum Simulator</a>
+          </div>
         </div>
 
-        <div class="votes-grid">
-          <div class="vote-node is-voted" data-node="NODE-01"><span class="vote-node-id">NODE-01</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
-          <div class="vote-node is-voted" data-node="NODE-02"><span class="vote-node-id">NODE-02</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
-          <div class="vote-node is-voted" data-node="NODE-03"><span class="vote-node-id">NODE-03</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
-          <div class="vote-node is-voted" data-node="NODE-04"><span class="vote-node-id">NODE-04</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
-          <div class="vote-node is-voted" data-node="NODE-05"><span class="vote-node-id">NODE-05</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
-          <div class="vote-node is-voted" data-node="NODE-06"><span class="vote-node-id">NODE-06</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
-          <div class="vote-node is-voted" data-node="NODE-07"><span class="vote-node-id">NODE-07</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
-          <div class="vote-node is-voted" data-node="NODE-08"><span class="vote-node-id">NODE-08</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
-          <div class="vote-node is-voted" data-node="NODE-09"><span class="vote-node-id">NODE-09</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
-          <div class="vote-node is-voted" data-node="NODE-10"><span class="vote-node-id">NODE-10</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
-          <div class="vote-node is-voted" data-node="NODE-11"><span class="vote-node-id">NODE-11</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
-          <div class="vote-node is-voted" data-node="NODE-12"><span class="vote-node-id">NODE-12</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
+        <!-- 4-Stage Pipeline Banner -->
+        <div class="fba-pipeline">
+          <div class="fba-stage-step is-complete" id="pipe-stage-1">
+            <div class="stage-header">
+              <span class="stage-num">Stage 1</span>
+              <span class="badge badge-success" id="pipe-badge-1">12 / 12 Verified</span>
+            </div>
+            <div class="stage-title">Payload Verification</div>
+            <div class="stage-desc">Signatures, nonces, &amp; double-spend validation</div>
+          </div>
+          <div class="fba-stage-step is-complete" id="pipe-stage-2">
+            <div class="stage-header">
+              <span class="stage-num">Stage 2</span>
+              <span class="badge badge-success" id="pipe-badge-2">12 / 12 Signed</span>
+            </div>
+            <div class="stage-title">Ed25519 Signing</div>
+            <div class="stage-desc">Digital vote generation across active nodes</div>
+          </div>
+          <div class="fba-stage-step is-complete" id="pipe-stage-3">
+            <div class="stage-header">
+              <span class="stage-num">Stage 3</span>
+              <span class="badge badge-success" id="pipe-badge-3">QUORUM MET (&ge;9)</span>
+            </div>
+            <div class="stage-title">Quorum Evaluation</div>
+            <div class="stage-desc">Overlapping quorum slices agreement check</div>
+          </div>
+          <div class="fba-stage-step is-complete" id="pipe-stage-4">
+            <div class="stage-header">
+              <span class="stage-num">Stage 4</span>
+              <span class="badge badge-success" id="pipe-badge-4">FINALIZED</span>
+            </div>
+            <div class="stage-title">Block Finalization</div>
+            <div class="stage-desc">Merkle root &amp; State root atomically committed</div>
+          </div>
         </div>
 
-        <div class="progress-track" style="height:10px;"><div class="progress-fill" style="width:100%;"></div></div>
-        <div style="display:flex; justify-content:space-between; margin-top:8px; font-size:12.5px; color:var(--text-muted);">
-          <span>Quorum Agreement: <strong>100% (12 / 12 Nodes)</strong></span>
-          <span class="text-success font-bold"><i class="bi bi-check-circle-fill"></i> Consensus Reached — Block #4281 Finalized</span>
+        <!-- Cryptographic Roots & Tx Meta Bar -->
+        <div class="crypto-roots-bar">
+          <div class="crypto-root-item">
+            <span class="crypto-root-label">Target Block</span>
+            <span class="crypto-root-val" id="fba-block-height">#4281</span>
+          </div>
+          <div class="crypto-root-item">
+            <span class="crypto-root-label">Proposal / Tx ID</span>
+            <span class="crypto-root-val" id="fba-tx-id">TXN-4281-01</span>
+          </div>
+          <div class="crypto-root-item" style="flex:1; min-width:200px;">
+            <span class="crypto-root-label">Merkle Root</span>
+            <span class="crypto-root-val" id="fba-merkle-root" style="word-break:break-all;">0x7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069</span>
+          </div>
+          <div class="crypto-root-item" style="flex:1; min-width:200px;">
+            <span class="crypto-root-label">State Root</span>
+            <span class="crypto-root-val text-success" id="fba-state-root" style="word-break:break-all;">0xa8c23f9914bc819e912440f1a6ec7b2781b4f4da6b73523f6696b99de0798e21</span>
+          </div>
+        </div>
+
+        <!-- 12-Node Voting Visualizer Grid -->
+        <div class="votes-grid" id="fba-votes-grid">
+          <div class="vote-node is-voted" data-node="VAL-01"><span class="vote-node-id">VAL-01</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
+          <div class="vote-node is-voted" data-node="VAL-02"><span class="vote-node-id">VAL-02</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
+          <div class="vote-node is-voted" data-node="VAL-03"><span class="vote-node-id">VAL-03</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
+          <div class="vote-node is-voted" data-node="VAL-04"><span class="vote-node-id">VAL-04</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
+          <div class="vote-node is-voted" data-node="VAL-05"><span class="vote-node-id">VAL-05</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
+          <div class="vote-node is-voted" data-node="VAL-06"><span class="vote-node-id">VAL-06</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
+          <div class="vote-node is-voted" data-node="VAL-07"><span class="vote-node-id">VAL-07</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
+          <div class="vote-node is-voted" data-node="VAL-08"><span class="vote-node-id">VAL-08</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
+          <div class="vote-node is-voted" data-node="VAL-09"><span class="vote-node-id">VAL-09</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
+          <div class="vote-node is-voted" data-node="VAL-10"><span class="vote-node-id">VAL-10</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
+          <div class="vote-node is-voted" data-node="VAL-11"><span class="vote-node-id">VAL-11</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
+          <div class="vote-node is-voted" data-node="VAL-12"><span class="vote-node-id">VAL-12</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
+        </div>
+
+        <div class="progress-track" style="height:10px;"><div class="progress-fill" id="consensus-progress-fill" style="width:100%;"></div></div>
+        <div style="display:flex; justify-content:space-between; margin-top:8px; font-size:12.5px; color:var(--text-muted);" id="consensus-summary-bar">
+          <span id="quorum-agreement-stat">Quorum Agreement: <strong>100% (12 / 12 Nodes)</strong></span>
+          <span class="text-success font-bold" id="quorum-finality-stat"><i class="bi bi-check-circle-fill"></i> Consensus Reached — Block #4281 Finalized</span>
+        </div>
+
+        <!-- 12-Validator Telemetry Table -->
+        <div class="fba-table-wrap">
+          <table class="fba-validator-table" id="fba-validator-table">
+            <thead>
+              <tr>
+                <th>Validator Node</th>
+                <th>Stage 1: Verify</th>
+                <th>Stage 2: Sign</th>
+                <th>Ed25519 Digest</th>
+                <th>Vote</th>
+                <th>Quorum Contribution</th>
+                <th>Node Status</th>
+              </tr>
+            </thead>
+            <tbody id="fba-validator-tbody">
+              <!-- Dynamically populated by validator.js -->
+            </tbody>
+          </table>
         </div>
       </div>
 

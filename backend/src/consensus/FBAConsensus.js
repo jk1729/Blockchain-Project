@@ -413,7 +413,13 @@ class FBAConsensus {
       proposalId,
       blockNumber,
       blockHash,
+      previousHash,
+      merkleRoot: candidateBlock.merkleRoot || '',
       stateRoot,
+      transactions: candidateBlock.transactions || [],
+      transactionId: (candidateBlock.transactions && candidateBlock.transactions[0])
+        ? (candidateBlock.transactions[0].transactionId || candidateBlock.transactions[0].id)
+        : null,
       timestamp: new Date().toISOString(),
       latencyMs,
       totalValidators: nodes.length,
@@ -511,6 +517,143 @@ class FBAConsensus {
 
   verifyCertificate(certificate, block) {
     return ConsensusCertificate.verify(certificate, block, this.validators);
+  }
+
+  formatRoundForTelemetry(round) {
+    if (!round) return null;
+    const nodes = this.getValidators();
+    const sigMap = new Map();
+    if (round.validatorSignatures && Array.isArray(round.validatorSignatures)) {
+      for (const s of round.validatorSignatures) {
+        if (s.validatorId) sigMap.set(s.validatorId, s.signature);
+      }
+    }
+    const voteMap = new Map();
+    if (round.votes && Array.isArray(round.votes)) {
+      for (const v of round.votes) {
+        if (v.validatorId) voteMap.set(v.validatorId, v);
+      }
+    }
+
+    const validatorLifecycle = nodes.map(node => {
+      const vId = node.validatorId;
+      const voteObj = voteMap.get(vId) || {};
+      const rawSig = sigMap.get(vId) || voteObj.signature || null;
+      const isOnline = node.isOnline() && voteObj.vote !== 'OFFLINE' && voteObj.reason !== 'Node is offline';
+      const isVerified = isOnline && (voteObj.vote === 'ACCEPT' || (voteObj.isAccept && voteObj.isAccept()));
+      const isSigned = Boolean(isVerified && rawSig);
+
+      // Create safe, non-sensitive signature digest
+      let sigDigest = null;
+      if (rawSig) {
+        sigDigest = typeof rawSig === 'string' && rawSig.length > 16
+          ? `${rawSig.slice(0, 10)}...${rawSig.slice(-6)}`
+          : '0xPRESENT';
+      }
+
+      let status = 'COMPLETE';
+      if (!isOnline) {
+        status = 'OFFLINE';
+      } else if (!isVerified) {
+        status = 'REJECTED';
+      }
+
+      return {
+        validatorId: vId,
+        name: node.name,
+        org: node.org,
+        address: node.address,
+        isOnline,
+        verified: isVerified,
+        signed: isSigned,
+        signatureDigest: sigDigest,
+        vote: !isOnline ? 'OFFLINE' : (voteObj.vote || 'ACCEPT'),
+        status,
+        reason: voteObj.reason || ''
+      };
+    });
+
+    const verifiedCount = validatorLifecycle.filter(v => v.verified).length;
+    const signedCount = validatorLifecycle.filter(v => v.signed).length;
+    const threshold = round.threshold || 9;
+    const isQuorum = Boolean(round.quorumAchieved || (verifiedCount >= threshold && signedCount >= threshold));
+    const isFinalized = Boolean(round.status === 'ACHIEVED' && isQuorum);
+
+    return {
+      roundId: round.roundId,
+      round: round.round || 0,
+      proposalId: round.proposalId || '',
+      blockNumber: round.blockNumber !== undefined ? round.blockNumber : null,
+      blockHash: round.blockHash || '',
+      merkleRoot: round.merkleRoot || '',
+      stateRoot: round.stateRoot || '',
+      timestamp: round.timestamp,
+      latencyMs: round.latencyMs || 0,
+      totalValidators: nodes.length,
+      verifiedCount,
+      signedCount,
+      threshold,
+      quorumAchieved: isQuorum,
+      status: isFinalized ? 'ACHIEVED' : 'FAILED',
+      finalized: isFinalized,
+      transactionId: round.transactionId || (round.transactions && round.transactions[0] ? (round.transactions[0].transactionId || round.transactions[0].id) : null),
+      validators: validatorLifecycle,
+      certificateHash: round.certificate ? round.certificate.certificateHash : null
+    };
+  }
+
+  getLatestRound() {
+    if (this.rounds.length === 0) {
+      const nodes = this.getValidators();
+      const onlineCount = nodes.filter(n => n.isOnline()).length;
+      return {
+        roundId: 'RND-GENESIS',
+        round: 0,
+        proposalId: '0x0000000000000000000000000000000000000000000000000000000000000000',
+        blockNumber: 0,
+        blockHash: '0x0000000000000000000000000000000000000000000000000000000000000000',
+        merkleRoot: '0x0000000000000000000000000000000000000000000000000000000000000000',
+        stateRoot: '0x0000000000000000000000000000000000000000000000000000000000000000',
+        timestamp: new Date().toISOString(),
+        latencyMs: 14,
+        totalValidators: nodes.length,
+        verifiedCount: onlineCount,
+        signedCount: onlineCount,
+        threshold: 9,
+        quorumAchieved: onlineCount >= 9,
+        status: onlineCount >= 9 ? 'ACHIEVED' : 'FAILED',
+        finalized: true,
+        transactionId: null,
+        validators: nodes.map(node => ({
+          validatorId: node.validatorId,
+          name: node.name,
+          org: node.org,
+          address: node.address,
+          isOnline: node.isOnline(),
+          verified: node.isOnline(),
+          signed: node.isOnline(),
+          signatureDigest: node.isOnline() ? '0xGenesisSig' : null,
+          vote: node.isOnline() ? 'ACCEPT' : 'OFFLINE',
+          status: node.isOnline() ? 'COMPLETE' : 'OFFLINE',
+          reason: node.isOnline() ? '' : 'Node is offline'
+        })),
+        certificateHash: '0xGenesisCertificate'
+      };
+    }
+    return this.formatRoundForTelemetry(this.rounds[0]);
+  }
+
+  getRoundByTransactionId(txId) {
+    if (!txId) return null;
+    const cleanId = String(txId).trim().toUpperCase();
+    const found = this.rounds.find(r => {
+      if (r.transactionId && String(r.transactionId).toUpperCase() === cleanId) return true;
+      if (r.transactions && Array.isArray(r.transactions)) {
+        return r.transactions.some(t => String(t.transactionId || t.id).toUpperCase() === cleanId);
+      }
+      return false;
+    });
+    return found ? this.formatRoundForTelemetry(found) : null;
   }
 }
 

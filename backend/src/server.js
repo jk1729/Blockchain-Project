@@ -20,7 +20,7 @@ async function startServer() {
     // 1. Authenticate & Sync Database
     const { defaultDatabaseManager } = require('./database/DatabaseManager');
     await defaultDatabaseManager.init();
-    await sequelize.sync({ alter: false });
+    await defaultDatabaseManager.syncSafe({ alter: false });
     logger.info('Database synchronized successfully.');
 
     // 2. Auto-seed if database is freshly created

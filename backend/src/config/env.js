@@ -25,6 +25,10 @@ function validateConfig(env = process.env) {
     if (!corsOrigin || corsOrigin.trim() === '' || corsOrigin.trim() === '*') {
       throw new Error('CONFIG ERROR: Unrestricted wildcard CORS_ORIGIN is not permitted in production. Explicit allowed origins must be configured.');
     }
+    const dbDialect = (env.DB_DIALECT || (env.DATABASE_URL ? 'postgres' : 'sqlite')).toLowerCase().trim();
+    if (dbDialect === 'postgres' && (!env.DATABASE_URL || env.DATABASE_URL.trim() === '')) {
+      throw new Error('CONFIG ERROR: DATABASE_URL must be explicitly configured when DB_DIALECT is postgres in production.');
+    }
   }
 }
 
@@ -39,6 +43,12 @@ module.exports = {
   },
   get NODE_ENV() {
     return process.env.NODE_ENV || 'development';
+  },
+  get DB_DIALECT() {
+    if (process.env.DB_DIALECT) {
+      return process.env.DB_DIALECT.toLowerCase().trim();
+    }
+    return (process.env.DATABASE_URL && process.env.DATABASE_URL.trim() !== '') ? 'postgres' : 'sqlite';
   },
   get DATABASE_URL() {
     return process.env.DATABASE_URL || '';
@@ -86,6 +96,7 @@ module.exports = {
     return process.env.CORS_ORIGIN || (process.env.NODE_ENV === 'production' ? '' : '*');
   },
   DEFAULT_DEV_JWT_SECRET,
-  validateConfig
+  validateConfig,
+  validate: validateConfig
 };
 

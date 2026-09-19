@@ -57,6 +57,14 @@ class ConsensusService {
     const entries = fbaInstance.getJournal().getEntries();
     return entries.slice(-limit);
   }
+
+  getLatestRound() {
+    return fbaInstance.getLatestRound();
+  }
+
+  getRoundByTransactionId(txId) {
+    return fbaInstance.getRoundByTransactionId(txId);
+  }
 }
 
 module.exports = new ConsensusService();

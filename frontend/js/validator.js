@@ -3,12 +3,23 @@
    Federated Byzantine Agreement (FBA) consensus & node telemetry:
      1. Quorum slice visualizer for 12 nodes (VAL-01 to VAL-12).
      2. Node status management & live failure/recovery simulation.
-     3. Consensus telemetry and visual quorum indicators.
-     4. Mathematical definitions of Quorum & Consensus.
+     3. 4-Stage consensus pipeline telemetry (Verify -> Sign -> Quorum -> Finalize).
+     4. Dynamic 12-validator Ed25519 digest, vote, and finality matrix.
+     5. Mathematical definitions of Quorum & Consensus.
    ========================================================== */
 
 (function () {
   "use strict";
+
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
 
   // Quorum slice mapping for 12 nodes (Federated trust graph)
   var QUORUM_SLICES = {
@@ -36,6 +47,8 @@
 
   var offlineNodes = new Set();
   var activeSelectedNode = "VAL-01";
+  var latestRoundCache = null;
+  var isSimulationActive = false;
 
   function normalizeNodeId(id) {
     if (!id) return "VAL-01";
@@ -77,7 +90,7 @@
         var portNum = 4000 + parseInt(sNode.replace("VAL-", "").replace("NODE-", ""), 10);
         var p2pNum = 5000 + parseInt(sNode.replace("VAL-", "").replace("NODE-", ""), 10);
         return '<div class="fba-status-row" style="margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">' +
-          '<span class="label mono font-bold"><i class="bi bi-hdd-network"></i> ' + sNode + ' <small class="text-muted">(HTTP :' + portNum + ' | P2P :' + p2pNum + ')</small></span>' +
+          '<span class="label mono font-bold"><i class="bi bi-hdd-network"></i> ' + escapeHtml(sNode) + ' <small class="text-muted">(HTTP :' + portNum + ' | P2P :' + p2pNum + ')</small></span>' +
           statusBadge +
         '</div>';
       }).join("");
@@ -85,8 +98,244 @@
   };
 
   /* ==========================================================
-     2. LIVE BACKEND SYNCHRONIZATION
+     2. 12-VALIDATOR TELEMETRY & 4-STAGE PIPELINE RENDERING
      ========================================================== */
+  function renderConsensusTelemetry(roundData) {
+    if (!roundData) return;
+
+    // Use passed round or construct baseline from configuration
+    var blockNum = roundData.blockNumber !== undefined ? roundData.blockNumber : 4281;
+    var txId = roundData.transactionId || "TXN-" + blockNum + "-01";
+    var merkleRoot = roundData.merkleRoot || "0x7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069";
+    var stateRoot = roundData.stateRoot || "0xa8c23f9914bc819e912440f1a6ec7b2781b4f4da6b73523f6696b99de0798e21";
+    var threshold = roundData.threshold || 9;
+
+    var rawValidators = roundData.validators && Array.isArray(roundData.validators) && roundData.validators.length === 12
+      ? roundData.validators
+      : Object.keys(QUORUM_SLICES).filter(function(k) { return k.startsWith("VAL-"); }).map(function(id) {
+          return {
+            validatorId: id,
+            name: QUORUM_SLICES[id].name,
+            org: QUORUM_SLICES[id].org,
+            address: "0x" + id.replace("-", "") + "777000111222333444555",
+            isOnline: true,
+            verified: true,
+            signed: true,
+            signatureDigest: "0x" + id.replace("-", "").toLowerCase() + "b9e28f1a",
+            vote: "ACCEPT",
+            status: "COMPLETE",
+            reason: ""
+          };
+        });
+
+    // Recompute dynamic state incorporating current offlineNodes
+    var evaluatedValidators = rawValidators.map(function (v) {
+      var normId = normalizeNodeId(v.validatorId);
+      var isOff = offlineNodes.has(normId) || offlineNodes.has(normId.replace("VAL-", "NODE-"));
+      var verified = !isOff;
+      var signed = !isOff;
+      var vote = isOff ? "OFFLINE" : "ACCEPT";
+      var sig = isOff ? null : (v.signatureDigest || ("0x" + normId.replace("-", "").toLowerCase() + "c7a82b"));
+
+      return {
+        validatorId: normId,
+        name: v.name || QUORUM_SLICES[normId].name,
+        org: v.org || QUORUM_SLICES[normId].org,
+        address: v.address,
+        isOnline: !isOff,
+        verified: verified,
+        signed: signed,
+        signatureDigest: sig,
+        vote: vote,
+        status: isOff ? "OFFLINE" : "COMPLETE"
+      };
+    });
+
+    var totalCount = evaluatedValidators.length;
+    var verifiedCount = evaluatedValidators.filter(function (v) { return v.verified; }).length;
+    var signedCount = evaluatedValidators.filter(function (v) { return v.signed; }).length;
+    var quorumAchieved = signedCount >= threshold;
+    var finalized = quorumAchieved;
+
+    // 1. Update Round & Header Badges
+    var roundBadge = document.getElementById("live-round-badge");
+    if (roundBadge) {
+      roundBadge.innerHTML = '<i class="bi bi-broadcast"></i> ROUND #' + escapeHtml(blockNum) + ' LIVE';
+    }
+
+    // 2. Update 4-Stage Pipeline
+    var pStage1 = document.getElementById("pipe-stage-1");
+    var pBadge1 = document.getElementById("pipe-badge-1");
+    if (pStage1 && pBadge1) {
+      var isS1Ok = verifiedCount >= threshold;
+      pStage1.className = "fba-stage-step " + (isS1Ok ? "is-complete" : "is-failed");
+      pBadge1.className = "badge " + (isS1Ok ? "badge-success" : "badge-danger");
+      pBadge1.textContent = verifiedCount + " / " + totalCount + " Verified";
+    }
+
+    var pStage2 = document.getElementById("pipe-stage-2");
+    var pBadge2 = document.getElementById("pipe-badge-2");
+    if (pStage2 && pBadge2) {
+      var isS2Ok = signedCount >= threshold;
+      pStage2.className = "fba-stage-step " + (isS2Ok ? "is-complete" : "is-failed");
+      pBadge2.className = "badge " + (isS2Ok ? "badge-success" : "badge-danger");
+      pBadge2.textContent = signedCount + " / " + totalCount + " Signed";
+    }
+
+    var pStage3 = document.getElementById("pipe-stage-3");
+    var pBadge3 = document.getElementById("pipe-badge-3");
+    if (pStage3 && pBadge3) {
+      pStage3.className = "fba-stage-step " + (quorumAchieved ? "is-complete" : "is-failed");
+      pBadge3.className = "badge " + (quorumAchieved ? "badge-success" : "badge-danger");
+      pBadge3.textContent = quorumAchieved ? "QUORUM MET (" + signedCount + "/12 \u2265 9)" : "QUORUM FAILED (" + signedCount + "/12 < 9)";
+    }
+
+    var pStage4 = document.getElementById("pipe-stage-4");
+    var pBadge4 = document.getElementById("pipe-badge-4");
+    if (pStage4 && pBadge4) {
+      pStage4.className = "fba-stage-step " + (finalized ? "is-complete" : "is-failed");
+      pBadge4.className = "badge " + (finalized ? "badge-success" : "badge-danger");
+      pBadge4.textContent = finalized ? "FINALIZED" : "REJECTED (Unfinalized)";
+    }
+
+    // 3. Update Roots & Transaction Metadata Bar
+    var blkEl = document.getElementById("fba-block-height");
+    var txEl = document.getElementById("fba-tx-id");
+    var mrkEl = document.getElementById("fba-merkle-root");
+    var stEl = document.getElementById("fba-state-root");
+
+    if (blkEl) blkEl.textContent = "#" + blockNum;
+    if (txEl) txEl.textContent = txId;
+    if (mrkEl) {
+      mrkEl.textContent = finalized ? merkleRoot : "0x0000000000000000 (Commit Blocked)";
+      mrkEl.className = "crypto-root-val " + (finalized ? "" : "text-danger");
+    }
+    if (stEl) {
+      stEl.textContent = finalized ? stateRoot : "0x0000000000000000 (State Unaltered)";
+      stEl.className = "crypto-root-val " + (finalized ? "text-success" : "text-danger");
+    }
+
+    // 4. Update Progress Bar & Agreement Text
+    var pct = Math.round((signedCount / totalCount) * 100);
+    var pFill = document.getElementById("consensus-progress-fill");
+    var qStat = document.getElementById("quorum-agreement-stat");
+    var fStat = document.getElementById("quorum-finality-stat");
+
+    if (pFill) {
+      pFill.style.width = pct + "%";
+      pFill.style.background = quorumAchieved ? "var(--success, #10b981)" : "var(--danger, #ef4444)";
+    }
+
+    if (qStat) {
+      qStat.innerHTML = 'Quorum Agreement: <strong>' + pct + '% (' + signedCount + ' / ' + totalCount + ' Nodes)</strong>';
+    }
+
+    if (fStat) {
+      if (signedCount === totalCount) {
+        fStat.className = "text-success font-bold";
+        fStat.innerHTML = '<i class="bi bi-check-circle-fill"></i> Consensus Reached — Block #' + escapeHtml(blockNum) + ' Finalized';
+      } else if (quorumAchieved) {
+        fStat.className = "text-warning font-bold";
+        fStat.innerHTML = '<i class="bi bi-shield-exclamation"></i> Quorum Maintained (' + signedCount + '/' + totalCount + ' \u2265 9) — Block #' + escapeHtml(blockNum) + ' Finalized';
+      } else {
+        fStat.className = "text-danger font-bold";
+        fStat.innerHTML = '<i class="bi bi-x-octagon-fill"></i> Quorum Failed (' + signedCount + '/' + totalCount + ' < 9 Required) — Block Proposal Rejected';
+      }
+    }
+
+    // 5. Populate 12-Validator Telemetry Table
+    var tbody = document.getElementById("fba-validator-tbody");
+    if (tbody) {
+      var rowsHtml = "";
+      evaluatedValidators.forEach(function (v) {
+        var rowClass = v.isOnline ? "" : "node-row-offline";
+        var verifyBadge = v.verified
+          ? '<span class="badge badge-success"><i class="bi bi-check2"></i> Valid</span>'
+          : '<span class="badge badge-danger"><i class="bi bi-x"></i> ' + (v.isOnline ? 'Failed' : 'Offline') + '</span>';
+
+        var signBadge = v.signed
+          ? '<span class="badge badge-success"><i class="bi bi-check2-circle"></i> Approved</span>'
+          : '<span class="badge badge-danger"><i class="bi bi-dash-circle"></i> ' + (v.isOnline ? 'Rejected' : 'Skipped') + '</span>';
+
+        var sigDigest = v.signatureDigest
+          ? '<span class="sig-digest-pill">' + escapeHtml(v.signatureDigest) + '</span>'
+          : '<span class="text-muted" style="font-size:11px;">None (Offline)</span>';
+
+        var voteColor = v.vote === "ACCEPT" ? "text-success" : "text-danger";
+        var quorumContrib = v.isOnline
+          ? '<span class="text-success"><i class="bi bi-check-circle"></i> Slice Met (3/4)</span>'
+          : '<span class="text-danger"><i class="bi bi-slash-circle"></i> Excluded</span>';
+
+        var statusBadge = v.isOnline
+          ? '<span class="badge badge-success">ONLINE</span>'
+          : '<span class="badge badge-danger">OFFLINE</span>';
+
+        rowsHtml +=
+          '<tr class="' + rowClass + '">' +
+            '<td><span class="mono font-bold">' + escapeHtml(v.validatorId) + '</span><br /><small class="text-muted">' + escapeHtml(v.org) + '</small></td>' +
+            '<td>' + verifyBadge + '</td>' +
+            '<td>' + signBadge + '</td>' +
+            '<td>' + sigDigest + '</td>' +
+            '<td><span class="mono font-bold ' + voteColor + '">' + escapeHtml(v.vote) + '</span></td>' +
+            '<td>' + quorumContrib + '</td>' +
+            '<td>' + statusBadge + '</td>' +
+          '</tr>';
+      });
+      tbody.innerHTML = rowsHtml;
+    }
+
+    // 6. Update Visual Vote Grid
+    document.querySelectorAll(".vote-node").forEach(function (box) {
+      var id = normalizeNodeId(box.getAttribute("data-node"));
+      var vItem = evaluatedValidators.find(function(item) { return item.validatorId === id; });
+      var statusEl = box.querySelector(".vote-status");
+      if (vItem && !vItem.isOnline) {
+        box.className = "vote-node is-offline";
+        if (statusEl) statusEl.innerHTML = '<i class="bi bi-x-circle-fill text-danger"></i> Offline';
+      } else if (vItem && vItem.signed) {
+        box.className = "vote-node is-voted";
+        if (statusEl) statusEl.innerHTML = '<i class="bi bi-check-circle-fill text-success"></i> Agreed';
+      } else {
+        box.className = "vote-node is-offline";
+        if (statusEl) statusEl.innerHTML = '<i class="bi bi-x-circle text-danger"></i> Rejected';
+      }
+    });
+
+    // 7. Update KPI strip counters
+    var onlineCounter = document.getElementById("online-nodes-count");
+    if (onlineCounter) {
+      var onlineCount = evaluatedValidators.filter(function(v) { return v.isOnline; }).length;
+      onlineCounter.textContent = onlineCount + " / " + totalCount;
+    }
+  }
+
+  /* ==========================================================
+     3. LIVE BACKEND SYNCHRONIZATION
+     ========================================================== */
+  async function fetchConsensusRound() {
+    try {
+      var res = await fetch((window.getPDSChainApiBase ? window.getPDSChainApiBase("api") : "http://localhost:3000/api") + "/consensus/rounds/latest");
+      if (res.ok) {
+        var json = await res.json();
+        if (json && json.success && json.round) {
+          latestRoundCache = json.round;
+          renderConsensusTelemetry(latestRoundCache);
+        }
+      }
+    } catch (e) {
+      // Offline fallback: render default baseline
+      if (!latestRoundCache) {
+        latestRoundCache = {
+          roundId: "RND-4281",
+          blockNumber: 4281,
+          threshold: 9,
+          finalized: true
+        };
+      }
+      renderConsensusTelemetry(latestRoundCache);
+    }
+  }
+
   async function fetchValidatorState() {
     try {
       var token = localStorage.getItem("pdschain_jwt_token") || "";
@@ -96,14 +345,19 @@
       if (res.ok) {
         var json = await res.json();
         if (json && json.validators && Array.isArray(json.validators)) {
-          offlineNodes.clear();
-          json.validators.forEach(function (v) {
-            if (v.status === "Offline") {
-              offlineNodes.add(v.validatorId);
-              offlineNodes.add(v.validatorId.replace("VAL-", "NODE-"));
+          if (!isSimulationActive) {
+            offlineNodes.clear();
+            json.validators.forEach(function (v) {
+              if (v.status === "Offline") {
+                offlineNodes.add(v.validatorId);
+                offlineNodes.add(v.validatorId.replace("VAL-", "NODE-"));
+              }
+            });
+            updateNetworkVisualization();
+            if (latestRoundCache) {
+              renderConsensusTelemetry(latestRoundCache);
             }
-          });
-          updateNetworkVisualization();
+          }
         }
       }
     } catch (e) {
@@ -114,12 +368,16 @@
   async function setNodeStatusBackend(nodeId, status) {
     var normId = normalizeNodeId(nodeId);
     var token = localStorage.getItem("pdschain_jwt_token") || "";
+    var role = (localStorage.getItem("pds_role") || "").toUpperCase();
+    if (!token || (role !== "ADMIN" && role !== "VALIDATOR")) {
+      return;
+    }
     try {
       await fetch((window.getPDSChainApiBase ? window.getPDSChainApiBase("api") : "http://localhost:3000/api") + "/validators/" + normId + "/status", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { "Authorization": "Bearer " + token } : {})
+          "Authorization": "Bearer " + token
         },
         body: JSON.stringify({ status: status })
       });
@@ -127,39 +385,92 @@
   }
 
   /* ==========================================================
-     3. NODE FAILURE SIMULATION
+     4. NODE FAILURE & RECOVERY SIMULATION HANDLERS
      ========================================================== */
+  function applyFailureSimulation(failedList, toastMsg, toastType) {
+    isSimulationActive = true;
+    failedList.forEach(function (id) {
+      offlineNodes.add(id);
+      offlineNodes.add(id.replace("VAL-", "NODE-"));
+    });
+    updateNetworkVisualization();
+    if (latestRoundCache) {
+      renderConsensusTelemetry(latestRoundCache);
+    }
+    failedList.forEach(function (id) {
+      setNodeStatusBackend(id, "Offline");
+    });
+    if (window.showToast && toastMsg) {
+      window.showToast(toastMsg, toastType || "warning");
+    }
+  }
+
+  function applyRestoreAllSimulation() {
+    isSimulationActive = false;
+    var previouslyOffline = Array.from(offlineNodes);
+    offlineNodes.clear();
+    updateNetworkVisualization();
+    if (latestRoundCache) {
+      renderConsensusTelemetry(latestRoundCache);
+    }
+    for (var id of previouslyOffline) {
+      if (id.startsWith("VAL-")) {
+        setNodeStatusBackend(id, "Online");
+      }
+    }
+    if (window.showToast) {
+      window.showToast("Restored all 12 validator nodes. Network is 100% ONLINE (12/12 \u2265 9 Quorum Reached).", "success");
+    }
+  }
+
+  // Bind Buttons on Validator Dashboard
+  var btnFail7 = document.getElementById("btn-val-fail-7");
+  var btnFail4 = document.getElementById("btn-val-fail-4");
+  var btnRestoreAll = document.getElementById("btn-val-restore-all");
+
+  if (btnFail7) {
+    btnFail7.addEventListener("click", function () {
+      applyFailureSimulation(
+        ["VAL-07"],
+        "Simulated Failure: VAL-07 went OFFLINE. FBA Quorum maintained (11/12 \u2265 9 required) — Block finalized!",
+        "warning"
+      );
+    });
+  }
+
+  if (btnFail4) {
+    btnFail4.addEventListener("click", function () {
+      applyFailureSimulation(
+        ["VAL-07", "VAL-08", "VAL-09", "VAL-10"],
+        "Simulated Cascading Failure: 4 nodes went OFFLINE. Active: 8/12 (< 9 required). Quorum FAILED — Block rejected!",
+        "error"
+      );
+    });
+  }
+
+  if (btnRestoreAll) {
+    btnRestoreAll.addEventListener("click", function () {
+      applyRestoreAllSimulation();
+    });
+  }
+
+  // Bind Legacy / Quorum Page Buttons
   var failNodeBtn = document.getElementById("btn-simulate-failure");
   var restoreNodeBtn = document.getElementById("btn-restore-node");
 
   if (failNodeBtn) {
-    failNodeBtn.addEventListener("click", async function () {
-      offlineNodes.add("VAL-07");
-      offlineNodes.add("NODE-07");
-      updateNetworkVisualization();
-      await setNodeStatusBackend("VAL-07", "Offline");
-
-      if (window.showToast) {
-        window.showToast("Simulated Node Failure: VAL-07 went OFFLINE. FBA Quorum maintained (11/12 nodes online).", "warning");
-      }
+    failNodeBtn.addEventListener("click", function () {
+      applyFailureSimulation(
+        ["VAL-07"],
+        "Simulated Node Failure: VAL-07 went OFFLINE. FBA Quorum maintained (11/12 nodes online).",
+        "warning"
+      );
     });
   }
 
   if (restoreNodeBtn) {
-    restoreNodeBtn.addEventListener("click", async function () {
-      var previouslyOffline = Array.from(offlineNodes);
-      offlineNodes.clear();
-      updateNetworkVisualization();
-
-      for (var id of previouslyOffline) {
-        if (id.startsWith("VAL-")) {
-          await setNodeStatusBackend(id, "Online");
-        }
-      }
-
-      if (window.showToast) {
-        window.showToast("Restored all validator nodes. Network is 100% ONLINE (12/12 nodes).", "success");
-      }
+    restoreNodeBtn.addEventListener("click", function () {
+      applyRestoreAllSimulation();
     });
   }
 
@@ -210,7 +521,7 @@
   }
 
   /* ==========================================================
-     3. PHASE 10: LEDGER SYNC & RECOVERY OBSERVABILITY
+     5. PHASE 10: LEDGER SYNC & RECOVERY OBSERVABILITY
      ========================================================== */
   async function fetchLedgerSyncState() {
     try {
@@ -248,7 +559,7 @@
         HALTED: "#dc2626"
       };
       stateBadge.style.background = colorMap[state] || "#10b981";
-      stateBadge.innerHTML = '<i class="bi bi-shield-check"></i> SYNC STATE: ' + state;
+      stateBadge.innerHTML = '<i class="bi bi-shield-check"></i> SYNC STATE: ' + escapeHtml(state);
     }
 
     if (gatingBadge) {
@@ -257,7 +568,7 @@
         gatingBadge.innerHTML = '<i class="bi bi-check-circle-fill"></i> Consensus Voting: Enabled';
       } else {
         gatingBadge.className = "badge badge-danger";
-        gatingBadge.innerHTML = '<i class="bi bi-x-octagon-fill"></i> Consensus Voting: Blocked (' + state + ')';
+        gatingBadge.innerHTML = '<i class="bi bi-x-octagon-fill"></i> Consensus Voting: Blocked (' + escapeHtml(state) + ')';
       }
     }
 
@@ -285,6 +596,12 @@
   // Initialize
   fetchValidatorState();
   fetchLedgerSyncState();
+  fetchConsensusRound();
+
+  // Periodic telemetry refresh
+  setInterval(function () {
+    fetchConsensusRound();
+  }, 10000);
 
   if (document.getElementById("quorum-target-node")) {
     window.selectQuorumNode("VAL-01");

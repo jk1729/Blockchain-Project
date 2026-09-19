@@ -63,6 +63,9 @@ function createSeededCertificate(blockNumber, blockHash, stateRoot, validatorIds
 
 async function seedDatabase(force = true) {
   try {
+    if (process.env.NODE_ENV === 'production' && force === true) {
+      throw new Error('FATAL SAFETY ERROR: Destructive seeding (force: true) is forbidden in production.');
+    }
     logger.info(`Starting PDSChain database seeding (force: ${force})...`);
 
     // Reset in-memory nonces

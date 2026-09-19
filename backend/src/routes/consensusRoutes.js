@@ -10,6 +10,8 @@ router.get('/state', optionalAuthMiddleware, consensusController.getState);
 router.get('/conflicts', optionalAuthMiddleware, consensusController.getConflicts);
 router.get('/votes/height/:height', optionalAuthMiddleware, consensusController.getVotesByHeight);
 router.get('/journal', optionalAuthMiddleware, consensusController.getJournal);
+router.get('/rounds/latest', optionalAuthMiddleware, consensusController.getLatestRound);
+router.get('/rounds/tx/:txId', optionalAuthMiddleware, consensusController.getRoundByTransaction);
 router.post('/propose', authMiddleware, roleMiddleware('SHOP', 'ADMIN', 'VALIDATOR'), consensusController.propose);
 
 module.exports = router;

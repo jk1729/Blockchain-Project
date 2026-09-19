@@ -63,6 +63,29 @@ class ConsensusController {
       entries: consensusService.getJournalEntries(limit)
     });
   }
+
+  getLatestRound(req, res) {
+    const round = consensusService.getLatestRound();
+    res.status(200).json({
+      success: true,
+      round
+    });
+  }
+
+  getRoundByTransaction(req, res) {
+    const txId = req.params.txId;
+    const round = consensusService.getRoundByTransactionId(txId);
+    if (!round) {
+      return res.status(404).json({
+        success: false,
+        message: `Consensus round for transaction ${txId} not found`
+      });
+    }
+    res.status(200).json({
+      success: true,
+      round
+    });
+  }
 }
 
 module.exports = new ConsensusController();

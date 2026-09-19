@@ -166,15 +166,46 @@ flowchart LR
 
 ---
 
-### Role 6: Validator Quorum Telemetry
-1. Open `http://localhost:3000/validator/validator.html`.
-2. Highlight:
-   * **FBA Quorum Vote Matrix**: 12 node tiles showing green *Agreed* checkmarks.
-   * **Ledger Synchronization & Recovery Card**:
+### Role 6: Validator Quorum Telemetry & Fault Tolerance
+1. Open `http://localhost:3000/validator/validator.html` (logged in as `validator` / `validator123` or `admin` / `admin123`).
+2. **4-Stage Byzantine Consensus Pipeline**:
+   * Point out the live pipeline progress steps at the top of the dashboard:
+     * **Stage 1 (Verify)**: Transaction validation, pre-state simulation, and balance checks.
+     * **Stage 2 (Sign / Approve)**: Cryptographic signature verification and individual validator proposal endorsement.
+     * **Stage 3 (Quorum)**: Dynamic quorum slice evaluation ($\ge 9/12$ institutional nodes required).
+     * **Stage 4 (Finalize)**: Dual cryptographic root generation (Merkle & State roots) and immediate block sealing.
+3. **Cryptographic Roots & Proposal Bar**:
+   * Highlight the proposal telemetry bar above the table:
+     * **Latest Block Height**: Reflects sealed chain height.
+     * **Transaction / Proposal ID**: Unique hash of the active transaction proposal.
+     * **Merkle Root**: Truncated SHA-256 Merkle root of transaction batch.
+     * **State Root**: Truncated global state root digest.
+4. **Live 12-Validator Telemetry Table**:
+   * Inspect the table displaying all 12 institutional validator nodes (`VAL-01` to `VAL-12`).
+   * Show that each row presents real-time data:
+     * **Validator Node**: Institutional designation (e.g., `VAL-01 (Ministry of Consumer Affairs)`, `VAL-07 (NIC Blockchain Unit)`).
+     * **Agreement Vote**: `ACCEPT` (green pill), `REJECT` (red pill), or `OFFLINE` (gray pill).
+     * **Verification Status**: Validated ($\checkmark$).
+     * **Ed25519 Signature Digest**: Truncated asymmetric cryptographic signature (`ed25519:...`).
+     * **Latency**: Node response time in milliseconds.
+     * **Operating Status**: `ONLINE` or `OFFLINE`.
+5. **Interactive Byzantine Fault Tolerance Demonstration**:
+   * **Test 1 — Single Node Failure (`VAL-07` Fail-Stop)**:
+     * Click the button **"Simulate VAL-07 Fail-Stop"**.
+     * *Observation*: `VAL-07` turns red/gray (`OFFLINE`). The agreement bar updates to **11 / 12 (91.7%)**.
+     * *Key Viva Point*: Because 11 active nodes still exceed the $9/12$ ($75\%$) BFT threshold, the consensus badge remains green: **"QUORUM REACHED (11/12)"**. The system tolerates the failure seamlessly without disruption.
+   * **Test 2 — 4-Node Cascading Breach (Consensus Stalled)**:
+     * Click the button **"Simulate 4-Node Cascading Breach"**.
+     * *Observation*: Four nodes (`VAL-01` through `VAL-04`) are set `OFFLINE`. The agreement bar drops to **8 / 12 (66.7%)**.
+     * *Key Viva Point*: Because 8 active nodes fail to meet the required $9/12$ threshold, the badge switches to red: **"QUORUM HALTED — Insufficient Votes (8/12)"**. The blockchain safety invariant prevents block finalization, avoiding split-brain or fork hazards.
+   * **Test 3 — Network Recovery**:
+     * Click the button **"Restore All Nodes"**.
+     * *Observation*: All 12 nodes return to green `ONLINE` status. The agreement bar recovers to **12 / 12 (100%)**, and the status returns to **"QUORUM REACHED (12/12)"**.
+6. **Ledger Synchronization & Recovery Card**:
+   * Point out:
      * `SYNC STATE: CURRENT`
      * Durable Checkpoints active
      * EVM & Journal Replay: *State Root Valid*
-   * Threshold requirements: 9 of 12 votes required (75% BFT threshold) to tolerate up to 3 Byzantine or offline nodes.
 
 ---
 
