@@ -133,7 +133,9 @@ class WarehouseTransferRule extends BaseRule {
       destShopId,
       commodity,
       quantity,
-      options.dbTransaction
+      options.dbTransaction,
+      context.payload.transferId || null,
+      context.payload.idempotencyKey || null
     );
 
     return {

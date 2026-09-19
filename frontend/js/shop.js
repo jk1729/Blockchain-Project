@@ -10,6 +10,16 @@
 (function () {
   "use strict";
 
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
   var data = window.PDSCHAIN_DATA || { beneficiaries: [], transactions: [] };
 
   /* ==========================================================
@@ -34,12 +44,12 @@
         resultBox.innerHTML =
           '<i class="bi bi-check-circle-fill"></i>' +
           '<div>' +
-            '<strong style="display:block;font-size:15px;margin-bottom:4px;">' + b.name + ' (' + b.id + ') — <span class="badge badge-success">ELIGIBLE ✓</span></strong>' +
-            '<span>Household: ' + b.household + ' Members | Entitlements: Rice ' + b.quotaRice + 'kg, Wheat ' + b.quotaWheat + 'kg, Sugar ' + b.quotaSugar + 'kg | Status: ACTIVE</span>' +
+            '<strong style="display:block;font-size:15px;margin-bottom:4px;">' + escapeHtml(b.name) + ' (' + escapeHtml(b.id) + ') — <span class="badge badge-success">ELIGIBLE ✓</span></strong>' +
+            '<span>Household: ' + escapeHtml(b.household) + ' Members | Entitlements: Rice ' + escapeHtml(b.quotaRice) + 'kg, Wheat ' + escapeHtml(b.quotaWheat) + 'kg, Sugar ' + escapeHtml(b.quotaSugar) + 'kg | Status: ACTIVE</span>' +
           '</div>';
       } else {
         resultBox.className = "verify-result is-visible is-error";
-        resultBox.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> Beneficiary ID "' + val + '" not found. Please verify the ID number.';
+        resultBox.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> Beneficiary ID "' + escapeHtml(val) + '" not found. Please verify the ID number.';
       }
     });
   }
@@ -80,8 +90,22 @@
   var step1VerifyBtn = document.getElementById("step1-verify-btn");
   if (step1VerifyBtn) {
     step1VerifyBtn.addEventListener("click", function () {
-      var idVal = document.getElementById("step1-ben-id").value.trim().toUpperCase() || "BEN-1024";
-      var b = data.beneficiaries.find(function (item) { return item.id.toUpperCase() === idVal; }) || data.beneficiaries[0];
+      var idVal = document.getElementById("step1-ben-id").value.trim().toUpperCase();
+      var b = data.beneficiaries.find(function (item) { return item.id.toUpperCase() === idVal; });
+
+      if (!b) {
+        var step1Error = document.getElementById("step1-error");
+        if (step1Error) {
+          step1Error.textContent = idVal ? "Beneficiary ID not found. Verify the ID and try again." : "Enter a beneficiary ID to continue.";
+          step1Error.hidden = false;
+        } else if (window.showToast) {
+          window.showToast("Enter a valid beneficiary ID to continue.", "error");
+        }
+        return;
+      }
+
+      var step1Error = document.getElementById("step1-error");
+      if (step1Error) step1Error.hidden = true;
 
       workflowState.beneficiaryId = b.id;
       workflowState.beneficiaryName = b.name;
@@ -112,7 +136,12 @@
   if (step3NextBtn) {
     step3NextBtn.addEventListener("click", function () {
       var qtyInput = document.getElementById("dist-qty-input");
-      workflowState.quantity = qtyInput ? parseFloat(qtyInput.value) : 5;
+      workflowState.quantity = qtyInput ? parseFloat(qtyInput.value) : NaN;
+
+      if (!Number.isFinite(workflowState.quantity) || workflowState.quantity <= 0) {
+        if (window.showToast) window.showToast("Enter a valid quantity greater than zero.", "error");
+        return;
+      }
 
       var confirmBox = document.getElementById("step4-confirm-details");
       if (confirmBox) {
@@ -168,7 +197,7 @@
     });
 
     // Send real transaction to backend
-    fetch("http://localhost:3000/api/transactions", {
+    fetch((window.getPDSChainApiBase ? window.getPDSChainApiBase("api") : "http://localhost:3000/api") + "/transactions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -231,7 +260,7 @@
       // Show failure details on the confirmation step
       var confirmBox = document.getElementById("step4-confirm-details");
       if (confirmBox) {
-        confirmBox.innerHTML += '<div class="receipt-row" style="color:var(--danger);font-weight:bold;margin-top:10px;"><span class="label">Failure Reason:</span><span class="val">' + errorMsg + '</span></div>';
+        confirmBox.innerHTML += '<div class="receipt-row" style="color:var(--danger);font-weight:bold;margin-top:10px;"><span class="label">Failure Reason:</span><span class="val">' + escapeHtml(errorMsg) + '</span></div>';
       }
 
       // Return to confirmation step after animation
@@ -251,15 +280,15 @@
           '<div class="receipt-sub">Department of Food and Civil Supplies</div>' +
         '</div>' +
         '<div class="receipt-details">' +
-          '<div class="receipt-row"><span class="label">Transaction ID:</span><span class="val mono">' + workflowState.txnId + '</span></div>' +
-          '<div class="receipt-row"><span class="label">Date &amp; Time:</span><span class="val">' + new Date().toLocaleString() + '</span></div>' +
-          '<div class="receipt-row"><span class="label">Beneficiary ID:</span><span class="val mono">' + workflowState.beneficiaryId + '</span></div>' +
-          '<div class="receipt-row"><span class="label">Citizen Name:</span><span class="val">' + workflowState.beneficiaryName + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Transaction ID:</span><span class="val mono">' + escapeHtml(workflowState.txnId) + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Date &amp; Time:</span><span class="val">' + escapeHtml(new Date().toLocaleString()) + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Beneficiary ID:</span><span class="val mono">' + escapeHtml(workflowState.beneficiaryId) + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Citizen Name:</span><span class="val">' + escapeHtml(workflowState.beneficiaryName) + '</span></div>' +
           '<div class="receipt-row"><span class="label">Fair Price Shop:</span><span class="val">FPS-102 (Central Bazaar)</span></div>' +
-          '<div class="receipt-row"><span class="label">Commodity:</span><span class="val font-bold">' + workflowState.commodity + '</span></div>' +
-          '<div class="receipt-row"><span class="label">Quantity Issued:</span><span class="val font-bold">' + workflowState.quantity + ' KG</span></div>' +
-          '<div class="receipt-row"><span class="label">Block Anchor:</span><span class="val mono">' + (workflowState.blockNumber || 'BLOCK #4282') + '</span></div>' +
-          '<div class="receipt-row"><span class="label">Validator Quorum:</span><span class="val">' + (workflowState.validators || 12) + ' / 12 Nodes Agreed</span></div>' +
+          '<div class="receipt-row"><span class="label">Commodity:</span><span class="val font-bold">' + escapeHtml(workflowState.commodity) + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Quantity Issued:</span><span class="val font-bold">' + escapeHtml(workflowState.quantity) + ' KG</span></div>' +
+          '<div class="receipt-row"><span class="label">Block Anchor:</span><span class="val mono">' + escapeHtml(workflowState.blockNumber || 'BLOCK #4282') + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Validator Quorum:</span><span class="val">' + escapeHtml(workflowState.validators || 12) + ' / 12 Nodes Agreed</span></div>' +
         '</div>' +
         '<div class="receipt-total">' +
           '<span>Amount Payable:</span><span>₹ 0.00 (Subsidized)</span>' +

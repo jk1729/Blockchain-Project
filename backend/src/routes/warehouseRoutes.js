@@ -13,6 +13,7 @@ router.post('/', authMiddleware, roleMiddleware('ADMIN'), warehouseController.cr
 router.put('/:id', authMiddleware, roleMiddleware('ADMIN'), warehouseController.update);
 
 // Warehouse-to-shop stock transfer
+router.get('/:id/transfers', authMiddleware, roleMiddleware('WAREHOUSE', 'ADMIN'), warehouseController.getTransfers);
 router.post('/:id/transfer', authMiddleware, roleMiddleware('WAREHOUSE', 'ADMIN'), warehouseController.transferStock);
 
 module.exports = router;

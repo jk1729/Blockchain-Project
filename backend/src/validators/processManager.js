@@ -49,6 +49,18 @@ class ProcessManager extends EventEmitter {
     const apiPort = options.apiPort || options.port || vConfig.port;
     const p2pPort = options.p2pPort || vConfig.p2pPort;
     const scriptPath = path.resolve(__dirname, 'validatorProcess.js');
+    const validatorStorageRoot = process.env.VALIDATOR_STORAGE_ROOT
+      ? path.resolve(process.env.VALIDATOR_STORAGE_ROOT)
+      : null;
+    const defaultDataDir = validatorStorageRoot
+      ? path.join(validatorStorageRoot, vId)
+      : path.resolve(process.cwd(), 'database', 'validators', vId);
+    const defaultDatabaseStorage = validatorStorageRoot
+      ? path.join(defaultDataDir, 'pdschain.sqlite')
+      : `database/validators/${vId}/pdschain.sqlite`;
+    const defaultConsensusJournal = validatorStorageRoot
+      ? path.join(defaultDataDir, 'consensus_journal.jsonl')
+      : `database/validators/${vId}/consensus_journal.jsonl`;
 
     const env = {
       ...process.env,
@@ -58,9 +70,9 @@ class ProcessManager extends EventEmitter {
       P2P_PORT: String(p2pPort),
       P2P_USE_TLS: options.useTLS ? 'true' : (options.useTLS === false ? 'false' : (process.env.P2P_USE_TLS || 'false')),
       NETWORK_ID: options.networkId || process.env.NETWORK_ID || 'pdschain-devnet',
-      DATA_DIR: options.dataDir || process.env.DATA_DIR || path.resolve(process.cwd(), 'database', 'validators', vId),
-      DATABASE_STORAGE: options.dbStorage || `database/validators/${vId}/pdschain.sqlite`,
-      CONSENSUS_JOURNAL: options.journalPath || `database/validators/${vId}/consensus_journal.jsonl`,
+      DATA_DIR: options.dataDir || process.env.DATA_DIR || defaultDataDir,
+      DATABASE_STORAGE: options.dbStorage || defaultDatabaseStorage,
+      CONSENSUS_JOURNAL: options.journalPath || defaultConsensusJournal,
       NODE_ENV: process.env.NODE_ENV || 'test'
     };
 
@@ -360,4 +372,3 @@ class ProcessManager extends EventEmitter {
 }
 
 module.exports = ProcessManager;
-

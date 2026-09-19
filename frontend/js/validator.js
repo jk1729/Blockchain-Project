@@ -90,7 +90,7 @@
   async function fetchValidatorState() {
     try {
       var token = localStorage.getItem("pdschain_jwt_token") || "";
-      var res = await fetch("http://localhost:3000/api/validators", {
+      var res = await fetch((window.getPDSChainApiBase ? window.getPDSChainApiBase("api") : "http://localhost:3000/api") + "/validators", {
         headers: token ? { "Authorization": "Bearer " + token } : {}
       });
       if (res.ok) {
@@ -115,7 +115,7 @@
     var normId = normalizeNodeId(nodeId);
     var token = localStorage.getItem("pdschain_jwt_token") || "";
     try {
-      await fetch("http://localhost:3000/api/validators/" + normId + "/status", {
+      await fetch((window.getPDSChainApiBase ? window.getPDSChainApiBase("api") : "http://localhost:3000/api") + "/validators/" + normId + "/status", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -214,7 +214,7 @@
      ========================================================== */
   async function fetchLedgerSyncState() {
     try {
-      var res = await fetch("http://localhost:3000/api/ledger/status");
+      var res = await fetch((window.getPDSChainApiBase ? window.getPDSChainApiBase("api") : "http://localhost:3000/api") + "/ledger/status");
       if (res.ok) {
         var json = await res.json();
         updateLedgerSyncUI(json);
@@ -291,4 +291,3 @@
   }
 
 })();
-

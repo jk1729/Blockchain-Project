@@ -64,11 +64,18 @@ class SecurityAuditLogger {
    */
   constructor(options = {}) {
     this.inMemoryOnly = options.inMemoryOnly || false;
-    this.filepath = options.filepath || path.join(__dirname, '../../../../database/security_audit.jsonl');
+    const os = require('os');
+    const configuredPath = options.filepath || process.env.SECURITY_AUDIT_PATH;
+    this.filepath = configuredPath
+      ? path.resolve(configuredPath)
+      : (process.env.NODE_ENV === 'test'
+          ? path.join(os.tmpdir(), 'pdschain-test-isolated', 'security_audit_test.jsonl')
+          : path.join(__dirname, '../../../../database/security_audit.jsonl'));
     this.metrics = options.metrics || defaultSecurityMetrics;
 
     this.entries = [];
     this.lastEntryHash = GENESIS_PREVIOUS_HASH;
+    this.lastPersistenceError = null;
 
     if (!this.inMemoryOnly) {
       this._ensureStorage();
@@ -118,7 +125,23 @@ class SecurityAuditLogger {
    * @returns {object} Appended audit entry
    */
   logEvent(params = {}) {
-    const eventId = `audit_${crypto.randomBytes(12).toString('hex')}`;
+    this.lastPersistenceError = null;
+    const eventId = params.eventId || `audit_${crypto.randomBytes(12).toString('hex')}`;
+    const existingEntry = this.entries.find(entry => entry.eventId === eventId);
+    if (existingEntry) {
+      const decision = params.decision === 'ALLOW' ? 'ALLOW' : 'DENY';
+      const action = params.action || 'unknown';
+      const resource = params.resource || 'unknown';
+      if (existingEntry.action === action &&
+          existingEntry.resource === resource &&
+          existingEntry.decision === decision) {
+        return existingEntry;
+      }
+      const collisionErr = new Error(`[SecurityAuditLogger] Collision detected: Audit event ID '${eventId}' already exists with conflicting payload.`);
+      collisionErr.code = 'ERR_AUDIT_COLLISION';
+      this.lastPersistenceError = collisionErr;
+      throw collisionErr;
+    }
     const timestamp = params.timestamp || new Date().toISOString();
     const actorId = params.actorId || 'anonymous';
     const actorType = params.actorType || 'PUBLIC';
@@ -171,21 +194,21 @@ class SecurityAuditLogger {
       entryHash
     };
 
-    this.entries.push(entry);
-    this.lastEntryHash = entryHash;
-
-    // Track metrics
-    if (decision === 'DENY') {
-      this.metrics.incrementAuthzDenial(resource, action);
-    }
-
     // Persist append-only
     if (!this.inMemoryOnly) {
       try {
         fs.appendFileSync(this.filepath, JSON.stringify(entry) + '\n', 'utf8');
       } catch (err) {
-        // Filesystem error handled safely
+        this.lastPersistenceError = err;
+        return entry;
       }
+    }
+
+    this.entries.push(entry);
+    this.lastEntryHash = entryHash;
+
+    if (decision === 'DENY') {
+      this.metrics.incrementAuthzDenial(resource, action);
     }
 
     return entry;
@@ -303,4 +326,3 @@ module.exports = {
   sanitizeSecrets,
   GENESIS_PREVIOUS_HASH
 };
-

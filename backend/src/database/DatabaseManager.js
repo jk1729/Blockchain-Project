@@ -100,6 +100,53 @@ class DatabaseManager {
         } catch (e) {
           // Table may not exist yet
         }
+        try {
+          const queryInterface = this.sequelize.getQueryInterface();
+          const transferCols = await queryInterface.describeTable('stock_transfers');
+          const transferFields = {
+            transactionId: { type: require('sequelize').DataTypes.STRING, allowNull: true },
+            blockNumber: { type: require('sequelize').DataTypes.INTEGER, allowNull: true },
+            blockHash: { type: require('sequelize').DataTypes.STRING, allowNull: true },
+            transactionHash: { type: require('sequelize').DataTypes.STRING, allowNull: true },
+            idempotencyKey: { type: require('sequelize').DataTypes.STRING, allowNull: true }
+          };
+          for (const [name, definition] of Object.entries(transferFields)) {
+            if (!transferCols[name]) await queryInterface.addColumn('stock_transfers', name, definition);
+          }
+          try {
+            await queryInterface.addIndex('stock_transfers', ['warehouseId', 'idempotencyKey'], {
+              unique: true,
+              name: 'stock_transfers_warehouse_idempotency_unique'
+            });
+          } catch (indexError) {
+            // Index may already exist or the legacy table may not have the new column yet.
+          }
+        } catch (e) {
+          // Table may not exist until the initial schema sync
+        }
+        try {
+          const queryInterface = this.sequelize.getQueryInterface();
+          try {
+            await queryInterface.describeTable('transfer_event_outbox');
+          } catch (tableError) {
+            const { DataTypes } = require('sequelize');
+            await queryInterface.createTable('transfer_event_outbox', {
+              id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+              transferId: { type: DataTypes.STRING, allowNull: false },
+              eventType: { type: DataTypes.STRING, allowNull: false },
+              payload: { type: DataTypes.JSON, allowNull: false },
+              attempts: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+              lastError: { type: DataTypes.TEXT, allowNull: true },
+              publishedAt: { type: DataTypes.DATE, allowNull: true },
+              createdAt: { type: DataTypes.DATE, allowNull: false },
+              updatedAt: { type: DataTypes.DATE, allowNull: false }
+            });
+            await queryInterface.addIndex('transfer_event_outbox', ['transferId', 'eventType'], { unique: true });
+            await queryInterface.addIndex('transfer_event_outbox', ['publishedAt']);
+          }
+        } catch (e) {
+          this.logger.warn(`[DatabaseManager] Could not ensure transfer event outbox schema: ${e.message}`);
+        }
       }
 
       this.pool.recordSuccess();

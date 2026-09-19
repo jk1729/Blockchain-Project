@@ -37,8 +37,10 @@ describe('PHASE 9: Network Transport & Peer Handshake Test Suite', () => {
       const challenge = auth1.createChallenge();
       const sig = auth1.signChallenge(challenge);
 
-      // Tampered challenge
-      const tamperedChallenge = challenge.slice(0, -2) + '00';
+      // Tampered challenge (guaranteed to differ)
+      const tamperedChallenge = challenge.endsWith('00')
+        ? challenge.slice(0, -2) + 'ff'
+        : challenge.slice(0, -2) + '00';
       expect(() => {
         auth1.verifyChallenge('VAL-01', tamperedChallenge, sig);
       }).toThrow(/signature verification failed/);

@@ -1,7 +1,7 @@
 const Inventory = require('../models/Inventory');
 const StockTransfer = require('../models/StockTransfer');
 const { sequelize } = require('../config/database');
-const { ValidationError, NotFoundError } = require('../utils/errors');
+const { ValidationError, NotFoundError, ConflictError } = require('../utils/errors');
 const crypto = require('crypto');
 
 class InventoryService {
@@ -80,6 +80,26 @@ class InventoryService {
     const qty = parseFloat(quantity);
     if (isNaN(qty) || qty <= 0) {
       throw new ValidationError('Transfer quantity must be a positive number.');
+    }
+    if (!shopId || !commodity) {
+      throw new ValidationError('Transfer destination and commodity are required.');
+    }
+    if (warehouseId.toUpperCase() === String(shopId).toUpperCase()) {
+      throw new ValidationError('Transfer destination must be a different fair price shop.');
+    }
+
+    const recentDuplicate = await StockTransfer.findOne({
+      where: {
+        warehouseId,
+        shopId,
+        commodity,
+        quantity: qty,
+        status: 'Completed'
+      },
+      order: [['createdAt', 'DESC']]
+    });
+    if (recentDuplicate && Date.now() - new Date(recentDuplicate.createdAt).getTime() < 5000) {
+      throw new ConflictError('Duplicate stock transfer detected. Please wait before submitting the same transfer again.');
     }
 
     return await sequelize.transaction(async (t) => {

@@ -36,6 +36,7 @@ class EventStore {
     this.eventsById = new Map();
     // Deduplication registry: deduplicationKey -> eventId
     this.dedupKeys = new Map();
+    this.lastPersistenceError = null;
 
     // Ensure journal directory exists if persistent
     if (!this.inMemoryOnly && this.filepath) {
@@ -60,13 +61,36 @@ class EventStore {
   }
 
   record(event) {
+    this.lastPersistenceError = null;
     const ev = event instanceof BlockchainEvent ? event : new BlockchainEvent(event);
     ev.validate();
+    if (this.eventsById.has(ev.eventId)) {
+      const existing = this.eventsById.get(ev.eventId);
+      const existingPayloadStr = JSON.stringify(existing.payload || {});
+      const newPayloadStr = JSON.stringify(ev.payload || {});
+      const isIdentical = (existingPayloadStr === newPayloadStr) &&
+                          (existing.eventType === ev.eventType) &&
+                          (existing.category === ev.category);
+      if (!isIdentical) {
+        const collisionErr = new Error(`[EventStore] Collision detected: Event ID '${ev.eventId}' already exists with conflicting payload.`);
+        collisionErr.code = 'ERR_EVENT_COLLISION';
+        this.lastPersistenceError = collisionErr;
+        logger.error(collisionErr.message);
+        return false;
+      }
+      return false;
+    }
     const dedupKey = ev.getDeduplicationKey();
     if (this.dedupKeys.has(dedupKey)) {
       return false;
     }
-    this.append(ev);
+    try {
+      this.append(ev);
+    } catch (err) {
+      this.lastPersistenceError = err;
+      return false;
+    }
+    if (this.lastPersistenceError) return false;
     if (this.eventBus && !this._publishing) {
       this._publishing = true;
       try {
@@ -86,6 +110,25 @@ class EventStore {
   append(event) {
     const ev = event instanceof BlockchainEvent ? event : new BlockchainEvent(event);
     ev.validate();
+    this.lastPersistenceError = null;
+
+    // Check same-ID collisions
+    if (this.eventsById.has(ev.eventId)) {
+      const existing = this.eventsById.get(ev.eventId);
+      const existingPayloadStr = JSON.stringify(existing.payload || {});
+      const newPayloadStr = JSON.stringify(ev.payload || {});
+      const isIdentical = (existingPayloadStr === newPayloadStr) &&
+                          (existing.eventType === ev.eventType) &&
+                          (existing.category === ev.category);
+      if (isIdentical) {
+        return existing;
+      }
+      const collisionErr = new Error(`[EventStore] Collision detected: Event ID '${ev.eventId}' already exists with conflicting payload.`);
+      collisionErr.code = 'ERR_EVENT_COLLISION';
+      this.lastPersistenceError = collisionErr;
+      logger.error(collisionErr.message);
+      throw collisionErr;
+    }
 
     // Check deduplication
     const dedupKey = ev.getDeduplicationKey();
@@ -94,27 +137,28 @@ class EventStore {
       return this.eventsById.get(existingId);
     }
 
-    // Record in-memory
-    this.events.push(ev);
-    this.eventsById.set(ev.eventId, ev);
-    this.dedupKeys.set(dedupKey, ev.eventId);
-
-    // Prune memory if exceeding bounds
-    if (this.events.length > this.maxInMemoryEvents) {
-      const pruned = this.events.shift();
-      if (pruned) {
-        this.eventsById.delete(pruned.eventId);
-        this.dedupKeys.delete(pruned.getDeduplicationKey());
-      }
-    }
-
     // Persist to append-only journal file
     if (!this.inMemoryOnly && this.filepath) {
       try {
         const line = JSON.stringify(ev.toJSON()) + '\n';
         fs.appendFileSync(this.filepath, line, 'utf8');
       } catch (err) {
+        this.lastPersistenceError = err;
         logger.error(`[EventStore] Failed to append event to journal: ${err.message}`);
+        return ev;
+      }
+    }
+
+    // Record in-memory only after durable persistence succeeds.
+    this.events.push(ev);
+    this.eventsById.set(ev.eventId, ev);
+    this.dedupKeys.set(dedupKey, ev.eventId);
+
+    if (this.events.length > this.maxInMemoryEvents) {
+      const pruned = this.events.shift();
+      if (pruned) {
+        this.eventsById.delete(pruned.eventId);
+        this.dedupKeys.delete(pruned.getDeduplicationKey());
       }
     }
 

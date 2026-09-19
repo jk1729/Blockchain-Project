@@ -12,6 +12,9 @@ let server;
 
 async function startServer() {
   try {
+    // 0. Validate Environment Configuration
+    config.validateConfig(process.env);
+
     logger.info('Initializing PDSChain backend...');
 
     // 1. Authenticate & Sync Database
@@ -25,6 +28,7 @@ async function startServer() {
 
     // 3. Initialize Blockchain & load blocks
     await blockchainService.init();
+    await require('./services/transactionService').drainTransferEventOutbox();
 
     // 4. Load Validators from DB into FBA Consensus Engine
     const validatorRecords = await Validator.findAll({ order: [['id', 'ASC']] });
@@ -60,4 +64,3 @@ module.exports = {
   app,
   startServer
 };
-

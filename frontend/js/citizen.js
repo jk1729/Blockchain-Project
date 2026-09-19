@@ -7,6 +7,16 @@
 (function () {
   "use strict";
 
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
   var data = window.PDSCHAIN_DATA || { transactions: [] };
 
   /* 1. Transaction Verification Tool */
@@ -32,13 +42,13 @@
         '<div style="flex:1;">' +
           '<strong style="font-size:16px;display:block;margin-bottom:6px;">Transaction Verified on Blockchain Ledger</strong>' +
           '<div class="receipt-details" style="margin-top:10px;">' +
-            '<div class="receipt-row"><span class="label">Transaction ID:</span><span class="val mono">' + txn.id + '</span></div>' +
-            '<div class="receipt-row"><span class="label">Status:</span><span class="val badge badge-success">' + txn.status + '</span></div>' +
-            '<div class="receipt-row"><span class="label">Block Anchor:</span><span class="val mono">' + txn.block + '</span></div>' +
-            '<div class="receipt-row"><span class="label">Cryptographic Hash:</span><span class="val mono">' + txn.hash + '</span></div>' +
-            '<div class="receipt-row"><span class="label">Commodity &amp; Qty:</span><span class="val">' + txn.commodity + ' — ' + txn.qty + '</span></div>' +
-            '<div class="receipt-row"><span class="label">FBA Consensus:</span><span class="val">' + txn.validators + ' / 12 Nodes Validated</span></div>' +
-            '<div class="receipt-row"><span class="label">Timestamp:</span><span class="val">' + txn.time + '</span></div>' +
+            '<div class="receipt-row"><span class="label">Transaction ID:</span><span class="val mono">' + escapeHtml(txn.id) + '</span></div>' +
+            '<div class="receipt-row"><span class="label">Status:</span><span class="val badge badge-success">' + escapeHtml(txn.status) + '</span></div>' +
+            '<div class="receipt-row"><span class="label">Block Anchor:</span><span class="val mono">' + escapeHtml(txn.block) + '</span></div>' +
+            '<div class="receipt-row"><span class="label">Cryptographic Hash:</span><span class="val mono">' + escapeHtml(txn.hash) + '</span></div>' +
+            '<div class="receipt-row"><span class="label">Commodity &amp; Qty:</span><span class="val">' + escapeHtml(txn.commodity) + ' — ' + escapeHtml(txn.qty) + '</span></div>' +
+            '<div class="receipt-row"><span class="label">FBA Consensus:</span><span class="val">' + escapeHtml(txn.validators) + ' / 12 Nodes Validated</span></div>' +
+            '<div class="receipt-row"><span class="label">Timestamp:</span><span class="val">' + escapeHtml(txn.time) + '</span></div>' +
           '</div>' +
         '</div>';
     });
@@ -50,13 +60,13 @@
     var myTxns = data.transactions.filter(function (t) { return t.beneficiary === "BEN-1024" || t.beneficiary === "BEN-1001" || true; }).slice(0, 5);
     historyBody.innerHTML = myTxns.map(function (t) {
       return '<tr>' +
-        '<td><span class="mono font-bold">' + t.id + '</span></td>' +
-        '<td>' + t.commodity + '</td>' +
-        '<td><strong>' + t.qty + '</strong></td>' +
-        '<td>' + t.shop + '</td>' +
-        '<td>' + t.time + '</td>' +
-        '<td><span class="badge badge-success">' + t.status + '</span></td>' +
-        '<td><button class="btn-action-sm" onclick="showTxnModal(\'' + t.id + '\')"><i class="bi bi-shield-check"></i> Receipt</button></td>' +
+        '<td><span class="mono font-bold">' + escapeHtml(t.id) + '</span></td>' +
+        '<td>' + escapeHtml(t.commodity) + '</td>' +
+        '<td><strong>' + escapeHtml(t.qty) + '</strong></td>' +
+        '<td>' + escapeHtml(t.shop) + '</td>' +
+        '<td>' + escapeHtml(t.time) + '</td>' +
+        '<td><span class="badge badge-success">' + escapeHtml(t.status) + '</span></td>' +
+        '<td><button class="btn-action-sm" onclick="showTxnModal(\'' + escapeHtml(t.id) + '\')"><i class="bi bi-shield-check"></i> Receipt</button></td>' +
       '</tr>';
     }).join("");
   }
@@ -68,12 +78,12 @@
     if (content) {
       content.innerHTML =
         '<div class="receipt-details">' +
-          '<div class="receipt-row"><span class="label">Transaction ID:</span><span class="val mono font-bold">' + txn.id + '</span></div>' +
-          '<div class="receipt-row"><span class="label">Commodity:</span><span class="val">' + txn.commodity + ' (' + txn.qty + ')</span></div>' +
-          '<div class="receipt-row"><span class="label">Block:</span><span class="val mono">' + txn.block + '</span></div>' +
-          '<div class="receipt-row"><span class="label">Hash:</span><span class="val mono">' + txn.hash + '</span></div>' +
-          '<div class="receipt-row"><span class="label">Validators:</span><span class="val">' + txn.validators + ' / 12 Agreed</span></div>' +
-          '<div class="receipt-row"><span class="label">Date:</span><span class="val">' + txn.time + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Transaction ID:</span><span class="val mono font-bold">' + escapeHtml(txn.id) + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Commodity:</span><span class="val">' + escapeHtml(txn.commodity) + ' (' + escapeHtml(txn.qty) + ')</span></div>' +
+          '<div class="receipt-row"><span class="label">Block:</span><span class="val mono">' + escapeHtml(txn.block) + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Hash:</span><span class="val mono">' + escapeHtml(txn.hash) + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Validators:</span><span class="val">' + escapeHtml(txn.validators) + ' / 12 Agreed</span></div>' +
+          '<div class="receipt-row"><span class="label">Date:</span><span class="val">' + escapeHtml(txn.time) + '</span></div>' +
         '</div>';
     }
     window.openModal("modal-citizen-tx");

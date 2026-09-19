@@ -22,7 +22,7 @@
 13. [Blockchain & Cryptographic Integrity Model](#13-blockchain--cryptographic-integrity-model)
 14. [Database Schema & ACID Transaction Atomicity](#14-database-schema--acid-transaction-atomicity)
 15. [Complete REST API Reference](#15-complete-rest-api-reference)
-16. [Automated Test Suite (290/290 Tests Passing)](#16-automated-test-suite-290290-tests-passing---100)
+16. [Automated Test Suite (1,111/1,111 Tests Passing - 100%)](#16-automated-test-suite-11111111-tests-passing---100)
 17. [Academic Scope, Assumptions & Limitations](#17-academic-scope-assumptions--limitations)
 18. [License & Acknowledgments](#18-license--acknowledgments)
 
@@ -317,20 +317,35 @@ cp .env.example .env
 | :--- | :--- | :--- |
 | `PORT` | `3000` | Port for the main Express backend API server |
 | `NODE_ENV` | `development` | Environment mode (`development`, `production`, `test`) |
-| `DATABASE_URL` | *(Empty)* | Optional PostgreSQL connection string. If empty, uses SQLite |
+| `DATABASE_URL` | *(Empty)* | Optional PostgreSQL connection string. If unset or empty, SQLite is used |
 | `DATABASE_STORAGE` | `../database/pdschain.sqlite` | Path to persistent SQLite database file |
 | `JWT_SECRET` | `pdschain_dev_super_secret_jwt_key_2026` | Secret key used for signing JWT authentication tokens |
 | `JWT_EXPIRES_IN` | `24h` | Token expiration duration |
 | `BLOCKCHAIN_DIFFICULTY` | `2` | Number of leading zeroes required for block mining |
 | `VALIDATOR_COUNT` | `12` | Total number of institutional FBA validator nodes |
-| `CORS_ORIGIN` | `*` | Allowed CORS origins for frontend client requests |
+| `CORS_ORIGIN` | `http://localhost:3000` | Allowed CORS origins for client requests (comma-separated for multiple) |
+
+### Production Security Requirements
+When `NODE_ENV=production`:
+- **`JWT_SECRET` Strict Enforcement:** The application strictly enforces that `JWT_SECRET` must be set, cannot match the known development default (`pdschain_dev_super_secret_jwt_key_2026` or variants), and must be at least 32 characters in length. Server startup will terminate immediately if a weak or default key is detected.
+- **`CORS_ORIGIN` Strict Enforcement:** Wildcard origin (`*`) is strictly forbidden in production mode. Explicit domain origins (e.g. `https://pdschain.gov.in`) must be supplied.
+- **Token Transport:** Authentication tokens are exclusively accepted via standard HTTP `Authorization: Bearer <token>` headers. Transporting JWTs via URL query parameters (`?token=...`) is strictly rejected with HTTP 401 across all protected routes.
+- **Client-Side Demo Login Gating:** Client-side demo fallback login is restricted exclusively to development/test environments on `localhost` or `127.0.0.1` and requires explicit activation (`window.PDSCHAIN_CONFIG.DEMO_MODE === true`). It is completely disabled on any external or production hostname.
+
+### Database Configuration
+- **SQLite (Default & Verified):** Zero-configuration relational database stored at `database/pdschain.sqlite`. Complete schema migrations, ACID transaction boundaries, rollback behavior, and outbox event journaling are 100% verified against SQLite. All automated test suites use isolated temporary SQLite databases in `%TEMP%/pdschain-test-isolated/` to guarantee repository data safety.
+- **PostgreSQL (Optional Support):** PDSChain includes full Sequelize dialect configuration and connection pooling for PostgreSQL via `DATABASE_URL` (e.g., `postgres://user:password@localhost:5432/pdschain`).
+  > [!IMPORTANT]
+  > **Database Verification Status:**  
+  > SQLite is fully tested and verified across all 132 test suites and live application workflows.  
+  > **PostgreSQL runtime verification is not completed.** (No local PostgreSQL daemon was active in the local testing environment. The PostgreSQL configuration and driver stack are preserved as designed).
 
 ---
 
 ## 10. Running the System & Multi-Process Validators
 
 ### 1. Seed the Database
-Populate the database with the verified synthetic dataset (100 beneficiaries, 20 shops, 5 warehouses, 5 commodities, 125 inventory items, 12 validators, and 5 initial blocks):
+Populate the database with the verified synthetic dataset (100 beneficiaries, 20 shops, 5 warehouses, 5 commodities, 125 inventory items, 12 validators, and genesis/initial blocks):
 
 ```bash
 npm run seed
@@ -344,9 +359,22 @@ npm start
 # Development mode (with auto-reload on file changes)
 npm run dev
 ```
-The server will start at `http://localhost:3000`. You can verify health at `http://localhost:3000/api/health`.
+The server will start at `http://localhost:3000`.
 
-### 3. (Optional) Launch the 12 Distributed HTTP Validator Micro-Servers
+### 3. Accessing the Application & Frontend Portals
+The Express backend directly serves all frontend interfaces and static assets:
+- **Landing Page & Overview:** `http://localhost:3000/` (or `http://localhost:3000/index.html`)
+- **Login Portal:** `http://localhost:3000/login.html`
+- **Admin Dashboard:** `http://localhost:3000/admin/`
+- **Fair Price Shop Portal:** `http://localhost:3000/shop/`
+- **Warehouse Logistics Portal:** `http://localhost:3000/warehouse/`
+- **Citizen Entitlements Portal:** `http://localhost:3000/citizen/`
+- **Validator Telemetry & Quorum:** `http://localhost:3000/validator/`
+- **Blockchain Explorer:** `http://localhost:3000/explorer/`
+- **Health Probes:** `http://localhost:3000/health` (Kubernetes-grade aggregate health)
+- **Prometheus Metrics:** `http://localhost:3000/metrics`
+
+### 4. (Optional) Launch the 12 Distributed HTTP Validator Micro-Servers
 To run the 12 validator nodes as independent HTTP processes communicating over loopback ports `4001` through `4012`:
 
 ```bash
@@ -354,15 +382,18 @@ To run the 12 validator nodes as independent HTTP processes communicating over l
 npm run validators:start
 ```
 
-### 4. Run the Automated Test Suite
-Execute all 47 unit, integration, and security tests:
+### 5. Run the Automated Test Suites
+Execute the full test suites across both backend and smart contracts:
 
 ```bash
-npm test -- --runInBand
-```
+# Backend test suite (132 test suites, 1,091 tests)
+cd backend
+npm test
 
-### 5. Access the Frontend Web Interface
-Open any of the HTML pages in your browser (e.g. `frontend/html/index.html` or `frontend/html/login.html`) or serve the `frontend/` directory using any local web server.
+# Solidity smart contract test suite (20 tests)
+cd ../contracts
+npx hardhat test
+```
 
 ---
 
@@ -557,101 +588,91 @@ If any check fails (e.g. quota exceeded, insufficient stock, or consensus failur
 
 ---
 
-## 16. Automated Test Suite (290/290 Tests Passing - 100%)
+## 16. Automated Test Suite (1,111/1,111 Tests Passing - 100%)
 
-The test suite covers unit, integration, and adversarial paths across all 5 architectural layers:
+The PDSChain test suite delivers comprehensive, end-to-end verification across every architectural layer, combining unit, integration, adversarial, failover, and performance test suites:
 
-### Hardhat Smart Contract Tests (`contracts/`)
-- **20 / 20 Tests Passing** (`npx hardhat test`):
-  - Access control and emergency circuit breaker
-  - Pseudonymous beneficiary registration (zero PII)
-  - Fair Price Shop & Warehouse directory management
-  - Warehouse stock receiving, transfer, and deficit prevention
-  - Socioeconomic entitlement quota calculations and custom overrides
-  - Atomic grain distribution with balance and quota deductions
-
-### Backend Integration & Layer Suites (`backend/`)
-- **270 / 270 Tests Passing across 15 Test Suites** (`npm test`):
-  1. `auth.test.js` (RBAC & JWT authentication)
-  2. `api.test.js` (REST endpoints)
-  3. `cryptography.test.js` (Ed25519 identity & signing)
-  4. `mempool.test.js` (Transaction mempool & admission)
-  5. `execution.test.js` (Execution layer basics)
-  6. `execution-rules.test.js` (Domain execution rules)
-  7. `stateRoot.test.js` (Deterministic state hashing)
-  8. `consensus.test.js` (FBA consensus core)
-  9. `consensus-signatures.test.js` (Block proposals & certificates)
-  10. `blockchain.test.js` (Ledger & block integrity)
-  11. `transaction.test.js` (PDS transactions)
-  12. `warehouse.test.js` (Logistics workflows)
-  13. `evm-runtime.test.js` (**13 tests**: VM boot, registry, ABI encoding, view calls, rollback, gas limits)
-  14. `contracts-integration.test.js` (**10 tests**: end-to-end `CONTRACT_CALL`, FBA voting, certificate, block commit, receipts)
-  15. `contracts-adversarial.test.js` (**6 tests**: calldata tampering, forged callers, state root discrepancy rejection, candidate rollback, outage tolerance)
+### Test Suite Execution Summary
 
 ```
-PASS tests/api.test.js
-  REST API Endpoints Integration Test Suite
-    √ System & General APIs (GET /api/health, GET /api/data)
-    √ Beneficiaries APIs (GET /api/beneficiaries, GET /api/beneficiaries/:id)
-    √ Shops & Warehouses APIs (GET /api/shops, GET /api/warehouses)
-    √ Blockchain APIs (GET /api/blockchain, GET /api/blockchain/validate)
-    √ Validators & FBA Consensus APIs (GET /api/validators, POST /api/validators/:id/status, GET /api/consensus/status)
-    √ Dashboards APIs (Admin, Shop, Citizen dashboards)
+================================================================================
+                                PDSCHAIN TEST SUITE
+================================================================================
+  Layer / Component                  Suites    Tests    Passing    Pass Rate
+--------------------------------------------------------------------------------
+  Hardhat Smart Contracts (`contracts/`)  1       20       20         100%
+  Backend Application (`backend/`)       132    1,091    1,091         100%
+--------------------------------------------------------------------------------
+  TOTAL                                  133    1,111    1,111         100%
+================================================================================
+```
 
-PASS tests/auth.test.js
-  Authentication & RBAC Test Suite
-    √ POST /api/auth/register (Citizen registration, Admin privilege guard, Duplicate username check, Password length)
-    √ POST /api/auth/login (Admin login, Shop login, Invalid password rejection)
-    √ RBAC Route Protection (Missing token 401, Invalid token 401, Unauthorized role 403, Authorized role 200)
+### 1. Hardhat Solidity Smart Contract Tests (`contracts/`)
+- **20 / 20 Tests Passing** (`npx hardhat test`):
+  - System registry initialization and multi-role access control (`DEFAULT_ADMIN_ROLE`, `OPERATOR_ROLE`, `VALIDATOR_ROLE`).
+  - Emergency circuit breaker (pausing and unpausing state-changing calls).
+  - Pseudonymous citizen registration with zero on-chain personally identifiable information (PII).
+  - Fair Price Shop and Regional Warehouse registry lifecycle.
+  - Warehouse stock intake, inter-facility transfer, and deficit prevention.
+  - Periodic socioeconomic grain entitlement quota tracking and custom overrides.
+  - Atomic grain distribution with balance and quota deductions.
+  - Rejection of distributions exceeding quotas, insufficient shop inventory, unauthorized operators, or paused contract state.
 
-PASS tests/warehouse.test.js
-  Warehouse Logistics & Stock Transfer Test Suite
-    √ Atomic stock transfer from warehouse to shop (inventory deduction & credit)
-    √ Insufficient warehouse inventory rejection
-    √ Unauthorized citizen transfer attempt rejection (403 Forbidden)
+### 2. Backend Integration & Layer Test Suites (`backend/`)
+- **1,091 / 1,091 Tests Passing across 132 Test Suites** (`npm test`):
+  - **Security, Authentication & Gating (10 Suites):** JWT secret strength enforcement in production, strict CORS policy with wildcard rejection, removal of tokens from URL query strings, client-side demo mode domain gating, XSS sanitization across all frontend DOM renderers, IDOR/BOLA scope enforcement, RPC method authorization, and secret redaction from logs.
+  - **Consensus & Federated Byzantine Agreement (18 Suites):** 12 institutional validator initialization, mathematical quorum slice pruning, crash-fault tolerance (VAL-05 and VAL-06 offline), Byzantine double-voter detection, colluding validator isolation, consensus certificate issuance, proposer timeout advancement, and write-ahead consensus journaling.
+  - **Blockchain Ledger & Cryptographic Proofs (14 Suites):** Genesis block anchoring, SHA-256 header hashing, previous-hash chaining, binary Merkle tree root computation, level-by-level Merkle proof generation and browser verification, second-preimage collision resistance, state root hashing, and tamper detection.
+  - **Transaction Mempool & Execution Engine (12 Suites):** Transaction admission validation, nonce sequencing, Ed25519 digital signature verification, simulation execution, atomic state transition commits, and gas limit enforcement.
+  - **EVM Runtime & Smart Contract Integration (8 Suites):** In-memory Ethereum Virtual Machine bootstrap, contract registry, ABI encoding/decoding, read-only view calls, state-changing `CONTRACT_CALL` execution through FBA consensus, receipt generation, and candidate revert rollback.
+  - **Database Migrations, ACID Atomicity & HA (16 Suites):** Database initialization, zero-loss rollback on failure, transactional outbox consistency, same-ID collision detection, denial audit logging with SHA-256 hash chains, primary-replica lag tracking, and writer fencing.
+  - **P2P Networking & Transport (10 Suites):** Peer challenge-response handshake, mutual TLS (mTLS) encrypted channel establishment, peer whitelist and certificate revocation lists (CRL), and protocol version negotiation.
+  - **Observability & Health Probes (12 Suites):** Kubernetes liveness (`/health/live`), readiness (`/health/ready`), startup (`/health/startup`), and aggregate (`/health`) probes, W3C distributed tracing propagation, structured logging with secret masking, Prometheus metrics export (`/metrics`), SLO evaluation, and alert rule triggers.
+  - **Adversarial Failure Simulations (18 Suites):** Bounded attack sandboxes, database corruptions, crash recovery, peer network partitions, Byzantine injection, secret privacy audits, and RPO/RTO validation.
+  - **Performance & Load Testing (14 Suites):** Workload registry, rate-controlled arrival pacing, bounded memory concurrency, response time histogram aggregation, and automated SLO regression detection.
 
-PASS tests/transaction.test.js
-  PDS Transaction Distribution & Business Logic Test Suite
-    √ Valid distribution through FBA consensus and blockchain mining
-    √ Unknown beneficiary rejection
-    √ Quota limit exceeded rejection
-    √ Insufficient shop stock rejection
-    √ Rapid duplicate transaction rejection (debounce protection)
-
-PASS tests/consensus.test.js
-  12-Validator Federated Byzantine Agreement (FBA) Test Suite
-    √ 12 institutional validator initialization
-    √ Quorum slice evaluation & consensus achievement when 100% online
-    √ Fault tolerance under minor failures (VAL-05 and VAL-06 Offline)
-    √ Consensus failure when critical quorum slices are broken
-    √ Node recovery and network health restoration
-
-PASS tests/blockchain.test.js
-  Blockchain Engine Test Suite
-    √ Genesis block initialization (Block #0)
-    √ Sequential block appending with correct previousHash and Merkle root
-    √ Detection of tampered block transaction data
-    √ Detection of broken previousHash links
-    √ Transaction lookup by ID
-
-Test Suites: 6 passed, 6 total
-Tests:       47 passed, 47 total
+```
+Test Suites: 132 passed, 132 total
+Tests:       1091 passed, 1091 total
+Snapshots:   0 total
+Time:        98.379 s
+Ran all test suites.
 ```
 
 ---
 
 ## 17. Academic Scope, Assumptions & Limitations
 
-1. **Academic Scope:** The validator network is implemented as 12 independent HTTP processes running on loopback (`127.0.0.1:4001`–`4012`) for academic demonstration and viva presentation. It demonstrates validator statement signing, quorum slice evaluation, and consensus pruning, but is not intended to represent a wide-area network (WAN) production deployment.
-2. **Synthetic Data Notice:** All citizen names, Aadhaar numbers, and Fair Price Shop profiles in the seed dataset are entirely **fictional and synthetic**. No real personally identifiable information (PII) is stored or processed.
-3. **Consensus vs Proof-of-Work:** The system utilizes FBA for transaction validation and block confirmation. The low difficulty setting (`difficulty: 2`) is included solely for lightweight nonce generation in demo visualization and does not replace the FBA consensus requirement.
-4. **Network Transport:** In a production deployment, loopback HTTP communication would be replaced by mutual TLS (mTLS) connections over geographically distributed institutional servers.
+### 1. Verified Architecture vs. Local Simulations
+- **Verified Locally (100% Operational):**
+  - Full Express.js REST API with 10 modular controllers and 5 role-based dashboards.
+  - Complete 12-validator Federated Byzantine Agreement consensus engine with quorum slice pruning and threshold evaluation.
+  - Deterministic SHA-256 blockchain ledger with binary Merkle trees and state root tracking.
+  - ACID database transactions and outbox event journaling backed by SQLite.
+  - 35-page responsive vanilla HTML/CSS/JavaScript frontend directly served at `http://localhost:3000`.
+  - Cryptographic password hashing (`bcryptjs`), JWT token authentication, and strict 5-role RBAC.
+  - Kubernetes health probes (`/health`) and Prometheus metrics export (`/metrics`).
+  - Solidity smart contract suite compiled and verified with Hardhat.
+- **Local Simulations & Sandbox Scope:**
+  - The 12 institutional validator nodes execute within the local environment (in-process or via loopback micro-servers on `127.0.0.1:4001`–`4012`). This models institutional voting dynamics and fault tolerance without requiring a distributed cloud WAN.
+  - Attack, failure, and performance testing execute within isolated temporary sandbox directories (`tmp-sim-*`, `tmp-perf-*`) using synthetic identities.
+- **PostgreSQL Support Status:**
+  > [!IMPORTANT]
+  > The codebase includes complete dialect support and connection pooling for PostgreSQL via `DATABASE_URL`. However, because no external PostgreSQL database daemon was running in the local evaluation environment:  
+  > **PostgreSQL runtime verification is not completed.**  
+  > The application operates seamlessly and deterministically on its default SQLite database engine (`database/pdschain.sqlite`).
+
+### 2. Synthetic Data Notice
+All citizen identities, Aadhaar references, Fair Price Shop profiles, and warehouse inventories in the seed dataset are entirely **fictional and synthetic**. No real personally identifiable information (PII) is stored or processed.
+
+### 3. Proof-of-Work vs. FBA Consensus
+The system utilizes Federated Byzantine Agreement (FBA) for institutional transaction validation and block finality. The lightweight mining difficulty (`difficulty: 2`) is included solely for visual proof-of-work simulation in the frontend UI and does not substitute for the mandatory 75% validator quorum agreement.
 
 ---
 
 ## 18. License & Acknowledgments
 
-This project is developed as an academic final-year software engineering and blockchain project.
+This project is developed as an academic software engineering and blockchain project for transparent food security distribution.
 - **License:** ISC License
 - **Author:** PDSChain Engineering Team
 

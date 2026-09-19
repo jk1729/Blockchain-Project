@@ -13,9 +13,18 @@
     beneficiaries: [], shops: [], warehouses: [], transactions: [], validators: [], blocks: []
   };
 
+  window.getPDSChainApiBase = function (version) {
+    var configured = window.PDSCHAIN_API_URL;
+    if (configured) return configured.replace(/\/+$/, "") + (version ? "/" + version : "");
+    if (window.location && window.location.origin && window.location.origin.indexOf("http") === 0) {
+      return window.location.origin + (version ? "/" + version : "");
+    }
+    return "http://localhost:3000" + (version ? "/" + version : "");
+  };
+
   try {
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', 'http://localhost:3000/api/data', false);  // `false` makes the request synchronous
+    xhr.open('GET', window.getPDSChainApiBase("api") + "/data", false);  // `false` makes the request synchronous
     xhr.send(null);
 
     if (xhr.status === 200) {
@@ -27,6 +36,16 @@
   } catch (e) {
     console.error("Error connecting to backend API: ", e);
   }
+
+  window.escapeHtml = function (str) {
+    if (str === null || str === undefined) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  };
 
   /* ---------- Toast Notification Service ---------- */
   window.showToast = function (message, type) {
@@ -44,10 +63,26 @@
                     type === "error" ? "bi-exclamation-triangle-fill" :
                     type === "warning" ? "bi-exclamation-circle-fill" : "bi-info-circle-fill";
 
-    toast.innerHTML =
-      '<i class="bi ' + iconClass + ' toast-icon" aria-hidden="true"></i>' +
-      '<div class="toast-text">' + message + '</div>' +
-      '<button class="toast-close" type="button" aria-label="Close notification"><i class="bi bi-x"></i></button>';
+    var icon = document.createElement("i");
+    icon.className = "bi " + iconClass + " toast-icon";
+    icon.setAttribute("aria-hidden", "true");
+
+    var textDiv = document.createElement("div");
+    textDiv.className = "toast-text";
+    textDiv.textContent = message || "";
+
+    var closeBtn = document.createElement("button");
+    closeBtn.className = "toast-close";
+    closeBtn.type = "button";
+    closeBtn.setAttribute("aria-label", "Close notification");
+    closeBtn.innerHTML = '<i class="bi bi-x"></i>';
+    closeBtn.addEventListener("click", function () {
+      if (toast.parentNode) toast.parentNode.removeChild(toast);
+    });
+
+    toast.appendChild(icon);
+    toast.appendChild(textDiv);
+    toast.appendChild(closeBtn);
 
     var closeBtn = toast.querySelector(".toast-close");
     if (closeBtn) {

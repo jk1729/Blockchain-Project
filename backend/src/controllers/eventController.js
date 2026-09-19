@@ -8,9 +8,10 @@ const { EventStore } = require('../events/EventStore');
 const { EventBus } = require('../events/EventBus');
 const { EventStreamManager } = require('../events/EventStreamManager');
 const EventMetrics = require('../events/EventMetrics');
+const config = require('../config/env');
 
 // Shared singleton for standard backend API instance
-const defaultEventStore = new EventStore({ inMemoryOnly: false, filepath: 'database/events_journal.jsonl' });
+const defaultEventStore = new EventStore({ inMemoryOnly: false, filepath: config.EVENTS_JOURNAL_PATH });
 const defaultEventBus = new EventBus({ eventStore: defaultEventStore });
 const defaultEventMetrics = new EventMetrics();
 const defaultStreamManager = new EventStreamManager({ eventStore: defaultEventStore, eventBus: defaultEventBus });

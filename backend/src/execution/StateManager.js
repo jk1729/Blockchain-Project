@@ -212,13 +212,16 @@ class StateManager {
   /**
    * Atomically transfer stock from warehouse to shop
    */
-  async applyWarehouseTransfer(warehouseId, shopId, commodity, quantity, transaction = null) {
+  async applyWarehouseTransfer(warehouseId, shopId, commodity, quantity, transaction = null, transferId = null, idempotencyKey = null) {
     const qty = parseFloat(quantity);
     if (isNaN(qty) || qty <= 0) {
       throw new ValidationError('Transfer quantity must be a positive number.');
     }
 
     const whInv = await this.getWarehouseInventoryState(warehouseId, commodity, transaction);
+    if (transaction && transaction.LOCK) {
+      await whInv?.reload({ transaction, lock: transaction.LOCK.UPDATE });
+    }
     if (!whInv || whInv.quantity < qty) {
       throw new ValidationError(`Insufficient warehouse inventory in '${warehouseId}' for '${commodity}'. Available: ${whInv ? whInv.quantity : 0} KG.`);
     }
@@ -228,7 +231,8 @@ class StateManager {
 
     let shopInv = await Inventory.findOne({
       where: { ownerType: 'SHOP', ownerId: shopId, commodityName: commodity },
-      transaction
+      transaction,
+      ...(transaction && transaction.LOCK ? { lock: transaction.LOCK.UPDATE } : {})
     });
 
     if (shopInv) {
@@ -246,20 +250,21 @@ class StateManager {
       }, { transaction });
     }
 
-    const transferId = `TRF-${Date.now().toString().slice(-6)}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
+    const persistedTransferId = transferId || `TRF-${Date.now().toString().slice(-6)}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
     const transferRecord = await StockTransfer.create({
-      transferId,
+      transferId: persistedTransferId,
       warehouseId,
       shopId,
       commodity,
       quantity: qty,
       unit: 'KG',
       status: 'Completed',
+      idempotencyKey,
       timestamp: new Date().toISOString()
     }, { transaction });
 
     return {
-      transferId,
+      transferId: persistedTransferId,
       transferRecord,
       warehouseStock: whInv.quantity,
       shopStock: shopInv.quantity

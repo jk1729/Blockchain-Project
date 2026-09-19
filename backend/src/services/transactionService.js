@@ -1,4 +1,6 @@
 const TransactionModel = require('../models/Transaction');
+const StockTransfer = require('../models/StockTransfer');
+const TransferEventOutbox = require('../models/TransferEventOutbox');
 const BlockModel = require('../models/Block');
 const { sequelize } = require('../config/database');
 const executionEngine = require('../execution/ExecutionEngine');
@@ -17,8 +19,45 @@ const { ConflictError, ValidationError, NotFoundError } = require('../utils/erro
 const logger = require('../utils/logger');
 const crypto = require('crypto');
 const { evmRuntime, resolveEVMCaller } = require('../evm');
+const { defaultEventStore } = require('../controllers/eventController');
+const { defaultSecurityAuditLogger } = require('../security/permissions/SecurityAuditLogger');
 
 class TransactionService {
+  async drainTransferEventOutbox() {
+    const pending = await TransferEventOutbox.findAll({
+      where: { publishedAt: null },
+      order: [['createdAt', 'ASC']]
+    });
+    for (const entry of pending) {
+      try {
+        if (entry.eventType === 'TRANSACTION_EXECUTED') {
+          const recorded = defaultEventStore.record(entry.payload);
+          if (!recorded && (!entry.payload.eventId || !defaultEventStore.getEvent(entry.payload.eventId))) {
+            throw new Error(`Event deduplication collision for transfer ${entry.transferId}.`);
+          }
+          if (defaultEventStore.lastPersistenceError) {
+            throw defaultEventStore.lastPersistenceError;
+          }
+        } else if (entry.eventType === 'SECURITY_AUDIT') {
+          defaultSecurityAuditLogger.logEvent(entry.payload);
+          if (defaultSecurityAuditLogger.lastPersistenceError) {
+            throw defaultSecurityAuditLogger.lastPersistenceError;
+          }
+        } else {
+          throw new Error(`Unsupported transfer outbox event type '${entry.eventType}'.`);
+        }
+        await entry.update({ publishedAt: new Date(), lastError: null });
+      } catch (error) {
+        await entry.update({
+          attempts: entry.attempts + 1,
+          lastError: error.message
+        });
+        logger.error(`[TransferOutbox] Could not publish ${entry.eventType} for ${entry.transferId}: ${error.message}`);
+      }
+    }
+    return { pending: pending.length, published: pending.filter(entry => entry.publishedAt).length };
+  }
+
   async getAllTransactions(limit = 100) {
     return await TransactionModel.findAll({
       order: [['createdAt', 'DESC']],
@@ -92,6 +131,7 @@ class TransactionService {
         throw new ConflictError('Duplicate transaction detected. Please wait before submitting another identical request.');
       }
     }
+
 
     const timestamp = payload.timestamp || new Date().toISOString();
 
@@ -338,6 +378,253 @@ class TransactionService {
       };
     });
   }
+
+  async processWarehouseTransfer(payload, user) {
+        const warehouseId = String((user && user.entityId) || payload.warehouseId || '').toUpperCase().trim();
+        const shopId = String(payload.shopId || payload.targetShopId || '').toUpperCase().trim();
+        const commodity = String(payload.commodity || payload.item || '').trim();
+        const quantity = Number(payload.quantity);
+        const idempotencyKey = payload.idempotencyKey
+          ? String(payload.idempotencyKey).trim()
+          : null;
+
+        if (!warehouseId || !shopId || !commodity || !Number.isFinite(quantity) || quantity <= 0) {
+          throw new ValidationError('Warehouse, destination shop, commodity, and a positive quantity are required.');
+        }
+        if (user && user.role !== 'ADMIN' && user.role !== 'WAREHOUSE') {
+          throw new ValidationError('Only warehouse operators or administrators can create stock transfers.');
+        }
+        if (user && user.role === 'WAREHOUSE' && warehouseId !== String(user.entityId).toUpperCase()) {
+          throw new ValidationError('Warehouse operator is not authorized for the requested source warehouse.');
+        }
+        if (idempotencyKey) {
+          const priorTransfer = await StockTransfer.findOne({
+            where: { warehouseId, idempotencyKey },
+            order: [['createdAt', 'DESC']]
+          });
+          if (priorTransfer) {
+            throw new ConflictError(`Idempotency key '${idempotencyKey}' has already been used for a warehouse transfer.`);
+          }
+        }
+        const recentDuplicate = await StockTransfer.findOne({
+          where: { warehouseId, shopId, commodity, quantity, status: 'Completed' },
+          order: [['createdAt', 'DESC']]
+        });
+        if (recentDuplicate && Date.now() - new Date(recentDuplicate.createdAt).getTime() < 5000) {
+          throw new ConflictError('Duplicate stock transfer detected. Please wait before submitting the same transfer again.');
+        }
+
+        const transferId = `TRF-${Date.now().toString().slice(-6)}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
+        const senderId = warehouseId;
+        const participant = getOrCreateDevParticipant(senderId, 'WAREHOUSE');
+        const tx = new Transaction({
+          type: 'WAREHOUSE_TRANSFER',
+          sender: participant.address,
+          senderPublicKey: participant.publicKey,
+          receiver: shopId,
+          timestamp: payload.timestamp || new Date().toISOString(),
+          nonce: stateManager.getExpectedNonce(participant.address),
+          payload: {
+            transferId,
+            warehouseId,
+            shopId,
+            commodity,
+            quantity,
+            unit: 'KG',
+            senderRole: user && user.role ? user.role : 'WAREHOUSE',
+            idempotencyKey
+          }
+        });
+        tx.sign(participant.privateKey, participant.publicKey);
+        await executionEngine.validateTransaction(tx);
+        mempool.addTransaction(tx);
+
+        const latestBlock = blockchainService.blockchain.getLatestBlock();
+        const blockNumber = latestBlock ? latestBlock.blockNumber + 1 : 1;
+        const previousHash = latestBlock ? latestBlock.blockHash : '0'.repeat(64);
+        const snapshot = await stateManager.getConsensusStateSnapshot();
+        const predicted = JSON.parse(JSON.stringify(snapshot));
+        const source = predicted.warehouseInventory.find(i => i.ownerId === warehouseId && i.commodityName === commodity);
+        const destination = predicted.shopInventory.find(i => i.ownerId === shopId && i.commodityName === commodity);
+        if (source) source.quantity -= quantity;
+        if (destination) destination.quantity += quantity;
+        const stateRoot = calculateStateRoot(predicted);
+        const proposerId = 'VAL-01';
+        const proposer = getOrCreateDevParticipant(proposerId, 'VALIDATOR');
+        const proposalHeader = {
+          version: 1,
+          blockNumber,
+          previousHash,
+          timestamp: tx.timestamp,
+          merkleRoot: calculateMerkleRoot([tx.toBlockPayload()]),
+          stateRoot,
+          proposerId,
+          proposerAddress: proposer.address,
+          round: 0
+        };
+        const proposalId = hashProposal(proposalHeader);
+        const proposerPrivateKey = getParticipantPrivateKey(proposerId);
+        const candidate = {
+          ...proposalHeader,
+          proposalId,
+          proposerSignature: proposerPrivateKey ? signBlockProposal(proposalHeader, proposerPrivateKey) : null,
+          proposerPublicKey: proposer.publicKey,
+          transactions: [tx.toBlockPayload()],
+          transactionId: tx.transactionId,
+          transferId,
+          warehouseId,
+          shopId,
+          commodity,
+          quantity,
+          nonce: tx.nonce,
+          signature: tx.signature,
+          sender: tx.sender,
+          receiver: tx.receiver,
+          payload: tx.payload
+        };
+        const consensus = await consensusService.runBlockConsensus(candidate, {
+          round: 0,
+          expectedStateRoot: stateRoot,
+          threshold: 9
+        });
+        if (consensus.status !== 'ACHIEVED') {
+          mempool.removeIncludedTransactions([tx.transactionId]);
+          try {
+            await TransferEventOutbox.create({
+              transferId,
+              eventType: 'SECURITY_AUDIT',
+              payload: {
+                eventId: `audit_transfer_denied_${transferId}`,
+                actorId: user && user.username,
+                actorType: user && user.role,
+                action: 'warehouse_transfer',
+                resource: transferId,
+                decision: 'DENY',
+                reason: 'Consensus quorum was not achieved',
+                details: { warehouseId, shopId, commodity, quantity }
+              }
+            });
+            await this.drainTransferEventOutbox();
+          } catch (auditError) {
+            logger.error(`[TransferOutbox] Could not queue consensus denial audit for ${transferId}: ${auditError.message}`);
+          }
+          throw new ConflictError('Stock transfer rejected by validator quorum consensus.');
+        }
+
+        let result;
+        try {
+          result = await sequelize.transaction(async (t) => {
+          const executionResult = await executionEngine.executeTransaction(tx, {
+            dbTransaction: t,
+            blockNumber,
+            consensusRound: consensus.roundId
+          });
+          const resultingState = await stateManager.getConsensusStateSnapshot({ dbTransaction: t });
+          const committedStateRoot = calculateStateRoot(resultingState);
+          const block = await blockchainService.addBlock(
+            [tx.toBlockPayload()],
+            consensus.validatorSignatures,
+            t,
+            committedStateRoot,
+            {
+              version: 1,
+              proposerId,
+              proposerAddress: proposer.address,
+              proposerSignature: candidate.proposerSignature,
+              proposalId,
+              round: 0,
+              consensusCertificate: consensus.certificate,
+              consensusStatus: 'FINALIZED'
+            }
+          );
+          const transactionHash = '0x' + crypto.createHash('sha256')
+            .update(JSON.stringify(tx.toBlockPayload()) + block.blockHash)
+            .digest('hex').substring(0, 16);
+          const transfer = await StockTransfer.findOne({ where: { transferId }, transaction: t });
+          const ledgerTransaction = await TransactionModel.create({
+            transactionId: tx.transactionId,
+            beneficiaryId: transferId,
+            beneficiaryName: 'WAREHOUSE_TRANSFER',
+            shopId,
+            commodity,
+            quantity,
+            timestamp: tx.timestamp,
+            status: 'Verified',
+            blockNumber: block.blockNumber,
+            blockHash: block.blockHash,
+            hash: transactionHash,
+            fbaValidators: consensus.participatingValidators,
+            fbaConsensus: true,
+            remarks: 'Warehouse-to-shop transfer verified via FBA consensus'
+          }, { transaction: t });
+          await transfer.update({
+            transactionId: ledgerTransaction.transactionId,
+            blockNumber: block.blockNumber,
+            blockHash: block.blockHash,
+            transactionHash
+          }, { transaction: t });
+          await TransferEventOutbox.bulkCreate([
+            {
+              transferId,
+              eventType: 'TRANSACTION_EXECUTED',
+              payload: {
+                eventId: `event_transfer_${transferId}`,
+                eventType: 'TRANSACTION_EXECUTED',
+                category: 'TRANSACTION',
+                severity: 'INFO',
+                finalityStatus: 'FINALIZED',
+                blockHeight: block.blockNumber,
+                blockHash: block.blockHash,
+                transactionHash,
+                source: 'warehouse-transfer',
+                payload: { transferId, warehouseId, shopId, commodity, quantity, outcome: 'COMMITTED' }
+              }
+            },
+            {
+              transferId,
+              eventType: 'SECURITY_AUDIT',
+              payload: {
+                eventId: `audit_transfer_${transferId}`,
+                eventId: `audit_transfer_${transferId}`,
+                actorId: user && user.username,
+                actorType: user && user.role,
+                action: 'warehouse_transfer',
+                resource: transferId,
+                decision: 'ALLOW',
+                details: {
+                  warehouseId,
+                  shopId,
+                  commodity,
+                  quantity,
+                  transactionId: ledgerTransaction.transactionId,
+                  blockNumber: block.blockNumber
+                }
+              }
+            }
+          ], { transaction: t });
+          mempool.removeIncludedTransactions([tx.transactionId], block.blockNumber);
+          return { transfer, ledgerTransaction, block, executionResult, transactionHash, consensus };
+          });
+        } catch (error) {
+          mempool.removeIncludedTransactions([tx.transactionId]);
+          if (idempotencyKey && error.name === 'SequelizeUniqueConstraintError') {
+            throw new ConflictError(`Idempotency key '${idempotencyKey}' has already been used for a warehouse transfer.`);
+          }
+          throw error;
+        }
+
+        await this.drainTransferEventOutbox();
+        return {
+          success: true,
+          message: 'Stock transfer verified through FBA consensus and anchored to the blockchain ledger.',
+          transfer: result.transfer,
+          transaction: result.ledgerTransaction,
+          block: result.block,
+          consensus: result.consensus,
+          receipt: result.executionResult.receipt
+        };
+  }
+
 
   /**
    * Process a CONTRACT_CALL Transaction invoking a Solidity smart contract:

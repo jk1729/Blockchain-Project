@@ -10,7 +10,22 @@
 (function () {
   "use strict";
 
-  var BASE_URL = window.PDSCHAIN_API_URL || "http://localhost:3000/api";
+  if (!window.escapeHtml) {
+    window.escapeHtml = function (str) {
+      if (str === null || str === undefined) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    };
+  }
+
+  var BASE_URL = window.PDSCHAIN_API_URL ||
+    (window.location && window.location.origin && window.location.origin.indexOf("http") === 0
+      ? window.location.origin + "/api"
+      : "http://localhost:3000/api");
 
   function getAuthToken() {
     try {
@@ -120,4 +135,3 @@
   };
 
 })();
-

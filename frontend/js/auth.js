@@ -12,6 +12,13 @@
 (function () {
   "use strict";
 
+  function isDemoModeAllowed() {
+    var isLocalHost = window.location && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+    // Under no circumstances can demo mode be active on non-local domains
+    if (!isLocalHost) return false;
+    return !!(window.PDSCHAIN_CONFIG && window.PDSCHAIN_CONFIG.DEMO_MODE === true);
+  }
+
   var DEMO_USERS = {
     "admin": { password: "admin123", role: "admin", name: "Administrator", redirect: "admin/admin.html" },
     "shop": { password: "shop123", role: "shop", name: "FPS Officer (FPS-102)", redirect: "shop/shop.html" },
@@ -47,10 +54,24 @@
     var hint = group.querySelector(".form-hint");
     if (state === "valid") {
       group.classList.add("is-valid");
-      if (hint) hint.innerHTML = '<i class="bi bi-check-circle-fill" aria-hidden="true"></i> ' + (msg || "Looks good.");
+      if (hint) {
+        hint.replaceChildren();
+        var icon = document.createElement("i");
+        icon.className = "bi bi-check-circle-fill";
+        icon.setAttribute("aria-hidden", "true");
+        hint.appendChild(icon);
+        hint.appendChild(document.createTextNode(" " + (msg || "Looks good.")));
+      }
     } else if (state === "invalid") {
       group.classList.add("is-invalid");
-      if (hint) hint.innerHTML = '<i class="bi bi-exclamation-circle-fill" aria-hidden="true"></i> ' + (msg || "Please check this field.");
+      if (hint) {
+        hint.replaceChildren();
+        var icon = document.createElement("i");
+        icon.className = "bi bi-exclamation-circle-fill";
+        icon.setAttribute("aria-hidden", "true");
+        hint.appendChild(icon);
+        hint.appendChild(document.createTextNode(" " + (msg || "Please check this field.")));
+      }
     } else if (hint) {
       hint.textContent = msg || "";
     }
@@ -110,7 +131,7 @@
       }
 
       // Try Backend API First
-      fetch("http://localhost:3000/api/auth/login", {
+      fetch((window.getPDSChainApiBase ? window.getPDSChainApiBase("api") : "http://localhost:3000/api") + "/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: username, password: password })
@@ -136,7 +157,11 @@
           if (statusBox) {
             statusBox.hidden = false;
             statusBox.className = "form-status is-success";
-            statusBox.innerHTML = '<i class="bi bi-check-circle-fill"></i> Authenticated via PDSChain Backend API. Redirecting to ' + effectiveRole.toUpperCase() + ' dashboard…';
+            statusBox.replaceChildren();
+            var okIcon = document.createElement("i");
+            okIcon.className = "bi bi-check-circle-fill";
+            statusBox.appendChild(okIcon);
+            statusBox.appendChild(document.createTextNode(" Authenticated via PDSChain Backend API. Redirecting to " + effectiveRole.toUpperCase() + " dashboard…"));
           }
 
           setTimeout(function () { window.location.href = destination; }, 700);
@@ -145,43 +170,57 @@
         }
       })
       .catch(function (apiErr) {
-        // Graceful Client Fallback
-        var user = DEMO_USERS[username];
-        if (user && user.password === password) {
-          var effectiveRole = selectedRole || user.role;
-          var destination = user.redirect;
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.classList.remove("btn-loading");
+        }
 
-          if (selectedRole) {
-            destination = selectedRole + "/" + selectedRole + ".html";
-            effectiveRole = selectedRole;
-          }
+        // Check if explicit demo mode is enabled (allowed only in local dev/test)
+        if (isDemoModeAllowed()) {
+          var user = DEMO_USERS[username];
+          if (user && user.password === password) {
+            var effectiveRole = selectedRole || user.role;
+            var destination = user.redirect;
 
-          localStorage.setItem("pds_role", effectiveRole);
-          localStorage.setItem("pds_username", username);
-          sessionStorage.setItem("pdschain-user", JSON.stringify({
-            username: username,
-            role: effectiveRole,
-            name: user.name,
-            timestamp: new Date().toISOString()
-          }));
+            if (selectedRole) {
+              destination = selectedRole + "/" + selectedRole + ".html";
+              effectiveRole = selectedRole;
+            }
 
-          if (statusBox) {
-            statusBox.hidden = false;
-            statusBox.className = "form-status is-success";
-            statusBox.innerHTML = '<i class="bi bi-check-circle-fill"></i> Authenticated. Redirecting to ' + effectiveRole.toUpperCase() + ' dashboard…';
-          }
+            localStorage.setItem("pds_role", effectiveRole);
+            localStorage.setItem("pds_username", username);
+            sessionStorage.setItem("pdschain-user", JSON.stringify({
+              username: username,
+              role: effectiveRole,
+              name: user.name,
+              isDemoMode: true,
+              timestamp: new Date().toISOString()
+            }));
 
-          setTimeout(function () { window.location.href = destination; }, 700);
-        } else {
-          if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.classList.remove("btn-loading");
+            if (statusBox) {
+              statusBox.hidden = false;
+              statusBox.className = "form-status is-warning";
+              statusBox.replaceChildren();
+              var warnIcon = document.createElement("i");
+              warnIcon.className = "bi bi-shield-exclamation";
+              statusBox.appendChild(warnIcon);
+              statusBox.appendChild(document.createTextNode(" [DEMO/OFFLINE MODE] Authenticated locally. Backend unavailable. Redirecting to " + effectiveRole.toUpperCase() + "…"));
+            }
+
+            setTimeout(function () { window.location.href = destination; }, 1000);
+            return;
           }
-          if (statusBox) {
-            statusBox.hidden = false;
-            statusBox.className = "form-status is-error";
-            statusBox.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> ' + (apiErr.message || 'Invalid credentials. Try demo credentials: <strong>admin</strong> / <strong>admin123</strong>');
-          }
+        }
+
+        // Normal mode (or invalid demo credentials): Reject without fallback or redirect
+        if (statusBox) {
+          statusBox.hidden = false;
+          statusBox.className = "form-status is-error";
+          statusBox.replaceChildren();
+          var errIcon = document.createElement("i");
+          errIcon.className = "bi bi-exclamation-triangle-fill";
+          statusBox.appendChild(errIcon);
+          statusBox.appendChild(document.createTextNode(" " + (apiErr.message || "Login failed. Unable to authenticate with PDSChain backend.")));
         }
       });
     });
@@ -267,7 +306,11 @@
         if (regStatus) {
           regStatus.hidden = false;
           regStatus.className = "form-status is-error";
-          regStatus.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> Please complete all required fields correctly.';
+          regStatus.replaceChildren();
+          var warnIcon = document.createElement("i");
+          warnIcon.className = "bi bi-exclamation-triangle-fill";
+          regStatus.appendChild(warnIcon);
+          regStatus.appendChild(document.createTextNode(" Please complete all required fields correctly."));
         }
         return;
       }
@@ -279,7 +322,7 @@
 
       var usernameFromEmail = emailVal.split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "");
 
-      fetch("http://localhost:3000/api/auth/register", {
+      fetch((window.getPDSChainApiBase ? window.getPDSChainApiBase("api") : "http://localhost:3000/api") + "/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -296,7 +339,11 @@
           if (regStatus) {
             regStatus.hidden = false;
             regStatus.className = "form-status is-success";
-            regStatus.innerHTML = '<i class="bi bi-check-circle-fill"></i> Citizen account registered successfully! Redirecting to login…';
+            regStatus.replaceChildren();
+            var okIcon = document.createElement("i");
+            okIcon.className = "bi bi-check-circle-fill";
+            regStatus.appendChild(okIcon);
+            regStatus.appendChild(document.createTextNode(" Citizen account registered successfully! Redirecting to login…"));
           }
           if (window.showToast) {
             window.showToast("Account registered! Redirecting to login...", "success");
@@ -316,7 +363,11 @@
         if (regStatus) {
           regStatus.hidden = false;
           regStatus.className = "form-status is-error";
-          regStatus.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> ' + (err.message || 'Registration failed. Please check inputs.');
+          regStatus.replaceChildren();
+          var errIcon = document.createElement("i");
+          errIcon.className = "bi bi-exclamation-triangle-fill";
+          regStatus.appendChild(errIcon);
+          regStatus.appendChild(document.createTextNode(" " + (err.message || "Registration failed. Please check inputs.")));
         }
       });
     });
@@ -328,14 +379,15 @@
   document.querySelectorAll(".logout-btn, [data-action='logout']").forEach(function (btn) {
     btn.addEventListener("click", function (e) {
       e.preventDefault();
+      localStorage.removeItem("pdschain_jwt_token");
       localStorage.removeItem("pds_role");
+      localStorage.removeItem("pds_username");
       sessionStorage.removeItem("pdschain-user");
       if (window.showToast) {
         window.showToast("Signed out successfully.", "info");
       }
       setTimeout(function () {
         // Calculate correct relative path to login.html
-        var depth = (window.location.pathname.match(/\//g) || []).length;
         var inSubfolder = window.location.pathname.includes("/admin/") ||
                           window.location.pathname.includes("/warehouse/") ||
                           window.location.pathname.includes("/shop/") ||

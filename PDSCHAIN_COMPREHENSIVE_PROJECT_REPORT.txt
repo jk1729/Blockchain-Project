@@ -3,11 +3,15 @@ PDSCHAIN: BLOCKCHAIN-BASED PUBLIC DISTRIBUTION SYSTEM
 EXHAUSTIVE TECHNICAL ARCHITECTURE, IMPLEMENTATION & REPOSITORY REPORT
 ================================================================================
 
+Report Generated: 2026-09-18T08:11:38.456Z
 Report Generated: 2026-09-18
 Target Platform: Node.js (v20+), Solidity (0.8.20), Express.js, Sequelize ORM, SQLite/PostgreSQL, Vanilla JS
 Project Status: Production-Ready Engineering Prototype (Phases 1 - 21 Complete)
+Total Repository Files (Non-Node-Modules): 659
 Total Repository Files (Non-Node-Modules): 658
 Total Repository Directories: 116
+Total Source & Test Code Lines: 1,29,075
+Total Repository Storage (Source/Docs/DB): 16.01 MB
 Total Source & Test Code Lines: 128,014
 Total Repository Storage (Source/Docs/DB): 15.95 MB
 Automated Test Suite Status: 1,074 / 1,074 Tests Passing (100% Pass Rate)
@@ -69,9 +73,11 @@ contracts/test                         1            253         12,197   Hardhat
 frontend                              65         16,367       7,21,495   Web Portals (HTML, CSS, JS Clients)
 docs                                 119         12,180       7,05,726   Engineering Specs, Audits, Runbooks
 database                               5          3,453      50,74,137   SQLite Storage, WAL & Security Log
+scripts                                3          1,196         71,057   Systemd & Deployment Scripts
 scripts                                2            135          4,313   Systemd & Deployment Scripts
 Root Files                             6            938         47,286   Docker, Compose, Config & Readme
 ----------------------------------------------------------------------------------------------------
+TOTAL:                               659       1,29,075    1,67,83,112
 TOTAL:                               658       128,014    16,716,368
 
 ================================================================================
@@ -3217,8 +3223,13 @@ FILE: frontend/js/warehouse.js
   Role: Vanilla JavaScript client modules communicating with the backend REST and SSE streaming endpoints.
 
 --------------------------------------------------------------------------------
+DIRECTORY / MODULE: [ scripts ] (3 files)
 DIRECTORY / MODULE: [ scripts ] (2 files)
 --------------------------------------------------------------------------------
+
+FILE: scripts/generate_report.js
+  Size: 66,744 bytes | Lines: 1,061 lines
+  Role: Source implementation file.
 
 FILE: scripts/service/Install-ValidatorService.ps1
   Size: 3,138 bytes | Lines: 86 lines

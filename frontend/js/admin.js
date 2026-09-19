@@ -8,6 +8,16 @@
 (function () {
   "use strict";
 
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
   var data = window.PDSCHAIN_DATA || { beneficiaries: [], shops: [], warehouses: [], transactions: [], validators: [] };
 
   /* ==========================================================
@@ -20,12 +30,12 @@
 
   function renderBeneficiaries() {
     if (!benTableBody) return;
-    var query = benSearchInput ? benSearchInput.value.toLowerCase().trim() : "";
+    var q = benSearchInput ? benSearchInput.value.toLowerCase().trim() : "";
     var region = benRegionFilter ? benRegionFilter.value : "";
     var status = benStatusFilter ? benStatusFilter.value : "";
 
     var filtered = data.beneficiaries.filter(function (b) {
-      var matchesQ = !query || b.id.toLowerCase().includes(query) || b.name.toLowerCase().includes(query);
+      var matchesQ = !q || b.id.toLowerCase().includes(q) || b.name.toLowerCase().includes(q);
       var matchesR = !region || b.region === region;
       var matchesS = !status || b.status === status;
       return matchesQ && matchesR && matchesS;
@@ -39,18 +49,18 @@
     benTableBody.innerHTML = filtered.map(function (b) {
       var statusClass = b.status === "Active" ? "badge badge-success" : "badge badge-danger";
       return '<tr>' +
-        '<td><span class="mono font-bold">' + b.id + '</span></td>' +
-        '<td><strong>' + b.name + '</strong></td>' +
-        '<td>' + b.region + '</td>' +
-        '<td>' + b.household + ' Members</td>' +
-        '<td>Rice ' + b.quotaRice + 'kg, Wheat ' + b.quotaWheat + 'kg</td>' +
-        '<td><span class="' + statusClass + '">' + b.status + '</span></td>' +
-        '<td>' + b.lastDist + '</td>' +
+        '<td><span class="mono font-bold">' + escapeHtml(b.id) + '</span></td>' +
+        '<td><strong>' + escapeHtml(b.name) + '</strong></td>' +
+        '<td>' + escapeHtml(b.region) + '</td>' +
+        '<td>' + escapeHtml(b.household) + ' Members</td>' +
+        '<td>Rice ' + escapeHtml(b.quotaRice) + 'kg, Wheat ' + escapeHtml(b.quotaWheat) + 'kg</td>' +
+        '<td><span class="' + statusClass + '">' + escapeHtml(b.status) + '</span></td>' +
+        '<td>' + escapeHtml(b.lastDist) + '</td>' +
         '<td>' +
           '<div class="table-actions-cell">' +
-            '<button class="btn-action-sm" onclick="viewBeneficiary(\'' + b.id + '\')"><i class="bi bi-eye"></i> View</button>' +
-            '<button class="btn-action-sm" onclick="editBeneficiary(\'' + b.id + '\')"><i class="bi bi-pencil"></i> Edit</button>' +
-            '<button class="btn-action-sm is-danger" onclick="toggleSuspendBeneficiary(\'' + b.id + '\')"><i class="bi bi-slash-circle"></i></button>' +
+            '<button class="btn-action-sm" onclick="viewBeneficiary(\'' + escapeHtml(b.id) + '\')"><i class="bi bi-eye"></i> View</button>' +
+            '<button class="btn-action-sm" onclick="editBeneficiary(\'' + escapeHtml(b.id) + '\')"><i class="bi bi-pencil"></i> Edit</button>' +
+            '<button class="btn-action-sm is-danger" onclick="toggleSuspendBeneficiary(\'' + escapeHtml(b.id) + '\')"><i class="bi bi-slash-circle"></i></button>' +
           '</div>' +
         '</td>' +
       '</tr>';
@@ -70,13 +80,13 @@
     if (body) {
       body.innerHTML =
         '<div class="receipt-details">' +
-          '<div class="receipt-row"><span class="label">Beneficiary ID:</span><span class="val mono">' + b.id + '</span></div>' +
-          '<div class="receipt-row"><span class="label">Full Name:</span><span class="val">' + b.name + '</span></div>' +
-          '<div class="receipt-row"><span class="label">Region:</span><span class="val">' + b.region + '</span></div>' +
-          '<div class="receipt-row"><span class="label">Household Size:</span><span class="val">' + b.household + ' persons</span></div>' +
-          '<div class="receipt-row"><span class="label">Monthly Entitlement:</span><span class="val">Rice: ' + b.quotaRice + 'kg, Wheat: ' + b.quotaWheat + 'kg, Sugar: ' + b.quotaSugar + 'kg</span></div>' +
-          '<div class="receipt-row"><span class="label">Status:</span><span class="val">' + b.status + '</span></div>' +
-          '<div class="receipt-row"><span class="label">Last Distribution:</span><span class="val">' + b.lastDist + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Beneficiary ID:</span><span class="val mono">' + escapeHtml(b.id) + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Full Name:</span><span class="val">' + escapeHtml(b.name) + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Region:</span><span class="val">' + escapeHtml(b.region) + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Household Size:</span><span class="val">' + escapeHtml(b.household) + ' persons</span></div>' +
+          '<div class="receipt-row"><span class="label">Monthly Entitlement:</span><span class="val">Rice: ' + escapeHtml(b.quotaRice) + 'kg, Wheat: ' + escapeHtml(b.quotaWheat) + 'kg, Sugar: ' + escapeHtml(b.quotaSugar) + 'kg</span></div>' +
+          '<div class="receipt-row"><span class="label">Status:</span><span class="val">' + escapeHtml(b.status) + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Last Distribution:</span><span class="val">' + escapeHtml(b.lastDist) + '</span></div>' +
         '</div>';
     }
     window.openModal("modal-view-beneficiary");
@@ -171,17 +181,17 @@
 
     shopTableBody.innerHTML = filtered.map(function (s) {
       return '<tr>' +
-        '<td><span class="mono font-bold">' + s.id + '</span></td>' +
-        '<td><strong>' + s.name + '</strong></td>' +
-        '<td>' + s.region + '</td>' +
-        '<td>' + s.manager + '</td>' +
-        '<td><span class="badge badge-success">' + s.stockHealth + '</span></td>' +
-        '<td>' + s.beneficiaries + '</td>' +
-        '<td><span class="badge badge-success">' + s.status + '</span></td>' +
+        '<td><span class="mono font-bold">' + escapeHtml(s.id) + '</span></td>' +
+        '<td><strong>' + escapeHtml(s.name) + '</strong></td>' +
+        '<td>' + escapeHtml(s.region) + '</td>' +
+        '<td>' + escapeHtml(s.manager) + '</td>' +
+        '<td><span class="badge badge-success">' + escapeHtml(s.stockHealth) + '</span></td>' +
+        '<td>' + escapeHtml(s.beneficiaries) + '</td>' +
+        '<td><span class="badge badge-success">' + escapeHtml(s.status) + '</span></td>' +
         '<td>' +
           '<div class="table-actions-cell">' +
-            '<button class="btn-action-sm" onclick="viewShop(\'' + s.id + '\')"><i class="bi bi-eye"></i> View</button>' +
-            '<button class="btn-action-sm" onclick="editShop(\'' + s.id + '\')"><i class="bi bi-pencil"></i> Edit</button>' +
+            '<button class="btn-action-sm" onclick="viewShop(\'' + escapeHtml(s.id) + '\')"><i class="bi bi-eye"></i> View</button>' +
+            '<button class="btn-action-sm" onclick="editShop(\'' + escapeHtml(s.id) + '\')"><i class="bi bi-pencil"></i> Edit</button>' +
           '</div>' +
         '</td>' +
       '</tr>';
@@ -197,12 +207,12 @@
     if (body) {
       body.innerHTML =
         '<div class="receipt-details">' +
-          '<div class="receipt-row"><span class="label">Shop ID:</span><span class="val mono">' + s.id + '</span></div>' +
-          '<div class="receipt-row"><span class="label">Name:</span><span class="val">' + s.name + '</span></div>' +
-          '<div class="receipt-row"><span class="label">Region:</span><span class="val">' + s.region + '</span></div>' +
-          '<div class="receipt-row"><span class="label">Manager:</span><span class="val">' + s.manager + '</span></div>' +
-          '<div class="receipt-row"><span class="label">Registered Beneficiaries:</span><span class="val">' + s.beneficiaries + '</span></div>' +
-          '<div class="receipt-row"><span class="label">Inventory Status:</span><span class="val">' + s.stockHealth + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Shop ID:</span><span class="val mono">' + escapeHtml(s.id) + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Name:</span><span class="val">' + escapeHtml(s.name) + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Region:</span><span class="val">' + escapeHtml(s.region) + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Manager:</span><span class="val">' + escapeHtml(s.manager) + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Registered Beneficiaries:</span><span class="val">' + escapeHtml(s.beneficiaries) + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Inventory Status:</span><span class="val">' + escapeHtml(s.stockHealth) + '</span></div>' +
         '</div>';
     }
     window.openModal("modal-view-shop");
@@ -217,14 +227,14 @@
     whTableBody.innerHTML = data.warehouses.map(function (w) {
       var badgeClass = w.status === "Operational" ? "badge badge-success" : "badge badge-warning";
       return '<tr>' +
-        '<td><span class="mono font-bold">' + w.id + '</span></td>' +
-        '<td><strong>' + w.name + '</strong></td>' +
-        '<td>' + w.location + '</td>' +
-        '<td>' + w.capacity + '</td>' +
-        '<td>' + w.currentStock + '</td>' +
-        '<td><div class="progress-track" style="width:100px;display:inline-block;vertical-align:middle;margin-right:8px;"><div class="progress-fill ' + (w.utilization < 30 ? 'is-warning' : '') + '" style="width:' + w.utilization + '%;"></div></div>' + w.utilization + '%</td>' +
-        '<td><span class="' + badgeClass + '">' + w.status + '</span></td>' +
-        '<td><button class="btn-action-sm" onclick="viewWarehouse(\'' + w.id + '\')"><i class="bi bi-eye"></i> Details</button></td>' +
+        '<td><span class="mono font-bold">' + escapeHtml(w.id) + '</span></td>' +
+        '<td><strong>' + escapeHtml(w.name) + '</strong></td>' +
+        '<td>' + escapeHtml(w.location) + '</td>' +
+        '<td>' + escapeHtml(w.capacity) + '</td>' +
+        '<td>' + escapeHtml(w.currentStock) + '</td>' +
+        '<td><div class="progress-track" style="width:100px;display:inline-block;vertical-align:middle;margin-right:8px;"><div class="progress-fill ' + (w.utilization < 30 ? 'is-warning' : '') + '" style="width:' + escapeHtml(w.utilization) + '%;"></div></div>' + escapeHtml(w.utilization) + '%</td>' +
+        '<td><span class="' + badgeClass + '">' + escapeHtml(w.status) + '</span></td>' +
+        '<td><button class="btn-action-sm" onclick="viewWarehouse(\'' + escapeHtml(w.id) + '\')"><i class="bi bi-eye"></i> Details</button></td>' +
       '</tr>';
     }).join("");
   }
@@ -237,12 +247,12 @@
     if (body) {
       body.innerHTML =
         '<div class="receipt-details">' +
-          '<div class="receipt-row"><span class="label">Warehouse ID:</span><span class="val mono">' + w.id + '</span></div>' +
-          '<div class="receipt-row"><span class="label">Facility:</span><span class="val">' + w.name + '</span></div>' +
-          '<div class="receipt-row"><span class="label">Location:</span><span class="val">' + w.location + '</span></div>' +
-          '<div class="receipt-row"><span class="label">Storage Capacity:</span><span class="val">' + w.capacity + '</span></div>' +
-          '<div class="receipt-row"><span class="label">Current Stock:</span><span class="val">' + w.currentStock + '</span></div>' +
-          '<div class="receipt-row"><span class="label">Utilization:</span><span class="val">' + w.utilization + '%</span></div>' +
+          '<div class="receipt-row"><span class="label">Warehouse ID:</span><span class="val mono">' + escapeHtml(w.id) + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Facility:</span><span class="val">' + escapeHtml(w.name) + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Location:</span><span class="val">' + escapeHtml(w.location) + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Storage Capacity:</span><span class="val">' + escapeHtml(w.capacity) + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Current Stock:</span><span class="val">' + escapeHtml(w.currentStock) + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Utilization:</span><span class="val">' + escapeHtml(w.utilization) + '%</span></div>' +
         '</div>';
     }
     window.openModal("modal-view-warehouse");
@@ -272,16 +282,16 @@
     txTableBody.innerHTML = filtered.map(function (t) {
       var badgeClass = t.status === "Verified" ? "badge badge-success" : "badge badge-warning";
       return '<tr>' +
-        '<td><span class="mono font-bold">' + t.id + '</span></td>' +
-        '<td>' + t.beneficiary + ' (' + (t.name || 'Citizen') + ')</td>' +
-        '<td>' + t.shop + '</td>' +
-        '<td>' + t.commodity + '</td>' +
-        '<td><strong>' + t.qty + '</strong></td>' +
-        '<td><span class="mono">' + t.block + '</span></td>' +
-        '<td><span class="badge badge-info">' + t.validators + '/12</span></td>' +
-        '<td><span class="' + badgeClass + '">' + t.status + '</span></td>' +
-        '<td><span class="muted">' + t.time + '</span></td>' +
-        '<td><button class="btn-action-sm" onclick="viewTransaction(\'' + t.id + '\')"><i class="bi bi-eye"></i></button></td>' +
+        '<td><span class="mono font-bold">' + escapeHtml(t.id) + '</span></td>' +
+        '<td>' + escapeHtml(t.beneficiary) + ' (' + escapeHtml(t.name || 'Citizen') + ')</td>' +
+        '<td>' + escapeHtml(t.shop) + '</td>' +
+        '<td>' + escapeHtml(t.commodity) + '</td>' +
+        '<td><strong>' + escapeHtml(t.qty) + '</strong></td>' +
+        '<td><span class="mono">' + escapeHtml(t.block) + '</span></td>' +
+        '<td><span class="badge badge-info">' + escapeHtml(t.validators) + '/12</span></td>' +
+        '<td><span class="' + badgeClass + '">' + escapeHtml(t.status) + '</span></td>' +
+        '<td><span class="muted">' + escapeHtml(t.time) + '</span></td>' +
+        '<td><button class="btn-action-sm" onclick="viewTransaction(\'' + escapeHtml(t.id) + '\')"><i class="bi bi-eye"></i></button></td>' +
       '</tr>';
     }).join("");
   }
@@ -298,14 +308,14 @@
     if (body) {
       body.innerHTML =
         '<div class="receipt-details">' +
-          '<div class="receipt-row"><span class="label">Transaction ID:</span><span class="val mono">' + t.id + '</span></div>' +
-          '<div class="receipt-row"><span class="label">Beneficiary:</span><span class="val">' + t.beneficiary + ' (' + (t.name || '') + ')</span></div>' +
-          '<div class="receipt-row"><span class="label">Fair Price Shop:</span><span class="val">' + t.shop + '</span></div>' +
-          '<div class="receipt-row"><span class="label">Commodity &amp; Quantity:</span><span class="val">' + t.commodity + ' — ' + t.qty + '</span></div>' +
-          '<div class="receipt-row"><span class="label">Block:</span><span class="val mono">' + t.block + '</span></div>' +
-          '<div class="receipt-row"><span class="label">Cryptographic Hash:</span><span class="val mono">' + t.hash + '</span></div>' +
-          '<div class="receipt-row"><span class="label">Validators Agreed:</span><span class="val">' + t.validators + ' / 12 Nodes</span></div>' +
-          '<div class="receipt-row"><span class="label">Timestamp:</span><span class="val">' + t.time + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Transaction ID:</span><span class="val mono">' + escapeHtml(t.id) + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Beneficiary:</span><span class="val">' + escapeHtml(t.beneficiary) + ' (' + escapeHtml(t.name || '') + ')</span></div>' +
+          '<div class="receipt-row"><span class="label">Fair Price Shop:</span><span class="val">' + escapeHtml(t.shop) + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Commodity &amp; Quantity:</span><span class="val">' + escapeHtml(t.commodity) + ' — ' + escapeHtml(t.qty) + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Block:</span><span class="val mono">' + escapeHtml(t.block) + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Cryptographic Hash:</span><span class="val mono">' + escapeHtml(t.hash) + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Validators Agreed:</span><span class="val">' + escapeHtml(t.validators) + ' / 12 Nodes</span></div>' +
+          '<div class="receipt-row"><span class="label">Timestamp:</span><span class="val">' + escapeHtml(t.time) + '</span></div>' +
         '</div>';
     }
     window.openModal("modal-view-tx");
@@ -318,13 +328,13 @@
   if (valTableBody) {
     valTableBody.innerHTML = data.validators.map(function (v) {
       return '<tr>' +
-        '<td><span class="mono font-bold">' + v.id + '</span></td>' +
-        '<td><strong>' + v.org + '</strong></td>' +
-        '<td><span class="badge badge-success"><i class="bi bi-check-circle-fill"></i> ' + v.status + '</span></td>' +
-        '<td><span class="mono">#' + v.blockHeight + '</span></td>' +
-        '<td>' + v.heartbeat + '</td>' +
-        '<td>' + v.txValidated.toLocaleString() + '</td>' +
-        '<td><span class="badge badge-info">' + v.participation + '</span></td>' +
+        '<td><span class="mono font-bold">' + escapeHtml(v.id) + '</span></td>' +
+        '<td><strong>' + escapeHtml(v.org) + '</strong></td>' +
+        '<td><span class="badge badge-success"><i class="bi bi-check-circle-fill"></i> ' + escapeHtml(v.status) + '</span></td>' +
+        '<td><span class="mono">#' + escapeHtml(v.blockHeight) + '</span></td>' +
+        '<td>' + escapeHtml(v.heartbeat) + '</td>' +
+        '<td>' + escapeHtml(v.txValidated.toLocaleString()) + '</td>' +
+        '<td><span class="badge badge-info">' + escapeHtml(v.participation) + '</span></td>' +
       '</tr>';
     }).join("");
   }

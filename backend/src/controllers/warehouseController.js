@@ -1,5 +1,7 @@
 const Warehouse = require('../models/Warehouse');
 const { NotFoundError } = require('../utils/errors');
+const transactionService = require('../services/transactionService');
+const { defaultSecurityAuditLogger } = require('../security/permissions/SecurityAuditLogger');
 
 class WarehouseController {
   async getAll(req, res, next) {
@@ -109,15 +111,55 @@ class WarehouseController {
 
   async transferStock(req, res, next) {
     try {
-      const warehouseId = req.params.id.toUpperCase().trim();
-      const shopId = req.body.shopId || req.body.targetShopId;
-      const commodity = req.body.commodity || req.body.commodityName || req.body.item;
-      const quantity = parseFloat(req.body.quantity);
-      const notes = req.body.notes || req.body.remarks || '';
-
-      const inventoryService = require('../services/inventoryService');
-      const result = await inventoryService.transferStock(warehouseId, shopId, commodity, quantity, notes);
+      const requestedWarehouseId = req.params.id.toUpperCase().trim();
+      if (req.user.role !== 'ADMIN' && req.user.entityId !== requestedWarehouseId) {
+        try {
+          defaultSecurityAuditLogger.logEvent({
+            actorId: req.user.username || 'unknown',
+            actorType: req.user.role || 'PUBLIC',
+            action: 'warehouse_transfer_scope',
+            resource: requestedWarehouseId,
+            decision: 'DENY',
+            reason: 'Warehouse operator is not authorized for this warehouse',
+            details: { requestedWarehouseId, userEntityId: req.user.entityId }
+          });
+        } catch (_) {}
+        return res.status(403).json({ success: false, message: 'Warehouse operator is not authorized for this warehouse.' });
+      }
+      const result = await transactionService.processWarehouseTransfer({
+        ...req.body,
+        warehouseId: requestedWarehouseId
+      }, req.user);
       res.status(200).json(result);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getTransfers(req, res, next) {
+    try {
+      const requestedWarehouseId = req.params.id.toUpperCase().trim();
+      if (req.user && req.user.role !== 'ADMIN' && req.user.entityId !== requestedWarehouseId) {
+        try {
+          defaultSecurityAuditLogger.logEvent({
+            actorId: req.user.username || 'unknown',
+            actorType: req.user.role || 'PUBLIC',
+            action: 'warehouse_view_transfers_scope',
+            resource: requestedWarehouseId,
+            decision: 'DENY',
+            reason: 'Warehouse operator is not authorized for this warehouse',
+            details: { requestedWarehouseId, userEntityId: req.user.entityId }
+          });
+        } catch (_) {}
+        return res.status(403).json({ success: false, message: 'Warehouse operator is not authorized for this warehouse.' });
+      }
+      const where = { warehouseId: requestedWarehouseId };
+      const transfers = await require('../models/StockTransfer').findAll({
+        where,
+        order: [['createdAt', 'DESC']],
+        limit: Math.min(parseInt(req.query.limit, 10) || 100, 100)
+      });
+      res.status(200).json({ success: true, count: transfers.length, transfers });
     } catch (err) {
       next(err);
     }
@@ -125,4 +167,3 @@ class WarehouseController {
 }
 
 module.exports = new WarehouseController();
-

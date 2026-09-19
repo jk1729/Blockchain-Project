@@ -86,20 +86,31 @@
     }
   ];
 
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
   function formatShortHash(hash) {
     if (!hash) return "0x0000...0000";
-    if (hash.length <= 16) return hash;
-    return hash.substring(0, 8) + "..." + hash.substring(hash.length - 6);
+    var s = String(hash);
+    if (s.length <= 16) return escapeHtml(s);
+    return escapeHtml(s.substring(0, 8) + "..." + s.substring(s.length - 6));
   }
 
   function formatTimestamp(ts) {
     if (!ts) return "N/A";
     try {
       var d = new Date(ts);
-      if (isNaN(d.getTime())) return ts;
-      return d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      if (isNaN(d.getTime())) return escapeHtml(ts);
+      return escapeHtml(d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
     } catch (e) {
-      return ts;
+      return escapeHtml(ts);
     }
   }
 
@@ -239,12 +250,12 @@
               var item = tx.type === 'CONTRACT_CALL' ? (tx.method ? ('Call: ' + tx.method) : 'Contract Call') : (tx.commodity || tx.item || 'Grain');
               var quantity = tx.type === 'CONTRACT_CALL' ? ('Gas: ' + (tx.gasLimit || 500000)) : ((tx.quantity || 0) + ' ' + (tx.unit || 'kg'));
               return '<tr>' +
-                '<td class="mono">' + (tx.transactionId || 'TXN-GEN') + isEvm + '</td>' +
-                '<td>' + sender + '</td>' +
-                '<td>' + (tx.shopId || (tx.contractAddress ? (tx.contractAddress.substring(0, 10) + '...') : 'N/A')) + '</td>' +
-                '<td>' + item + '</td>' +
-                '<td>' + quantity + '</td>' +
-                '<td class="mono">#' + (tx.nonce !== undefined ? tx.nonce : 0) + '</td>' +
+                '<td class="mono">' + escapeHtml(tx.transactionId || 'TXN-GEN') + isEvm + '</td>' +
+                '<td>' + escapeHtml(sender) + '</td>' +
+                '<td>' + escapeHtml(tx.shopId || (tx.contractAddress ? (tx.contractAddress.substring(0, 10) + '...') : 'N/A')) + '</td>' +
+                '<td>' + escapeHtml(item) + '</td>' +
+                '<td>' + escapeHtml(quantity) + '</td>' +
+                '<td class="mono">#' + escapeHtml(tx.nonce !== undefined ? tx.nonce : 0) + '</td>' +
                 '<td>' + isSig + '</td>' +
               '</tr>';
             }).join('') +
@@ -279,41 +290,41 @@
             certStatusBadge +
           '</div>' +
           '<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">' +
-            'Threshold: <strong>9 / 12 (75%)</strong> &bull; Quorum Slices: <strong>3-of-4</strong> &bull; Round: <strong>' + (block.round !== undefined ? block.round : 0) + '</strong>' +
+            'Threshold: <strong>9 / 12 (75%)</strong> &bull; Quorum Slices: <strong>3-of-4</strong> &bull; Round: <strong>' + escapeHtml(block.round !== undefined ? block.round : 0) + '</strong>' +
           '</div>' +
           '<div style="display:flex;flex-wrap:wrap;gap:6px;">' +
           all12Validators.map(function (vId) {
             if (approvedMap[vId]) {
-              return '<span class="badge badge-success" style="font-family:monospace;font-size:11px;" title="Approved & Signed">' + vId + ' ✓</span>';
+              return '<span class="badge badge-success" style="font-family:monospace;font-size:11px;" title="Approved & Signed">' + escapeHtml(vId) + ' ✓</span>';
             } else {
-              return '<span class="badge badge-danger" style="font-family:monospace;font-size:11px;" title="Offline / Not Participating">' + vId + ' ✗</span>';
+              return '<span class="badge badge-danger" style="font-family:monospace;font-size:11px;" title="Offline / Not Participating">' + escapeHtml(vId) + ' ✗</span>';
             }
           }).join('') +
           '</div>' +
         '</div>';
 
       var certHashHtml = block.consensusCertificate && block.consensusCertificate.certificateHash
-        ? '<div class="receipt-row"><span class="label">Certificate Hash:</span><span class="val mono" style="word-break:break-all;">' + block.consensusCertificate.certificateHash + '</span></div>'
+        ? '<div class="receipt-row"><span class="label">Certificate Hash:</span><span class="val mono" style="word-break:break-all;">' + escapeHtml(block.consensusCertificate.certificateHash) + '</span></div>'
         : '';
 
       var propIdHtml = block.proposalId
-        ? '<div class="receipt-row"><span class="label">Proposal ID:</span><span class="val mono" style="word-break:break-all;">' + block.proposalId + '</span></div>'
+        ? '<div class="receipt-row"><span class="label">Proposal ID:</span><span class="val mono" style="word-break:break-all;">' + escapeHtml(block.proposalId) + '</span></div>'
         : '';
 
       modalContent.innerHTML =
         '<div class="block-inspector-grid">' +
-          '<div class="block-stat-item"><div class="k">Block Height</div><div class="v mono">#' + block.blockNumber + '</div></div>' +
-          '<div class="block-stat-item"><div class="k">Block Status</div><div class="v font-bold" style="color:var(--success-color, #10b981);">' + (block.status || block.consensusStatus || 'FINALIZED') + '</div></div>' +
-          '<div class="block-stat-item"><div class="k">Block Proposer</div><div class="v mono">' + (block.proposerId || 'VAL-01') + '</div></div>' +
+          '<div class="block-stat-item"><div class="k">Block Height</div><div class="v mono">#' + escapeHtml(block.blockNumber) + '</div></div>' +
+          '<div class="block-stat-item"><div class="k">Block Status</div><div class="v font-bold" style="color:var(--success-color, #10b981);">' + escapeHtml(block.status || block.consensusStatus || 'FINALIZED') + '</div></div>' +
+          '<div class="block-stat-item"><div class="k">Block Proposer</div><div class="v mono">' + escapeHtml(block.proposerId || 'VAL-01') + '</div></div>' +
           '<div class="block-stat-item"><div class="k">Consensus Model</div><div class="v">12-Validator FBA</div></div>' +
         '</div>' +
         '<div class="receipt-details">' +
-          '<div class="receipt-row"><span class="label">Current Block Hash:</span><span class="val mono" style="word-break:break-all;">' + (block.hash || block.blockHash || 'N/A') + '</span></div>' +
-          '<div class="receipt-row"><span class="label">Previous Block Hash:</span><span class="val mono" style="word-break:break-all;">' + (block.prevHash || block.previousHash || '0x0000000000000000') + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Current Block Hash:</span><span class="val mono" style="word-break:break-all;">' + escapeHtml(block.hash || block.blockHash || 'N/A') + '</span></div>' +
+          '<div class="receipt-row"><span class="label">Previous Block Hash:</span><span class="val mono" style="word-break:break-all;">' + escapeHtml(block.prevHash || block.previousHash || '0x0000000000000000') + '</span></div>' +
           propIdHtml +
-          '<div class="receipt-row"><span class="label">Transaction Merkle Root:</span><span class="val mono" style="word-break:break-all;">' + (block.merkleRoot || 'N/A') + ' <span class="badge badge-info" style="font-size:10px;margin-left:5px;">Tx Commitment</span></span></div>' +
-          '<div class="receipt-row"><span class="label">Resulting State Root:</span><span class="val mono" style="word-break:break-all;">' + (block.stateRoot || '0x0000000000000000000000000000000000000000000000000000000000000000') + ' <span class="badge badge-success" style="font-size:10px;margin-left:5px;">State Commitment</span></span></div>' +
-          (block.receiptsRoot ? ('<div class="receipt-row"><span class="label">Receipts Merkle Root:</span><span class="val mono" style="word-break:break-all;">' + block.receiptsRoot + ' <span class="badge badge-info" style="font-size:10px;margin-left:5px;">Receipts Commitment</span></span></div>') : '') +
+          '<div class="receipt-row"><span class="label">Transaction Merkle Root:</span><span class="val mono" style="word-break:break-all;">' + escapeHtml(block.merkleRoot || 'N/A') + ' <span class="badge badge-info" style="font-size:10px;margin-left:5px;">Tx Commitment</span></span></div>' +
+          '<div class="receipt-row"><span class="label">Resulting State Root:</span><span class="val mono" style="word-break:break-all;">' + escapeHtml(block.stateRoot || '0x0000000000000000000000000000000000000000000000000000000000000000') + ' <span class="badge badge-success" style="font-size:10px;margin-left:5px;">State Commitment</span></span></div>' +
+          (block.receiptsRoot ? ('<div class="receipt-row"><span class="label">Receipts Merkle Root:</span><span class="val mono" style="word-break:break-all;">' + escapeHtml(block.receiptsRoot) + ' <span class="badge badge-info" style="font-size:10px;margin-left:5px;">Receipts Commitment</span></span></div>') : '') +
           certHashHtml +
           '<div class="receipt-row"><span class="label">Timestamp:</span><span class="val">' + formatTimestamp(block.timestamp) + '</span></div>' +
         '</div>' +

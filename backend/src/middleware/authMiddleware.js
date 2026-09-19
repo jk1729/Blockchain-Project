@@ -11,7 +11,8 @@ async function authMiddleware(req, res, next) {
     if (authHeader && authHeader.startsWith('Bearer ')) {
       token = authHeader.split(' ')[1];
     } else if (req.query && req.query.token) {
-      token = req.query.token;
+      // Explicitly reject query-string token authentication for security (CWE-598)
+      throw new UnauthorizedError('Passing authentication tokens via query string is not permitted. Use Authorization: Bearer <token>.');
     }
 
     if (!token) {
@@ -52,9 +53,8 @@ async function optionalAuthMiddleware(req, res, next) {
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       token = authHeader.split(' ')[1];
-    } else if (req.query && req.query.token) {
-      token = req.query.token;
     }
+    // Note: Query parameter tokens are intentionally rejected/ignored for security
 
     if (token) {
       const decoded = jwt.verify(token, config.JWT_SECRET);

@@ -38,14 +38,36 @@ const StockTransfer = sequelize.define('StockTransfer', {
     allowNull: false,
     defaultValue: 'Completed'
   },
+  transactionId: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  blockNumber: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  blockHash: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  transactionHash: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  idempotencyKey: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
   timestamp: {
     type: DataTypes.STRING,
     allowNull: false
   }
 }, {
   tableName: 'stock_transfers',
-  timestamps: true
+  timestamps: true,
+  indexes: [
+    { fields: ['warehouseId', 'idempotencyKey'], unique: true }
+  ]
 });
 
 module.exports = StockTransfer;
-

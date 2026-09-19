@@ -17,10 +17,10 @@
   var selectedEvent = null;
 
   function getApiBase() {
-    if (window.API && window.API.BASE_URL) {
-      return window.API.BASE_URL;
+    if (window.PDSChainAPI && window.PDSChainAPI.BASE_URL) {
+      return window.PDSChainAPI.BASE_URL;
     }
-    return window.PDSCHAIN_API_URL || "http://localhost:3000/api";
+    return window.getPDSChainApiBase ? window.getPDSChainApiBase("api") : "http://localhost:3000/api";
   }
 
   function escapeHtml(str) {
@@ -386,4 +386,3 @@
     });
   });
 })();
-

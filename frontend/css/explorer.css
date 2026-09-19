@@ -35,6 +35,16 @@
 }
 
 /* ---------- 2. EXPLORER HEADER & TOPBAR ---------- */
+.explorer-page .dash-shell {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.explorer-page .dash-content {
+  overflow-x: hidden;
+}
+
 .explorer-topbar {
   background: var(--explorer-surface);
   border-bottom: 1px solid var(--explorer-border);
@@ -788,5 +798,3 @@
   color: #fff;
   border-color: var(--explorer-brand);
 }
-
-
