@@ -10,6 +10,7 @@ const Block = require('./Block');
 const Validator = require('./Validator');
 const StockTransfer = require('./StockTransfer');
 const Receipt = require('./Receipt');
+const PDSReceipt = require('./PDSReceipt');
 const EventRecord = require('./EventRecord');
 const CheckpointRecord = require('./CheckpointRecord');
 const SchemaMigration = require('./SchemaMigration');
@@ -29,6 +30,7 @@ const db = {
   Validator,
   StockTransfer,
   Receipt,
+  PDSReceipt,
   EventRecord,
   CheckpointRecord,
   SchemaMigration,

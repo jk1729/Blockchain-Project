@@ -26,11 +26,19 @@ class DatabaseMigrationManager {
     this.isLocked = false;
   }
 
+  _getMigrationModel() {
+    if (this.sequelize && this.sequelize.models && this.sequelize.models.SchemaMigration) {
+      return this.sequelize.models.SchemaMigration;
+    }
+    return SchemaMigration;
+  }
+
   /**
    * Ensure schema_migrations registry table exists
    */
   async ensureMigrationTable() {
-    await SchemaMigration.sync({ alter: false });
+    const MigrationModel = this._getMigrationModel();
+    await MigrationModel.sync({ alter: false });
   }
 
   /**
@@ -49,7 +57,8 @@ class DatabaseMigrationManager {
    */
   async getAppliedMigrations() {
     await this.ensureMigrationTable();
-    const records = await SchemaMigration.findAll({ order: [['version', 'ASC']] });
+    const MigrationModel = this._getMigrationModel();
+    const records = await MigrationModel.findAll({ order: [['version', 'ASC']] });
     return records.map(r => r.toJSON());
   }
 
@@ -96,10 +105,11 @@ class DatabaseMigrationManager {
 
   /**
    * Execute a single migration
-   * @param {object} migration - { version, name, up, down, checksum }
+   * @param {object} migration - { version, name, up, down, checksum, useTransaction }
    * @param {object} [options]
    * @param {boolean} [options.dryRun=false]
    * @param {string} [options.appliedBy='SYSTEM']
+   * @param {boolean} [options.useTransaction=false]
    */
   async applyMigration(migration, options = {}) {
     if (!migration || typeof migration.version !== 'number' || !migration.name) {
@@ -112,9 +122,10 @@ class DatabaseMigrationManager {
 
     this.isLocked = true;
     await this.ensureMigrationTable();
+    const MigrationModel = this._getMigrationModel();
 
     // Check if already applied
-    const existing = await SchemaMigration.findOne({ where: { version: migration.version } });
+    const existing = await MigrationModel.findOne({ where: { version: migration.version } });
     if (existing) {
       this.isLocked = false;
       return { skipped: true, version: migration.version, message: 'Migration already applied.' };
@@ -134,19 +145,41 @@ class DatabaseMigrationManager {
       };
     }
 
+    const runTransactional = Boolean(
+      (options.useTransaction || migration.useTransaction) &&
+      this.sequelize &&
+      typeof this.sequelize.transaction === 'function'
+    );
+
     try {
       this.logger.info(`[MigrationManager] Applying migration v${migration.version}: ${migration.name}...`);
-      await migration.up(this.sequelize);
-      const durationMs = Date.now() - t0;
+      let durationMs = 0;
 
-      await SchemaMigration.create({
-        version: migration.version,
-        name: migration.name,
-        checksum,
-        executionTimeMs: durationMs,
-        appliedBy: options.appliedBy || 'SYSTEM',
-        appliedAt: new Date()
-      });
+      if (runTransactional) {
+        await this.sequelize.transaction(async (t) => {
+          await migration.up(this.sequelize, { transaction: t });
+          durationMs = Date.now() - t0;
+          await MigrationModel.create({
+            version: migration.version,
+            name: migration.name,
+            checksum,
+            executionTimeMs: durationMs,
+            appliedBy: options.appliedBy || 'SYSTEM',
+            appliedAt: new Date()
+          }, { transaction: t });
+        });
+      } else {
+        await migration.up(this.sequelize);
+        durationMs = Date.now() - t0;
+        await MigrationModel.create({
+          version: migration.version,
+          name: migration.name,
+          checksum,
+          executionTimeMs: durationMs,
+          appliedBy: options.appliedBy || 'SYSTEM',
+          appliedAt: new Date()
+        });
+      }
 
       this.logger.info(`[MigrationManager] Migration v${migration.version} applied successfully in ${durationMs}ms.`);
       return {

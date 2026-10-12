@@ -12,6 +12,7 @@ const { sendSuccess, sendError } = require('../../api/ResponseEnvelope');
 const { paginateArray } = require('../../api/CursorPagination');
 const { defaultIdempotencyManager } = require('../../api/IdempotencyManager');
 const { evmRuntime } = require('../../evm');
+const PDSReceipt = require('../../models/PDSReceipt');
 
 // GET /api/v1/transactions
 router.get('/', optionalAuthMiddleware, async (req, res, next) => {
@@ -35,6 +36,13 @@ router.get('/', optionalAuthMiddleware, async (req, res, next) => {
 router.get('/:id/receipt', async (req, res, next) => {
   try {
     const txId = req.params.id;
+    const pdsReceipt = await PDSReceipt.findOne({ where: { transactionId: txId } });
+    if (pdsReceipt) {
+      const receiptData = typeof pdsReceipt.receiptData === 'string'
+        ? JSON.parse(pdsReceipt.receiptData)
+        : pdsReceipt.receiptData;
+      return sendSuccess(res, receiptData, { finality: 'FINALIZED' });
+    }
     const receipt = evmRuntime.getReceipt(txId);
     if (!receipt) {
       return sendError(res, 'RECEIPT_NOT_FOUND', `Execution receipt for transaction '${txId}' not found.`, null, 404);

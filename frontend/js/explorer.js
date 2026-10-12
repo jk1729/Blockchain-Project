@@ -710,16 +710,29 @@
                  '    <button class="btn btn-primary" onclick="Explorer.openProofModal(\'' + escapeHtml(txId) + '\')"><i class="bi bi-shield-check"></i> Verify Cryptographic Merkle Proof</button>' +
                  '  </div>';
 
-      // EVM Receipt Section if available
+      // Execution Receipt Section (PDS or EVM) if available
       if (receipt) {
-        html += '  <div class="section-block" style="margin-top:16px;">' +
-                '    <h3><i class="bi bi-receipt text-indigo"></i> EVM Execution Receipt</h3>' +
-                '    <div class="table-wrap"><table class="data-table"><tbody>' +
-                '      <tr><th style="width:180px;">Contract Address</th><td class="mono">' + escapeHtml(receipt.contractAddress || "-") + '</td></tr>' +
-                '      <tr><th>Gas Used</th><td class="mono">' + (receipt.gasUsed || "21000") + '</td></tr>' +
-                '      <tr><th>Status</th><td>' + (receipt.status === 1 || receipt.status === "0x1" ? '<span class="badge badge-success">SUCCESS</span>' : '<span class="badge badge-danger">REVERTED</span>') + '</td></tr>' +
-                '      <tr><th>Logs Count</th><td>' + (Array.isArray(receipt.logs) ? receipt.logs.length : 0) + '</td></tr>' +
-                '    </tbody></table></div></div>';
+        var isSuccessStatus = receipt.status === 1 || receipt.status === "0x1" || receipt.status === "SUCCESS" || receipt.status === "EXECUTED";
+        if (receipt.receiptNumber || Array.isArray(receipt.stateChanges)) {
+          var changesCount = Array.isArray(receipt.stateChanges) ? receipt.stateChanges.length : 0;
+          html += '  <div class="section-block" style="margin-top:16px;">' +
+                  '    <h3><i class="bi bi-receipt text-indigo"></i> PDS Execution Receipt</h3>' +
+                  '    <div class="table-wrap"><table class="data-table"><tbody>' +
+                  '      <tr><th style="width:180px;">Receipt Number</th><td class="mono">' + escapeHtml(receipt.receiptNumber || "-") + '</td></tr>' +
+                  '      <tr><th>Transaction Type</th><td class="mono">' + escapeHtml(receipt.transactionType || "DISTRIBUTION") + '</td></tr>' +
+                  '      <tr><th>Status</th><td>' + (isSuccessStatus ? '<span class="badge badge-success">SUCCESS</span>' : '<span class="badge badge-danger">' + escapeHtml(receipt.status || "FAILED") + '</span>') + '</td></tr>' +
+                  '      <tr><th>State Transitions</th><td>' + changesCount + ' state change(s) verified</td></tr>' +
+                  '    </tbody></table></div></div>';
+        } else {
+          html += '  <div class="section-block" style="margin-top:16px;">' +
+                  '    <h3><i class="bi bi-receipt text-indigo"></i> EVM Execution Receipt</h3>' +
+                  '    <div class="table-wrap"><table class="data-table"><tbody>' +
+                  '      <tr><th style="width:180px;">Contract Address</th><td class="mono">' + escapeHtml(receipt.contractAddress || "-") + '</td></tr>' +
+                  '      <tr><th>Gas Used</th><td class="mono">' + (receipt.gasUsed || "21000") + '</td></tr>' +
+                  '      <tr><th>Status</th><td>' + (isSuccessStatus ? '<span class="badge badge-success">SUCCESS</span>' : '<span class="badge badge-danger">REVERTED</span>') + '</td></tr>' +
+                  '      <tr><th>Logs Count</th><td>' + (Array.isArray(receipt.logs) ? receipt.logs.length : 0) + '</td></tr>' +
+                  '    </tbody></table></div></div>';
+        }
       }
 
       // Raw JSON toggle

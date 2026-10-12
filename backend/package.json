@@ -6,8 +6,12 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
+    "build": "node --check src/server.js && node --check src/app.js",
+    "lint": "node --check src/server.js && node --check src/app.js && node --check src/services/transactionService.js && node --check src/controllers/contractController.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --detectOpenHandles --forceExit",
+    "migrate": "node src/scripts/runMigrations.js",
     "seed": "node src/seed/seedDatabase.js",
+    "healthcheck": "node -e \"fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + '/health/live').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\"",
     "validators:start": "node src/validators/startValidators.js",
     "provision:admin": "node src/scripts/provisionAdmin.js",
     "provision:identity": "node src/scripts/provisionIdentity.js"

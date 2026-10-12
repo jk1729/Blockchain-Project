@@ -15,6 +15,7 @@ const { defaultDatabaseMetrics } = require('../../database/DatabaseMetrics');
 const { authMiddleware } = require('../../middleware/authMiddleware');
 const { requirePermission } = require('../../security/permissions/permissionMiddleware');
 const BlockModel = require('../../models/Block');
+const migration002PdsReceipts = require('../../migrations/002_pds_receipts');
 const config = require('../../config/env');
 const path = require('path');
 
@@ -80,13 +81,20 @@ router.get('/schema', authMiddleware, requirePermission('operator:read:node-stat
  */
 router.post('/migrate', authMiddleware, requirePermission('operator:manage:configuration'), async (req, res) => {
   const { dryRun = false } = req.body || {};
-  // For demo/API trigger, register initial standard migrations
+  // For demo/API trigger, register standard migrations
   const available = [
     {
       version: 1,
       name: '001_initial_schema',
       up: async (seq) => await seq.sync({ alter: false }),
       checksum: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+    },
+    {
+      version: migration002PdsReceipts.version,
+      name: migration002PdsReceipts.name,
+      up: migration002PdsReceipts.up,
+      down: migration002PdsReceipts.down,
+      checksum: migration002PdsReceipts.checksum
     }
   ];
 

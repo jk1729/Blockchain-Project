@@ -2,6 +2,7 @@ const TransactionModel = require('../models/Transaction');
 const StockTransfer = require('../models/StockTransfer');
 const TransferEventOutbox = require('../models/TransferEventOutbox');
 const BlockModel = require('../models/Block');
+const PDSReceipt = require('../models/PDSReceipt');
 const { sequelize } = require('../config/database');
 const executionEngine = require('../execution/ExecutionEngine');
 const stateManager = require('../execution/StateManager');
@@ -32,6 +33,41 @@ class TransactionService {
     const next = this._commitLock.then(() => fn());
     this._commitLock = next.catch(() => {});
     return next;
+  }
+
+  async _persistPDSReceipt(receiptObj, finalizedBlock, dbTransaction) {
+    if (!receiptObj) {
+      throw new Error('PDS execution receipt is required for atomic receipt persistence.');
+    }
+    const finalizedBlockNumber = finalizedBlock && finalizedBlock.blockNumber !== undefined
+      ? parseInt(finalizedBlock.blockNumber, 10)
+      : parseInt(receiptObj.blockNumber, 10) || 0;
+    const finalizedBlockHash = (finalizedBlock && finalizedBlock.blockHash)
+      ? String(finalizedBlock.blockHash)
+      : String(receiptObj.blockHash || '');
+
+    if (typeof receiptObj === 'object') {
+      receiptObj.blockNumber = finalizedBlockNumber;
+      receiptObj.blockHash = finalizedBlockHash;
+    }
+
+    const baseJson = typeof receiptObj.toJSON === 'function'
+      ? receiptObj.toJSON()
+      : JSON.parse(JSON.stringify(receiptObj));
+
+    const serializedReceipt = {
+      ...baseJson,
+      blockNumber: finalizedBlockNumber,
+      blockHash: finalizedBlockHash
+    };
+
+    return await PDSReceipt.create({
+      transactionId: serializedReceipt.transactionId,
+      receiptNumber: serializedReceipt.receiptNumber || null,
+      blockNumber: finalizedBlockNumber,
+      blockHash: finalizedBlockHash,
+      receiptData: serializedReceipt
+    }, { transaction: dbTransaction });
   }
 
   async drainTransferEventOutbox() {
@@ -123,6 +159,10 @@ class TransactionService {
    */
   async processDistribution(payload, user = null) {
     return this._withCommitLock(() => this._processDistributionInternal(payload, user));
+  }
+
+  async processDistributionTransaction(payload, user = null) {
+    return this.processDistribution(payload, user);
   }
 
   async _processDistributionInternal(payload, user = null) {
@@ -313,100 +353,119 @@ class TransactionService {
     }
 
     // 8. Consensus Achieved: Atomically Commit to Blockchain & Execute State Transitions
-    return await sequelize.transaction(async (t) => {
-      // Attach consensus details to transaction payload
-      tx.payload.consensusRound = consensusResult.roundId;
-      tx.payload.validators = consensusResult.participatingValidators;
+    const senderKey = tx.sender ? String(tx.sender).toLowerCase().trim() : null;
+    const hadPrevNonce = senderKey ? stateManager.senderNonces.has(senderKey) : false;
+    const prevNonceVal = senderKey ? stateManager.senderNonces.get(senderKey) : undefined;
 
-      // Execute State Transitions deterministically via ExecutionEngine
-      const executionResult = await executionEngine.executeTransaction(tx, {
-        dbTransaction: t,
-        blockNumber: nextBlockNumber,
-        blockHash: candidateBlock.blockHash,
-        consensusRound: consensusResult.roundId
+    try {
+      return await sequelize.transaction(async (t) => {
+        // Attach consensus details to transaction payload
+        tx.payload.consensusRound = consensusResult.roundId;
+        tx.payload.validators = consensusResult.participatingValidators;
+
+        // Execute State Transitions deterministically via ExecutionEngine
+        const executionResult = await executionEngine.executeTransaction(tx, {
+          dbTransaction: t,
+          blockNumber: nextBlockNumber,
+          blockHash: candidateBlock.blockHash,
+          consensusRound: consensusResult.roundId
+        });
+
+        // Extract resulting consensus state snapshot and calculate deterministic State Root
+        const resultingState = await stateManager.getConsensusStateSnapshot({ dbTransaction: t });
+        stateManager.assertStateConsistency(resultingState);
+        const stateRoot = calculateStateRoot(resultingState);
+
+        // Add to Blockchain ledger with computed State Root, Proposer, and Consensus Certificate
+        const newBlock = await blockchainService.addBlock(
+          [tx.toBlockPayload()],
+          consensusResult.validatorSignatures,
+          t,
+          stateRoot,
+          {
+            version: 1,
+            timestamp,
+            nonce: candidateBlock.nonce,
+            proposerId,
+            proposerAddress,
+            proposerSignature,
+            proposalId,
+            round,
+            consensusCertificate: consensusResult.certificate,
+            consensusStatus: 'FINALIZED',
+            requireFinality: true
+          }
+        );
+
+        // Compute Cryptographic Transaction Hash anchored to block
+        const txHash = '0x' + crypto.createHash('sha256')
+          .update(JSON.stringify(tx.toBlockPayload()) + newBlock.blockHash)
+          .digest('hex')
+          .substring(0, 16);
+
+        // Persist Verified Transaction Record within database
+        const verifiedTx = await TransactionModel.create({
+          transactionId: tx.transactionId,
+          beneficiaryId,
+          beneficiaryName: finalCitizenName,
+          shopId,
+          commodity,
+          quantity,
+          timestamp: tx.timestamp,
+          status: 'Verified',
+          blockNumber: newBlock.blockNumber,
+          blockHash: newBlock.blockHash,
+          hash: txHash,
+          fbaValidators: consensusResult.participatingValidators,
+          fbaConsensus: true,
+          remarks: 'Verified via 12-Validator FBA Quorum Consensus'
+        }, { transaction: t });
+
+        await this._persistPDSReceipt(executionResult.receipt, newBlock, t);
+
+        // Remove mined transaction from active mempool
+        mempool.removeIncludedTransactions([tx.transactionId], newBlock.blockNumber);
+
+        logger.info(`Transaction ${tx.transactionId} FINALIZED & SEALED on Block #${newBlock.blockNumber} with Certificate: ${consensusResult.certificate ? consensusResult.certificate.certificateHash : 'N/A'}`);
+
+        return {
+          success: true,
+          message: 'Transaction successfully verified through FBA consensus, certificate finalized, and anchored to blockchain ledger.',
+          transaction: {
+            ...verifiedTx.toJSON(),
+            id: verifiedTx.transactionId,
+            block: `#${newBlock.blockNumber}`,
+            qty: `${quantity} KG`,
+            time: verifiedTx.timestamp
+          },
+          block: newBlock,
+          consensus: {
+            status: consensusResult.status,
+            roundId: consensusResult.roundId,
+            round: consensusResult.round,
+            proposalId: consensusResult.proposalId,
+            participatingValidators: consensusResult.participatingValidators,
+            quorumAchieved: consensusResult.quorumAchieved,
+            quorumSize: consensusResult.quorumSize,
+            threshold: consensusResult.threshold,
+            certificate: consensusResult.certificate,
+            latencyMs: consensusResult.latencyMs
+          },
+          receipt: executionResult.receipt
+        };
       });
-
-      // Extract resulting consensus state snapshot and calculate deterministic State Root
-      const resultingState = await stateManager.getConsensusStateSnapshot({ dbTransaction: t });
-      stateManager.assertStateConsistency(resultingState);
-      const stateRoot = calculateStateRoot(resultingState);
-
-      // Add to Blockchain ledger with computed State Root, Proposer, and Consensus Certificate
-      const newBlock = await blockchainService.addBlock(
-        [tx.toBlockPayload()],
-        consensusResult.validatorSignatures,
-        t,
-        stateRoot,
-        {
-          version: 1,
-          timestamp,
-          nonce: candidateBlock.nonce,
-          proposerId,
-          proposerAddress,
-          proposerSignature,
-          proposalId,
-          round,
-          consensusCertificate: consensusResult.certificate,
-          consensusStatus: 'FINALIZED',
-          requireFinality: true
+    } catch (commitError) {
+      mempool.removeIncludedTransactions([tx.transactionId]);
+      if (senderKey) {
+        if (hadPrevNonce) {
+          stateManager.senderNonces.set(senderKey, prevNonceVal);
+        } else {
+          stateManager.senderNonces.delete(senderKey);
         }
-      );
-
-      // Compute Cryptographic Transaction Hash anchored to block
-      const txHash = '0x' + crypto.createHash('sha256')
-        .update(JSON.stringify(tx.toBlockPayload()) + newBlock.blockHash)
-        .digest('hex')
-        .substring(0, 16);
-
-      // Remove mined transaction from active mempool
-      mempool.removeIncludedTransactions([tx.transactionId], newBlock.blockNumber);
-
-      // Persist Verified Transaction Record within database
-      const verifiedTx = await TransactionModel.create({
-        transactionId: tx.transactionId,
-        beneficiaryId,
-        beneficiaryName: finalCitizenName,
-        shopId,
-        commodity,
-        quantity,
-        timestamp: tx.timestamp,
-        status: 'Verified',
-        blockNumber: newBlock.blockNumber,
-        blockHash: newBlock.blockHash,
-        hash: txHash,
-        fbaValidators: consensusResult.participatingValidators,
-        fbaConsensus: true,
-        remarks: 'Verified via 12-Validator FBA Quorum Consensus'
-      }, { transaction: t });
-
-      logger.info(`Transaction ${tx.transactionId} FINALIZED & SEALED on Block #${newBlock.blockNumber} with Certificate: ${consensusResult.certificate ? consensusResult.certificate.certificateHash : 'N/A'}`);
-
-      return {
-        success: true,
-        message: 'Transaction successfully verified through FBA consensus, certificate finalized, and anchored to blockchain ledger.',
-        transaction: {
-          ...verifiedTx.toJSON(),
-          id: verifiedTx.transactionId,
-          block: `#${newBlock.blockNumber}`,
-          qty: `${quantity} KG`,
-          time: verifiedTx.timestamp
-        },
-        block: newBlock,
-        consensus: {
-          status: consensusResult.status,
-          roundId: consensusResult.roundId,
-          round: consensusResult.round,
-          proposalId: consensusResult.proposalId,
-          participatingValidators: consensusResult.participatingValidators,
-          quorumAchieved: consensusResult.quorumAchieved,
-          quorumSize: consensusResult.quorumSize,
-          threshold: consensusResult.threshold,
-          certificate: consensusResult.certificate,
-          latencyMs: consensusResult.latencyMs
-        },
-        receipt: executionResult.receipt
-      };
-    });
+      }
+      stateManager.seenTransactionIds.delete(tx.transactionId);
+      throw commitError;
+    }
   }
 
   async processWarehouseTransfer(payload, user) {
@@ -623,6 +682,7 @@ class TransactionService {
             blockHash: block.blockHash,
             transactionHash
           }, { transaction: t });
+          await this._persistPDSReceipt(executionResult.receipt, block, t);
           await TransferEventOutbox.bulkCreate([
             {
               transferId,

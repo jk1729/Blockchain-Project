@@ -1,5 +1,6 @@
 const { contractRegistry, evmRuntime } = require('../evm');
 const transactionService = require('../services/transactionService');
+const PDSReceipt = require('../models/PDSReceipt');
 const { NotFoundError, ValidationError } = require('../utils/errors');
 
 class ContractController {
@@ -93,6 +94,18 @@ class ContractController {
   async getTransactionReceipt(req, res, next) {
     try {
       const transactionId = req.params.id;
+      const pdsReceipt = await PDSReceipt.findOne({ where: { transactionId } });
+
+      if (pdsReceipt) {
+        const receiptData = typeof pdsReceipt.receiptData === 'string'
+          ? JSON.parse(pdsReceipt.receiptData)
+          : pdsReceipt.receiptData;
+        return res.status(200).json({
+          success: true,
+          receipt: receiptData
+        });
+      }
+
       const receipt = evmRuntime.getReceipt(transactionId);
 
       if (!receipt) {
