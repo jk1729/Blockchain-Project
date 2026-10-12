@@ -46,9 +46,25 @@ class BlockchainService {
   }
 
   validateChain(options = {}) {
-    const check = require('../blockchain/validation').validateChain(this.blockchain.chain, options);
+    const fbaInstance = require('../consensus/FBAConsensus');
+    const verifyCertificates = options.verifyCertificates !== undefined ? options.verifyCertificates : true;
+    const structuralCheck = require('../blockchain/validation').validateChain(this.blockchain.chain, {
+      ...options,
+      verifyCertificates: false
+    });
+    const check = verifyCertificates
+      ? require('../blockchain/validation').validateChain(this.blockchain.chain, {
+          validatorMap: fbaInstance.validators,
+          ...options,
+          verifyCertificates: true
+        })
+      : structuralCheck;
     return {
       isValid: check.isValid,
+      structuralValid: structuralCheck.isValid,
+      certificatesVerified: Boolean(verifyCertificates && check.isValid),
+      validationMode: verifyCertificates ? 'STRICT_CONSENSUS' : 'STRUCTURAL',
+      genesisTrustedCheckpoint: true,
       reason: check.reason || null,
       brokenBlockIndex: check.brokenBlockIndex ?? null,
       blockCount: this.blockchain.chain.length,
@@ -63,13 +79,51 @@ class BlockchainService {
       await this.init();
     }
 
-    const newBlock = this.blockchain.addBlock(transactions, validatorSignatures, stateRoot, options);
+    const preCommitLength = this.blockchain.chain.length;
 
-    // Index block for sub-millisecond proof generation
-    this.proofIndexer.indexBlock(newBlock);
+    // 1. Construct, mine, and verify finality of candidate block BEFORE mutating in-memory chain or DB
+    const candidateBlock = this.blockchain.buildBlock(transactions, validatorSignatures, stateRoot, options);
 
-    // Persist to database within transaction
-    await BlockModel.create(newBlock.toJSON(), { transaction });
+    // 2. Persist to database within transaction BEFORE mutating in-memory chain or proofIndexer
+    await BlockModel.create(candidateBlock.toJSON(), { transaction });
+
+    // 3. If a Sequelize transaction is active, hook rollback BEFORE mutating in-memory state
+    if (transaction && typeof transaction.rollback === 'function' && !transaction._pdsChainHooked) {
+      const origRollback = transaction.rollback.bind(transaction);
+      transaction._pdsChainHooked = true;
+      transaction.rollback = async (...args) => {
+        try {
+          return await origRollback(...args);
+        } finally {
+          if (this.blockchain.chain.length > preCommitLength) {
+            this.blockchain.chain.length = preCommitLength;
+            this.proofIndexer.rebuild(this.blockchain.chain);
+          }
+        }
+      };
+    }
+
+    // 4. Commit to in-memory chain and index proof; revert immediately if commit or proof indexing fails
+    let newBlock;
+    try {
+      newBlock = this.blockchain.commitBlock(candidateBlock);
+      this.proofIndexer.indexBlock(newBlock);
+    } catch (commitOrIndexErr) {
+      if (this.blockchain.chain.length > preCommitLength) {
+        this.blockchain.chain.length = preCommitLength;
+      }
+      try {
+        this.proofIndexer.rebuild(this.blockchain.chain);
+      } catch (e) {}
+      if (!transaction) {
+        await BlockModel.destroy({
+          where: { blockNumber: candidateBlock.blockNumber },
+          hooks: false
+        }).catch(() => {});
+      }
+      throw commitOrIndexErr;
+    }
+
     logger.info(`Block #${newBlock.blockNumber} persisted to database. Proposer: ${newBlock.proposerId}, StateRoot: ${newBlock.stateRoot}`);
 
     return newBlock.toJSON();

@@ -4,17 +4,25 @@ const crypto = require('crypto');
 const { verifyTransactionSignature, verifyBlockProposalSignature } = require('../blockchain/identity/signature');
 const { getPublicParticipantInfo, getParticipantPrivateKey } = require('../blockchain/identity/keyManager');
 const { calculateMerkleRoot } = require('../blockchain/merkle');
-const { hashProposal } = require('../blockchain/hashing');
+const { hashProposal, hashBlockHeader } = require('../blockchain/hashing');
+const { resolveValidatorId, getShortValidatorId } = require('./consensusConfig');
 
 class ValidatorNode {
   constructor(data) {
-    this.validatorId = data.validatorId;
+    this.validatorId = resolveValidatorId(data.validatorId);
+    this.shortId = data.shortId || getShortValidatorId(this.validatorId);
     this.name = data.name;
     this.org = data.org;
     this.status = data.status || 'Online'; // Online | Offline | Degraded
+    this.authorized = data.authorized !== undefined ? Boolean(data.authorized) : true;
     this.blockHeight = data.blockHeight || 4281;
     this.txValidated = data.txValidated || 14280;
     this.participation = data.participation || '100%';
+    const numMatch = String(this.validatorId || '').match(/(\d+)$/);
+    const num = numMatch ? parseInt(numMatch[1], 10) : 1;
+    this.port = data.port || (4000 + num);
+    this.p2pPort = data.p2pPort || (5000 + num);
+    this.lastHeartbeat = data.lastHeartbeat || new Date().toISOString();
 
     // Resolve cryptographic identity
     const idInfo = getPublicParticipantInfo(this.validatorId);
@@ -24,7 +32,7 @@ class ValidatorNode {
     const trustConfig = data.trustConfiguration || {};
     this.quorumSlice = new QuorumSlice(
       this.validatorId,
-      trustConfig.quorumSlice || [],
+      (trustConfig.quorumSlice || []).map(m => resolveValidatorId(m)),
       trustConfig.threshold || 3
     );
 
@@ -36,8 +44,12 @@ class ValidatorNode {
   }
 
   setStatus(status) {
-    if (['Online', 'Offline', 'Degraded'].includes(status)) {
-      this.status = status;
+    const normalized = typeof status === 'string' ? status.charAt(0).toUpperCase() + status.slice(1).toLowerCase() : '';
+    if (['Online', 'Offline', 'Degraded'].includes(normalized)) {
+      this.status = normalized;
+      if (normalized === 'Online') {
+        this.lastHeartbeat = new Date().toISOString();
+      }
       return true;
     }
     return false;
@@ -56,11 +68,24 @@ class ValidatorNode {
    * @returns {ValidatorVote} Signed ValidatorVote
    */
   async evaluateBlockProposal(blockProposal, options = {}) {
-    const round = parseInt(options.round || blockProposal.round || 0, 10);
-    const proposalId = blockProposal.proposalId || hashProposal(blockProposal);
-    const blockNumber = parseInt(blockProposal.blockNumber !== undefined ? blockProposal.blockNumber : blockProposal.index, 10) || 0;
-    const blockHash = String(blockProposal.blockHash || blockProposal.hash || '');
-    const stateRoot = String(blockProposal.stateRoot || '');
+    const round = parseInt(options.round || (blockProposal && blockProposal.round) || 0, 10);
+    const proposalId = blockProposal ? (blockProposal.proposalId || hashProposal(blockProposal)) : '';
+    const blockNumber = blockProposal ? (parseInt(blockProposal.blockNumber !== undefined ? blockProposal.blockNumber : blockProposal.index, 10) || 0) : 0;
+    const stateRoot = String((blockProposal && blockProposal.stateRoot) || options.stateRoot || '');
+    const rawBlockHash = blockProposal ? (blockProposal.blockHash || blockProposal.hash) : '';
+    const blockHash = rawBlockHash
+      ? String(rawBlockHash)
+      : (blockProposal ? hashBlockHeader({
+          version: parseInt(blockProposal.version !== undefined ? blockProposal.version : 1, 10),
+          blockNumber,
+          previousHash: String(blockProposal.previousHash || ''),
+          timestamp: String(blockProposal.timestamp || ''),
+          merkleRoot: String(blockProposal.merkleRoot || calculateMerkleRoot(Array.isArray(blockProposal.transactions) ? blockProposal.transactions : [])),
+          stateRoot,
+          proposerId: String(blockProposal.proposerId || 'VAL-01'),
+          nonce: parseInt(blockProposal.blockNonce !== undefined ? blockProposal.blockNonce : (blockProposal.nonce || 0), 10) || 0,
+          consensusStatus: String(blockProposal.consensusStatus || 'FINALIZED')
+        }) : '');
 
     const reqChainId = options.chainId !== undefined ? options.chainId : blockProposal.chainId;
     const createVote = (voteType, reason = '') => {
@@ -283,19 +308,86 @@ class ValidatorNode {
     return voteRecord;
   }
 
+  /**
+   * Cryptographically sign an explicit manual validator vote (ACCEPT or REJECT) on a candidate block proposal.
+   */
+  signManualVote(blockProposal, decision = 'ACCEPT', reason = '', options = {}) {
+    const normalizedVote = String(decision || 'ACCEPT').toUpperCase() === 'REJECT' ? 'REJECT' : 'ACCEPT';
+    const round = parseInt(options.round !== undefined ? options.round : ((blockProposal && blockProposal.round) || 0), 10) || 0;
+    const proposalId = blockProposal ? (blockProposal.proposalId || hashProposal(blockProposal)) : '';
+    const blockNumber = blockProposal
+      ? (parseInt(blockProposal.blockNumber !== undefined ? blockProposal.blockNumber : blockProposal.index, 10) || 0)
+      : 0;
+    const stateRoot = String((blockProposal && blockProposal.stateRoot) || options.stateRoot || '');
+    const rawBlockHash = blockProposal ? (blockProposal.blockHash || blockProposal.hash) : '';
+    const blockHash = rawBlockHash
+      ? String(rawBlockHash)
+      : (blockProposal ? hashBlockHeader({
+          version: parseInt(blockProposal.version !== undefined ? blockProposal.version : 1, 10),
+          blockNumber,
+          previousHash: String(blockProposal.previousHash || ''),
+          timestamp: String(blockProposal.timestamp || ''),
+          merkleRoot: String(blockProposal.merkleRoot || calculateMerkleRoot(Array.isArray(blockProposal.transactions) ? blockProposal.transactions : [])),
+          stateRoot,
+          proposerId: String(blockProposal.proposerId || 'VAL-01'),
+          nonce: parseInt(blockProposal.blockNonce !== undefined ? blockProposal.blockNonce : (blockProposal.nonce || 0), 10) || 0,
+          consensusStatus: String(blockProposal.consensusStatus || 'FINALIZED')
+        }) : '');
+
+    const reqChainId = options.chainId !== undefined
+      ? options.chainId
+      : (blockProposal && blockProposal.chainId !== undefined ? blockProposal.chainId : 1729);
+
+    const voteObj = new ValidatorVote({
+      chainId: reqChainId,
+      validatorId: this.validatorId,
+      validatorAddress: this.address,
+      validatorPublicKey: this.publicKey,
+      proposalId,
+      blockNumber,
+      blockHash,
+      stateRoot,
+      round,
+      vote: normalizedVote,
+      reason: normalizedVote === 'ACCEPT'
+        ? ''
+        : (reason || `Rejected by ${this.shortId} (${this.validatorId})`),
+      timestamp: new Date().toISOString()
+    });
+
+    const privKey = this.getPrivateKey();
+    if (privKey) {
+      voteObj.sign(privKey);
+    }
+
+    this.statementHistory.push(voteObj.toJSON());
+    if (normalizedVote === 'ACCEPT') {
+      this.txValidated += 1;
+    }
+    return voteObj;
+  }
+
   toJSON() {
+    const sliceJson = this.quorumSlice.toJSON();
     return {
       id: this.validatorId,
       validatorId: this.validatorId,
+      shortId: this.shortId,
       name: this.name,
       org: this.org,
       address: this.address,
       publicKey: this.publicKey,
       status: this.status,
+      authorized: this.authorized,
+      port: this.port,
+      p2pPort: this.p2pPort,
+      lastHeartbeat: this.lastHeartbeat,
       blockHeight: this.blockHeight,
       txValidated: this.txValidated,
       participation: this.participation,
-      trustConfiguration: this.quorumSlice.toJSON()
+      voteHistoryCount: this.statementHistory.length,
+      quorumSlice: sliceJson,
+      trustConfiguration: sliceJson
     };
   }
 }

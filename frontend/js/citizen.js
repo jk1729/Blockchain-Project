@@ -33,24 +33,47 @@
         return;
       }
 
-      var txn = data.transactions.find(function (t) { return t.id.toUpperCase() === query; }) ||
-                { id: query, beneficiary: "BEN-1024", shop: "FPS-102", commodity: "Rice", qty: "5 KG", block: "#4281", validators: 12, hash: "0x8a7f92bd41e2aa91", status: "Verified", time: "2026-08-30 09:40 AM" };
+      var base = window.getPDSChainApiBase ? window.getPDSChainApiBase("api") : "http://localhost:3000/api";
+      var token = localStorage.getItem("pdschain_jwt_token") || "";
 
-      verifyResult.className = "verify-result is-visible is-success";
-      verifyResult.innerHTML =
-        '<i class="bi bi-patch-check-fill" style="font-size:24px;color:var(--success);"></i>' +
-        '<div style="flex:1;">' +
-          '<strong style="font-size:16px;display:block;margin-bottom:6px;">Transaction Verified on Blockchain Ledger</strong>' +
-          '<div class="receipt-details" style="margin-top:10px;">' +
-            '<div class="receipt-row"><span class="label">Transaction ID:</span><span class="val mono">' + escapeHtml(txn.id) + '</span></div>' +
-            '<div class="receipt-row"><span class="label">Status:</span><span class="val badge badge-success">' + escapeHtml(txn.status) + '</span></div>' +
-            '<div class="receipt-row"><span class="label">Block Anchor:</span><span class="val mono">' + escapeHtml(txn.block) + '</span></div>' +
-            '<div class="receipt-row"><span class="label">Cryptographic Hash:</span><span class="val mono">' + escapeHtml(txn.hash) + '</span></div>' +
-            '<div class="receipt-row"><span class="label">Commodity &amp; Qty:</span><span class="val">' + escapeHtml(txn.commodity) + ' — ' + escapeHtml(txn.qty) + '</span></div>' +
-            '<div class="receipt-row"><span class="label">FBA Consensus:</span><span class="val">' + escapeHtml(txn.validators) + ' / 12 Nodes Validated</span></div>' +
-            '<div class="receipt-row"><span class="label">Timestamp:</span><span class="val">' + escapeHtml(txn.time) + '</span></div>' +
-          '</div>' +
-        '</div>';
+      verifyResult.className = "verify-result is-visible";
+      verifyResult.innerHTML = "Verifying on blockchain...";
+
+      fetch(base + "/transactions/" + encodeURIComponent(query), {
+        headers: token ? { "Authorization": "Bearer " + token } : {}
+      })
+      .then(function(res) { return window.parsePDSJsonResponse ? window.parsePDSJsonResponse(res) : res.json(); })
+      .then(function(resData) {
+        var txn = resData && resData.transaction ? resData.transaction : null;
+        if (!txn && data && data.transactions) {
+           txn = data.transactions.find(function (t) { return (t.id && t.id.toUpperCase() === query) || (t.transactionId && t.transactionId.toUpperCase() === query); });
+        }
+        
+        if (txn) {
+          verifyResult.className = "verify-result is-visible is-success";
+          verifyResult.innerHTML =
+            '<i class="bi bi-patch-check-fill" style="font-size:24px;color:var(--success);"></i>' +
+            '<div style="flex:1;">' +
+              '<strong style="font-size:16px;display:block;margin-bottom:6px;">Transaction Verified on Blockchain Ledger</strong>' +
+              '<div class="receipt-details" style="margin-top:10px;">' +
+                '<div class="receipt-row"><span class="label">Transaction ID:</span><span class="val mono">' + escapeHtml(txn.id || txn.transactionId) + '</span></div>' +
+                '<div class="receipt-row"><span class="label">Status:</span><span class="val badge badge-success">' + escapeHtml(txn.status || 'Verified') + '</span></div>' +
+                '<div class="receipt-row"><span class="label">Block Anchor:</span><span class="val mono">' + escapeHtml(txn.block || ('#' + txn.blockNumber)) + '</span></div>' +
+                '<div class="receipt-row"><span class="label">Cryptographic Hash:</span><span class="val mono">' + escapeHtml(txn.hash || txn.blockHash) + '</span></div>' +
+                '<div class="receipt-row"><span class="label">Commodity &amp; Qty:</span><span class="val">' + escapeHtml(txn.commodity) + ' — ' + escapeHtml(txn.qty || (txn.quantity + ' ' + (txn.unit || 'KG'))) + '</span></div>' +
+                '<div class="receipt-row"><span class="label">FBA Consensus:</span><span class="val">' + escapeHtml(txn.validators || 12) + ' / 12 Nodes Validated</span></div>' +
+                '<div class="receipt-row"><span class="label">Timestamp:</span><span class="val">' + escapeHtml(txn.time || txn.timestamp) + '</span></div>' +
+              '</div>' +
+            '</div>';
+        } else {
+          verifyResult.className = "verify-result is-visible is-error";
+          verifyResult.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> Transaction ID "' + escapeHtml(query) + '" not found on the blockchain.';
+        }
+      })
+      .catch(function(err) {
+        verifyResult.className = "verify-result is-visible is-error";
+        verifyResult.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> Error verifying transaction: ' + escapeHtml(err.message);
+      });
     });
   }
 

@@ -3,6 +3,7 @@ const Transaction = require('./Transaction');
 const { validateChain } = require('./validation');
 const { calculateStateRoot } = require('./state');
 const { getOrCreateDevParticipant, getParticipantPrivateKey } = require('./identity/keyManager');
+const { signValidatorVote } = require('./identity/signature');
 const ConsensusCertificate = require('../consensus/ConsensusCertificate');
 const config = require('../config/env');
 const logger = require('../utils/logger');
@@ -38,32 +39,6 @@ class Blockchain {
 
     const allValidators = ['VAL-01', 'VAL-02', 'VAL-03', 'VAL-04', 'VAL-05', 'VAL-06', 'VAL-07', 'VAL-08', 'VAL-09', 'VAL-10', 'VAL-11', 'VAL-12'];
 
-    // Generate signed validator approvals for genesis certificate
-    const genesisApprovals = allValidators.map(vId => {
-      const vPart = getOrCreateDevParticipant(vId, 'VALIDATOR');
-      return {
-        validatorId: vId,
-        validatorAddress: vPart.address,
-        validatorPublicKey: vPart.publicKey,
-        signature: '0x' + Buffer.from(`GENESIS_VOTE:${vId}`).toString('hex'),
-        timestamp: '2026-01-01T00:00:00.000Z',
-        vote: 'ACCEPT'
-      };
-    });
-
-    const genesisCert = new ConsensusCertificate({
-      version: 1,
-      proposalId: '0000000000000000000000000000000000000000000000000000000000000000',
-      blockNumber: 0,
-      blockHash: '0000000000000000000000000000000000000000000000000000000000000000',
-      stateRoot: genesisStateRoot,
-      round: 0,
-      threshold: 9,
-      totalValidators: 12,
-      achieved: true,
-      validatorApprovals: genesisApprovals
-    });
-
     const genesis = new Block(
       0,
       '2026-01-01T00:00:00.000Z',
@@ -76,13 +51,56 @@ class Blockchain {
       {
         proposerId: 'GENESIS',
         proposerAddress: 'PDS10000000000000000000000000000000000000000',
-        round: 0,
-        consensusCertificate: genesisCert
+        round: 0
       }
     );
 
-    // Mine genesis to satisfy difficulty
+    // Mine genesis first so genesis.blockHash is the final PoW-mined hash
     genesis.mineBlock(this.difficulty);
+
+    // Generate cryptographically signed validator approvals bound to genesis.blockHash and genesis.proposalId
+    const genesisApprovals = allValidators.map(vId => {
+      const vPart = getOrCreateDevParticipant(vId, 'VALIDATOR');
+      const vPrivKey = getParticipantPrivateKey(vId);
+      const votePayload = {
+        validatorId: vId,
+        validatorAddress: vPart.address,
+        validatorPublicKey: vPart.publicKey,
+        proposalId: genesis.proposalId,
+        blockNumber: 0,
+        blockHash: genesis.blockHash,
+        stateRoot: genesisStateRoot,
+        round: 0,
+        vote: 'ACCEPT',
+        reason: ''
+      };
+      const signature = vPrivKey
+        ? signValidatorVote(votePayload, vPrivKey)
+        : '0x' + Buffer.from(`GENESIS_VOTE:${vId}`).toString('hex');
+      return {
+        validatorId: vId,
+        validatorAddress: vPart.address,
+        validatorPublicKey: vPart.publicKey,
+        signature,
+        timestamp: '2026-01-01T00:00:00.000Z',
+        vote: 'ACCEPT'
+      };
+    });
+
+    const genesisCert = new ConsensusCertificate({
+      version: 1,
+      proposalId: genesis.proposalId,
+      blockNumber: 0,
+      blockHash: genesis.blockHash,
+      stateRoot: genesisStateRoot,
+      round: 0,
+      threshold: 9,
+      totalValidators: 12,
+      achieved: true,
+      validatorApprovals: genesisApprovals
+    });
+
+    genesis.consensusCertificate = genesisCert.toJSON();
     return genesis;
   }
 
@@ -95,12 +113,14 @@ class Blockchain {
     return this.chain[this.chain.length - 1];
   }
 
-  addBlock(transactionsOrBlock, validatorSignatures = [], stateRoot = null, options = {}) {
+  /**
+   * Construct, mine, and validate a candidate block (including FinalityEngine check when consensus is supplied/required)
+   * without mutating the in-memory chain or emitting events.
+   */
+  buildBlock(transactionsOrBlock, validatorSignatures = [], stateRoot = null, options = {}) {
     let newBlock;
     if (transactionsOrBlock instanceof Block || (transactionsOrBlock && (transactionsOrBlock.blockHash || transactionsOrBlock.hash) && Array.isArray(transactionsOrBlock.transactions))) {
       newBlock = transactionsOrBlock;
-      this.chain.push(newBlock);
-      logger.info(`New Block #${newBlock.blockNumber || newBlock.index} added to chain. Hash: ${newBlock.blockHash || newBlock.hash}`);
     } else {
       const transactions = transactionsOrBlock;
       const latest = this.getLatestBlock();
@@ -117,11 +137,12 @@ class Blockchain {
         timestamp,
         transactions,
         latest.blockHash,
-        0,
+        options.nonce || 0,
         options.consensusStatus || 'FINALIZED',
         validatorSignatures,
         stateRoot,
         {
+          version: options.version !== undefined ? options.version : 1,
           proposerId,
           proposerAddress,
           round,
@@ -142,9 +163,39 @@ class Blockchain {
       }
 
       newBlock.mineBlock(this.difficulty);
-      this.chain.push(newBlock);
-      logger.info(`New Block #${newBlock.blockNumber} added to chain. Hash: ${newBlock.blockHash}, Proposer: ${newBlock.proposerId}, StateRoot: ${newBlock.stateRoot}`);
     }
+
+    // Enforce FinalityEngine evaluation whenever consensusCertificate is supplied or finality is required
+    const shouldEnforceFinality = Boolean(
+      options.requireFinality ||
+      (options && Object.prototype.hasOwnProperty.call(options, 'consensusCertificate')) ||
+      (newBlock && newBlock.consensusCertificate && options.requireFinality !== false)
+    );
+
+    if (shouldEnforceFinality && (newBlock.blockNumber || newBlock.index) > 0) {
+      const FinalityEngine = require('../consensus/FinalityEngine');
+      const fbaInstance = require('../consensus/FBAConsensus');
+      const finalityEngine = fbaInstance.getFinalityEngine
+        ? fbaInstance.getFinalityEngine()
+        : new FinalityEngine(fbaInstance.validators);
+      const finalityCheck = finalityEngine.evaluateFinality(newBlock, newBlock.consensusCertificate, this);
+      if (!finalityCheck.final) {
+        const err = new Error(`Block #${newBlock.blockNumber || newBlock.index} finality verification failed [${finalityCheck.code}]: ${finalityCheck.reason}`);
+        err.code = finalityCheck.code || 'FINALITY_VERIFICATION_FAILED';
+        err.finalityCheck = finalityCheck;
+        throw err;
+      }
+    }
+
+    return newBlock;
+  }
+
+  /**
+   * Append a verified block to the in-memory chain and publish finalized block events.
+   */
+  commitBlock(newBlock) {
+    this.chain.push(newBlock);
+    logger.info(`New Block #${newBlock.blockNumber || newBlock.index} added to chain. Hash: ${newBlock.blockHash || newBlock.hash}, Proposer: ${newBlock.proposerId}, StateRoot: ${newBlock.stateRoot}`);
 
     if (this.eventBus) {
       try {
@@ -199,6 +250,11 @@ class Blockchain {
     return newBlock;
   }
 
+  addBlock(transactionsOrBlock, validatorSignatures = [], stateRoot = null, options = {}) {
+    const newBlock = this.buildBlock(transactionsOrBlock, validatorSignatures, stateRoot, options);
+    return this.commitBlock(newBlock);
+  }
+
   isChainValid(options = {}) {
     return validateChain(this.chain, options).isValid;
   }
@@ -239,26 +295,36 @@ class Blockchain {
       if (!BlockModel) return;
       const records = await BlockModel.findAll({ order: [['blockNumber', 'ASC']] });
       if (records && records.length > 0) {
-        this.chain = records.map(r => new Block(
-          r.blockNumber,
-          r.timestamp,
-          r.transactions,
-          r.previousHash,
-          r.nonce,
-          r.consensusStatus,
-          r.validatorSignatures,
-          r.stateRoot,
-          {
-            version: r.version,
-            proposerId: r.proposerId,
-            proposerAddress: r.proposerAddress,
-            proposerSignature: r.proposerSignature,
-            proposalId: r.proposalId,
-            round: r.round,
-            consensusCertificate: r.consensusCertificate
-          }
-        ));
-        logger.info(`Loaded ${this.chain.length} blocks from database into memory chain.`);
+        this.chain = records.map(r => {
+          const blk = new Block(
+            r.blockNumber,
+            r.timestamp,
+            r.transactions,
+            r.previousHash,
+            r.nonce,
+            r.consensusStatus,
+            r.validatorSignatures,
+            r.stateRoot,
+            {
+              version: r.version,
+              proposerId: r.proposerId,
+              proposerAddress: r.proposerAddress,
+              proposerSignature: r.proposerSignature,
+              proposalId: r.proposalId,
+              round: r.round,
+              consensusCertificate: r.consensusCertificate
+            }
+          );
+          if (r.merkleRoot) blk.merkleRoot = r.merkleRoot;
+          if (r.blockHash) blk.blockHash = r.blockHash;
+          return blk;
+        });
+        const integrityCheck = validateChain(this.chain);
+        if (!integrityCheck.isValid) {
+          logger.error(`[LEDGER INTEGRITY ALERT] Loaded chain failed verification at block #${integrityCheck.brokenBlockIndex}: ${integrityCheck.reason}`);
+        } else {
+          logger.info(`Loaded and cryptographically verified ${this.chain.length} blocks from database into memory chain.`);
+        }
       } else {
         // Create and persist genesis block
         const genesis = this.createGenesisBlock();

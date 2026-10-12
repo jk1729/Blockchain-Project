@@ -121,14 +121,23 @@ class CheckpointManager {
       }
     }
 
-    // Atomic persistence using write-to-temp and atomic rename
+    // Atomic persistence using write-to-temp and atomic rename (with Windows EPERM fallback)
     if (!this.inMemoryOnly && this.filepath) {
       const tmpPath = `${this.filepath}.tmp`;
       const jsonContent = JSON.stringify(checkpoint.toJSON(), null, 2);
       
       try {
         fs.writeFileSync(tmpPath, jsonContent, 'utf8');
-        fs.renameSync(tmpPath, this.filepath); // Atomic rename on POSIX / Windows
+        try {
+          fs.renameSync(tmpPath, this.filepath);
+        } catch (renameErr) {
+          if (renameErr && (renameErr.code === 'EPERM' || renameErr.code === 'EACCES' || renameErr.code === 'EBUSY')) {
+            fs.copyFileSync(tmpPath, this.filepath);
+            try { fs.unlinkSync(tmpPath); } catch (_) {}
+          } else {
+            throw renameErr;
+          }
+        }
       } catch (err) {
         // Clean up tmp on error
         try { if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath); } catch (_) {}

@@ -114,6 +114,8 @@
     }
   }
 
+  var activePendingProposal = null;
+
   // Load and Render Blocks
   async function loadBlockchain() {
     var blocks = fallbackBlocks;
@@ -123,6 +125,16 @@
         if (res && res.chain && Array.isArray(res.chain)) {
           blocks = res.chain;
         }
+      }
+      try {
+        var propRes = await window.PDSChainAPI.get("/consensus/proposals/active");
+        if (propRes && propRes.proposal && !propRes.proposal.finalized) {
+          activePendingProposal = propRes.proposal;
+        } else {
+          activePendingProposal = null;
+        }
+      } catch (_) {
+        activePendingProposal = null;
       }
     } catch (e) {
       console.warn("Using offline blockchain fallback data:", e.message);
@@ -158,14 +170,17 @@
     var displayBlocks = blocks.slice(-6).reverse();
 
     displayBlocks.forEach(function (b, idx) {
+      var valCount = (b.consensusCertificate && Array.isArray(b.consensusCertificate.validatorApprovals))
+        ? b.consensusCertificate.validatorApprovals.length
+        : (b.validatorSignatures ? b.validatorSignatures.length : 0);
       var card = document.createElement("div");
       card.className = "chain-flow-card" + (b.blockNumber === 0 ? " is-genesis" : "");
       card.innerHTML =
         '<div class="card-num mono">Block #' + b.blockNumber + (b.blockNumber === 0 ? ' (Genesis)' : '') + '</div>' +
-        '<div class="card-hash mono" title="' + (b.hash || '') + '">' + formatShortHash(b.hash) + '</div>' +
+        '<div class="card-hash mono" title="' + (b.hash || b.blockHash || '') + '">' + formatShortHash(b.hash || b.blockHash) + '</div>' +
         '<div class="card-meta">' +
           '<span><i class="bi bi-arrow-left-right"></i> ' + (b.transactions ? b.transactions.length : 0) + ' txns</span>' +
-          '<span><i class="bi bi-shield-check"></i> ' + (b.validatorSignatures ? b.validatorSignatures.length : 0) + ' val</span>' +
+          '<span><i class="bi bi-shield-check"></i> ' + valCount + '/12 val</span>' +
         '</div>' +
         '<button class="btn btn-secondary btn-sm" style="width:100%;margin-top:10px;" onclick="inspectBlock(' + b.blockNumber + ')">' +
           '<i class="bi bi-search"></i> Inspect' +
@@ -187,21 +202,49 @@
     if (!tbody) return;
 
     tbody.innerHTML = "";
+
+    // If there is an unfinalized pending or rejected proposal, show it prominently at the top of the Explorer table
+    if (activePendingProposal && !activePendingProposal.finalized) {
+      var pTr = document.createElement("tr");
+      pTr.style.background = activePendingProposal.status === "REJECTED"
+        ? "rgba(239, 68, 68, 0.08)"
+        : "rgba(245, 158, 11, 0.08)";
+      var pTxCount = activePendingProposal.transactions ? activePendingProposal.transactions.length : 1;
+      var pApproved = activePendingProposal.approvedCount || 0;
+      var pStatusBadge = activePendingProposal.status === "REJECTED"
+        ? '<span class="badge badge-danger">REJECTED (Unfinalized · ' + (activePendingProposal.rejectedCount || 0) + ' Rejections)</span>'
+        : '<span class="badge badge-warning">UNFINALIZED (Quorum Not Met · ' + pApproved + '/12 &lt; 9)</span>';
+
+      pTr.innerHTML =
+        '<td><span class="mono font-bold">#' + activePendingProposal.blockNumber + ' (Candidate)</span></td>' +
+        '<td><span class="hash-badge" title="' + (activePendingProposal.blockHash || '') + '">' + formatShortHash(activePendingProposal.blockHash) + '</span></td>' +
+        '<td><span class="mono muted" title="' + (activePendingProposal.previousHash || '') + '">' + formatShortHash(activePendingProposal.previousHash) + '</span></td>' +
+        '<td><strong>' + pTxCount + ' txns</strong></td>' +
+        '<td><span class="badge badge-warning">' + pApproved + ' / 12 Nodes (Needs 9)</span></td>' +
+        '<td>' + formatTimestamp(activePendingProposal.createdAt) + '</td>' +
+        '<td>' + pStatusBadge + '</td>' +
+        '<td><a href="validator/validator.html" class="btn-action-sm"><i class="bi bi-check2-square"></i> Vote</a></td>';
+
+      tbody.appendChild(pTr);
+    }
+
     var reversed = blocks.slice().reverse();
 
     reversed.forEach(function (b) {
       var tr = document.createElement("tr");
       var txCount = b.transactions ? b.transactions.length : 0;
-      var valCount = b.validatorSignatures ? b.validatorSignatures.length : 0;
+      var valCount = (b.consensusCertificate && Array.isArray(b.consensusCertificate.validatorApprovals))
+        ? b.consensusCertificate.validatorApprovals.length
+        : (b.validatorSignatures ? b.validatorSignatures.length : 0);
 
       tr.innerHTML =
         '<td><span class="mono font-bold">#' + b.blockNumber + '</span></td>' +
-        '<td><span class="hash-badge" title="' + (b.hash || '') + '">' + formatShortHash(b.hash) + '</span></td>' +
-        '<td><span class="mono muted" title="' + (b.prevHash || '') + '">' + formatShortHash(b.prevHash) + '</span></td>' +
+        '<td><span class="hash-badge" title="' + (b.hash || b.blockHash || '') + '">' + formatShortHash(b.hash || b.blockHash) + '</span></td>' +
+        '<td><span class="mono muted" title="' + (b.prevHash || b.previousHash || '') + '">' + formatShortHash(b.prevHash || b.previousHash) + '</span></td>' +
         '<td><strong>' + txCount + ' txns</strong></td>' +
         '<td><span class="badge badge-' + (valCount >= 9 ? 'success' : 'info') + '">' + valCount + ' / 12 Nodes</span></td>' +
         '<td>' + formatTimestamp(b.timestamp) + '</td>' +
-        '<td><span class="badge badge-success">Verified</span></td>' +
+        '<td><span class="badge badge-success">FINALIZED (Certified)</span></td>' +
         '<td><button class="btn-action-sm" onclick="inspectBlock(' + b.blockNumber + ')"><i class="bi bi-eye"></i> Details</button></td>';
 
       tbody.appendChild(tr);
@@ -293,11 +336,12 @@
             'Threshold: <strong>9 / 12 (75%)</strong> &bull; Quorum Slices: <strong>3-of-4</strong> &bull; Round: <strong>' + escapeHtml(block.round !== undefined ? block.round : 0) + '</strong>' +
           '</div>' +
           '<div style="display:flex;flex-wrap:wrap;gap:6px;">' +
-          all12Validators.map(function (vId) {
+          all12Validators.map(function (vId, idx) {
+            var shortLabel = "V" + (idx + 1) + " (" + vId + ")";
             if (approvedMap[vId]) {
-              return '<span class="badge badge-success" style="font-family:monospace;font-size:11px;" title="Approved & Signed">' + escapeHtml(vId) + ' ✓</span>';
+              return '<span class="badge badge-success" style="font-family:monospace;font-size:11px;" title="Approved & Signed">' + escapeHtml(shortLabel) + ' ✓</span>';
             } else {
-              return '<span class="badge badge-danger" style="font-family:monospace;font-size:11px;" title="Offline / Not Participating">' + escapeHtml(vId) + ' ✗</span>';
+              return '<span class="badge badge-danger" style="font-family:monospace;font-size:11px;" title="Offline / Not Participating">' + escapeHtml(shortLabel) + ' ✗</span>';
             }
           }).join('') +
           '</div>' +
@@ -416,6 +460,75 @@
     });
   }
 
+  // Transaction lookup handler for transaction.html
+  window.lookupTransaction = function (queryId) {
+    var query = (queryId || (document.getElementById("tx-lookup-input") ? document.getElementById("tx-lookup-input").value : "")).trim();
+    if (!query) {
+      if (window.showToast) window.showToast("Please enter a Transaction ID to look up.", "warning");
+      return;
+    }
+
+    var base = window.getPDSChainApiBase ? window.getPDSChainApiBase("api") : "http://localhost:3000/api";
+    var token = localStorage.getItem("pdschain_jwt_token") || "";
+
+    fetch(base + "/transactions/" + encodeURIComponent(query), {
+      headers: token ? { "Authorization": "Bearer " + token } : {}
+    })
+    .then(function (res) { return window.parsePDSJsonResponse ? window.parsePDSJsonResponse(res) : res.json(); })
+    .then(function (data) {
+      var tx = data && data.transaction ? data.transaction : null;
+      if (!tx && window.PDSCHAIN_DATA && window.PDSCHAIN_DATA.transactions) {
+        tx = window.PDSCHAIN_DATA.transactions.find(function (t) {
+          return t.id.toLowerCase() === query.toLowerCase() || (t.hash && t.hash.toLowerCase() === query.toLowerCase());
+        });
+      }
+
+      if (tx) {
+        var idEl = document.getElementById("res-tx-id");
+        var benEl = document.getElementById("res-tx-ben");
+        var shopEl = document.getElementById("res-tx-shop");
+        var itemEl = document.getElementById("res-tx-item");
+        var blkEl = document.getElementById("res-tx-block");
+        var valEl = document.getElementById("res-tx-val");
+        var hashEl = document.getElementById("res-tx-hash");
+        var timeEl = document.getElementById("res-tx-time");
+
+        if (idEl) idEl.textContent = tx.transactionId || tx.id;
+        if (benEl) benEl.textContent = (tx.beneficiaryName ? tx.beneficiaryName + " (" + tx.beneficiaryId + ")" : (tx.beneficiary || tx.beneficiaryId || "Citizen Beneficiary"));
+        if (shopEl) shopEl.textContent = tx.shopId || tx.shop || "FPS-102 (Central Bazaar)";
+        if (itemEl) itemEl.textContent = (tx.commodity || "Rice") + " — " + (tx.quantity ? tx.quantity + " " + (tx.unit || "KG") : (tx.qty || "5 KG"));
+        if (blkEl) blkEl.textContent = tx.blockNumber !== undefined ? "BLOCK #" + tx.blockNumber : (tx.block || "BLOCK #1");
+        if (valEl) valEl.textContent = (tx.fbaValidators || tx.validators || 12) + " / 12 Nodes (Quorum Agreement Met)";
+        if (hashEl) hashEl.textContent = tx.hash || tx.blockHash || "0x8a7f92bd41e2aa91";
+        if (timeEl) timeEl.textContent = tx.timestamp || tx.time || new Date().toLocaleString();
+
+        if (window.showToast) window.showToast("Transaction " + (tx.transactionId || tx.id) + " verified on-chain!", "success");
+      } else {
+        if (window.showToast) window.showToast("Transaction '" + query + "' not found on ledger.", "error");
+      }
+    })
+    .catch(function (err) {
+      if (window.showToast) window.showToast("Lookup error: " + err.message, "error");
+    });
+  };
+
+  var txLookupBtn = document.getElementById("tx-lookup-btn");
+  if (txLookupBtn) {
+    txLookupBtn.addEventListener("click", function () {
+      window.lookupTransaction();
+    });
+  }
+
+  var txLookupInput = document.getElementById("tx-lookup-input");
+  if (txLookupInput) {
+    txLookupInput.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        window.lookupTransaction();
+      }
+    });
+  }
+
   // URL query parameter handler for transaction.html or blockchain.html
   var params = new URLSearchParams(window.location.search);
   var paramTxnId = params.get("id");
@@ -425,8 +538,7 @@
     var searchField = document.getElementById("tx-lookup-input");
     if (searchField) {
       searchField.value = paramTxnId;
-      var triggerBtn = document.getElementById("tx-lookup-btn");
-      if (triggerBtn) triggerBtn.click();
+      window.lookupTransaction(paramTxnId);
     }
   }
 

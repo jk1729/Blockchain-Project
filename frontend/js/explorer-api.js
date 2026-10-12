@@ -15,13 +15,24 @@
   var cache = new Map();
   var DEFAULT_CACHE_TTL_MS = 15000; // 15 seconds
 
+  var STATIC_DEV_PORTS = { "5500": true, "5501": true, "5502": true, "5503": true, "5173": true, "8080": true, "8000": true, "4200": true };
+
   function getBaseUrl() {
     if (window.PDSCHAIN_EXPLORER_API_URL) {
       return window.PDSCHAIN_EXPLORER_API_URL;
     }
-    // If hosted on same origin, use relative /api/v1
+    if (typeof window.getPDSChainApiBase === "function") {
+      return window.getPDSChainApiBase("api/v1");
+    }
+    if (window.PDSCHAIN_BACKEND_ORIGIN) {
+      return String(window.PDSCHAIN_BACKEND_ORIGIN).replace(/\/+$/, "") + "/api/v1";
+    }
     if (window.location && window.location.origin && window.location.origin.startsWith("http")) {
-      return window.location.origin + "/api/v1";
+      var port = String(window.location.port || "");
+      var pathname = String(window.location.pathname || "").toLowerCase();
+      if (!STATIC_DEV_PORTS[port] && pathname.indexOf("/frontend/") === -1) {
+        return window.location.origin + "/api/v1";
+      }
     }
     return "http://localhost:3000/api/v1";
   }
@@ -76,9 +87,14 @@
 
     var payload = null;
     try {
-      payload = await response.json();
+      if (typeof window.parsePDSJsonResponse === "function") {
+        payload = await window.parsePDSJsonResponse(response);
+      } else {
+        var rawText = await response.text();
+        payload = rawText && rawText.trim() ? JSON.parse(rawText) : { error: { message: "Empty response from server (" + response.status + ")" } };
+      }
     } catch (parseErr) {
-      payload = { error: { message: "Invalid JSON response from server (" + response.status + ")" } };
+      payload = { error: { message: parseErr.message || ("Invalid JSON response from server (" + response.status + ")") } };
     }
 
     // Handle Rate Limiting (HTTP 429)

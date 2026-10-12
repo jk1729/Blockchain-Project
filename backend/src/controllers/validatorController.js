@@ -14,6 +14,19 @@ class ValidatorController {
     }
   }
 
+  getProcesses(req, res, next) {
+    try {
+      const processes = validatorService.getValidatorProcesses();
+      res.status(200).json({
+        success: true,
+        count: processes.length,
+        processes
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async getById(req, res, next) {
     try {
       const id = req.params.id.toUpperCase().trim();
@@ -34,7 +47,7 @@ class ValidatorController {
       const result = await validatorService.updateValidatorStatus(id, status);
       res.status(200).json({
         success: true,
-        message: `Validator ${id} status updated to ${status}`,
+        message: `Validator ${result.validator.validatorId} (${result.validator.shortId}) status updated to ${status}`,
         ...result
       });
     } catch (err) {
@@ -44,4 +57,5 @@ class ValidatorController {
 }
 
 module.exports = new ValidatorController();
+
 

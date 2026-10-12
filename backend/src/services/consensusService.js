@@ -1,4 +1,5 @@
 const fbaInstance = require('../consensus/FBAConsensus');
+const { getShortValidatorId } = require('../consensus/consensusConfig');
 
 class ConsensusService {
   getStatus() {
@@ -11,6 +12,7 @@ class ConsensusService {
 
     const slices = nodes.map(n => ({
       validatorId: n.validatorId,
+      shortId: n.shortId || getShortValidatorId(n.validatorId),
       name: n.name,
       org: n.org,
       status: n.status,
@@ -20,7 +22,8 @@ class ConsensusService {
     return {
       networkStatus,
       slices,
-      recentRounds: fbaInstance.rounds.slice(0, 10)
+      recentRounds: fbaInstance.rounds.slice(0, 10),
+      activeProposal: fbaInstance.getActiveProposal()
     };
   }
 
@@ -30,6 +33,30 @@ class ConsensusService {
 
   async runBlockConsensus(candidateBlock, options = {}) {
     return await fbaInstance.runBlockConsensus(candidateBlock, options);
+  }
+
+  async createPendingProposal(payload = {}, options = {}) {
+    return await fbaInstance.createPendingProposal(payload, options);
+  }
+
+  getAllProposals() {
+    return fbaInstance.getAllProposals();
+  }
+
+  getActiveProposal() {
+    return fbaInstance.getActiveProposal();
+  }
+
+  getProposalById(proposalId) {
+    return fbaInstance.getProposalById(proposalId);
+  }
+
+  async castValidatorVote(voteInput = {}, authenticatedUser = null) {
+    return await fbaInstance.castValidatorVote(voteInput, authenticatedUser);
+  }
+
+  async finalizeProposal(proposalId) {
+    return await fbaInstance.finalizeProposal(proposalId);
   }
 
   verifyCertificate(certificate, block) {
@@ -68,3 +95,4 @@ class ConsensusService {
 }
 
 module.exports = new ConsensusService();
+

@@ -2,6 +2,8 @@ const jwt = require('jsonwebtoken');
 const config = require('../config/env');
 const { UnauthorizedError } = require('../utils/errors');
 const User = require('../models/User');
+const authService = require('../services/authService');
+const { resolveValidatorId, getShortValidatorId } = require('../consensus/consensusConfig');
 
 async function authMiddleware(req, res, next) {
   try {
@@ -19,6 +21,10 @@ async function authMiddleware(req, res, next) {
       throw new UnauthorizedError('Authentication token missing. Please log in.');
     }
 
+    if (authService.isTokenRevoked(token)) {
+      throw new UnauthorizedError('Authentication token has been revoked. Please log in again.');
+    }
+
     const decoded = jwt.verify(token, config.JWT_SECRET);
     const user = await User.findByPk(decoded.id);
 
@@ -26,12 +32,18 @@ async function authMiddleware(req, res, next) {
       throw new UnauthorizedError('User account associated with token no longer exists.');
     }
 
+    const isValidator = user.role === 'VALIDATOR';
+    const validatorId = isValidator ? resolveValidatorId(user.entityId || decoded.validatorId || 'VAL-07') : null;
+    const shortValidatorId = isValidator ? getShortValidatorId(validatorId) : null;
+
     req.user = {
       id: user.id,
       username: user.username,
       role: user.role,
       name: user.name,
-      entityId: user.entityId
+      entityId: isValidator ? validatorId : user.entityId,
+      validatorId,
+      shortValidatorId
     };
 
     next();
@@ -56,16 +68,21 @@ async function optionalAuthMiddleware(req, res, next) {
     }
     // Note: Query parameter tokens are intentionally rejected/ignored for security
 
-    if (token) {
+    if (token && !authService.isTokenRevoked(token)) {
       const decoded = jwt.verify(token, config.JWT_SECRET);
       const user = await User.findByPk(decoded.id);
       if (user) {
+        const isValidator = user.role === 'VALIDATOR';
+        const validatorId = isValidator ? resolveValidatorId(user.entityId || decoded.validatorId || 'VAL-07') : null;
+        const shortValidatorId = isValidator ? getShortValidatorId(validatorId) : null;
         req.user = {
           id: user.id,
           username: user.username,
           role: user.role,
           name: user.name,
-          entityId: user.entityId
+          entityId: isValidator ? validatorId : user.entityId,
+          validatorId,
+          shortValidatorId
         };
       }
     }

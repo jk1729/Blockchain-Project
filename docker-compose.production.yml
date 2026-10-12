@@ -1,0 +1,286 @@
+version: '3.8'
+
+networks:
+  pdschain-prod-net:
+    driver: bridge
+
+x-validator-prod: &validator-prod
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: pdschain/validator:1.0.0
+  restart: unless-stopped
+  networks:
+    - pdschain-prod-net
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pdschain-postgres
+    restart: unless-stopped
+    networks:
+      - pdschain-prod-net
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pdschain}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-pdschain}
+    volumes:
+      - pdschain_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pdschain} -d ${POSTGRES_DB:-pdschain}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+
+  validator-01:
+    <<: *validator-prod
+    container_name: pdschain-val-01
+    environment:
+      NODE_ENV: production
+      VALIDATOR_ID: VAL-01
+      SHORT_VALIDATOR_ID: V1
+      CHAIN_ID: 1729
+      API_PORT: 4001
+      P2P_PORT: 5001
+      DATA_DIR: /data
+    ports:
+      - "4001:4001"
+    volumes:
+      - val01_storage:/data
+
+  validator-02:
+    <<: *validator-prod
+    container_name: pdschain-val-02
+    environment:
+      NODE_ENV: production
+      VALIDATOR_ID: VAL-02
+      SHORT_VALIDATOR_ID: V2
+      CHAIN_ID: 1729
+      API_PORT: 4002
+      P2P_PORT: 5002
+      DATA_DIR: /data
+    ports:
+      - "4002:4002"
+    volumes:
+      - val02_storage:/data
+
+  validator-03:
+    <<: *validator-prod
+    container_name: pdschain-val-03
+    environment:
+      NODE_ENV: production
+      VALIDATOR_ID: VAL-03
+      SHORT_VALIDATOR_ID: V3
+      CHAIN_ID: 1729
+      API_PORT: 4003
+      P2P_PORT: 5003
+      DATA_DIR: /data
+    ports:
+      - "4003:4003"
+    volumes:
+      - val03_storage:/data
+
+  validator-04:
+    <<: *validator-prod
+    container_name: pdschain-val-04
+    environment:
+      NODE_ENV: production
+      VALIDATOR_ID: VAL-04
+      SHORT_VALIDATOR_ID: V4
+      CHAIN_ID: 1729
+      API_PORT: 4004
+      P2P_PORT: 5004
+      DATA_DIR: /data
+    ports:
+      - "4004:4004"
+    volumes:
+      - val04_storage:/data
+
+  validator-05:
+    <<: *validator-prod
+    container_name: pdschain-val-05
+    environment:
+      NODE_ENV: production
+      VALIDATOR_ID: VAL-05
+      SHORT_VALIDATOR_ID: V5
+      CHAIN_ID: 1729
+      API_PORT: 4005
+      P2P_PORT: 5005
+      DATA_DIR: /data
+    ports:
+      - "4005:4005"
+    volumes:
+      - val05_storage:/data
+
+  validator-06:
+    <<: *validator-prod
+    container_name: pdschain-val-06
+    environment:
+      NODE_ENV: production
+      VALIDATOR_ID: VAL-06
+      SHORT_VALIDATOR_ID: V6
+      CHAIN_ID: 1729
+      API_PORT: 4006
+      P2P_PORT: 5006
+      DATA_DIR: /data
+    ports:
+      - "4006:4006"
+    volumes:
+      - val06_storage:/data
+
+  validator-07:
+    <<: *validator-prod
+    container_name: pdschain-val-07
+    environment:
+      NODE_ENV: production
+      VALIDATOR_ID: VAL-07
+      SHORT_VALIDATOR_ID: V7
+      CHAIN_ID: 1729
+      API_PORT: 4007
+      P2P_PORT: 5007
+      DATA_DIR: /data
+    ports:
+      - "4007:4007"
+    volumes:
+      - val07_storage:/data
+
+  validator-08:
+    <<: *validator-prod
+    container_name: pdschain-val-08
+    environment:
+      NODE_ENV: production
+      VALIDATOR_ID: VAL-08
+      SHORT_VALIDATOR_ID: V8
+      CHAIN_ID: 1729
+      API_PORT: 4008
+      P2P_PORT: 5008
+      DATA_DIR: /data
+    ports:
+      - "4008:4008"
+    volumes:
+      - val08_storage:/data
+
+  validator-09:
+    <<: *validator-prod
+    container_name: pdschain-val-09
+    environment:
+      NODE_ENV: production
+      VALIDATOR_ID: VAL-09
+      SHORT_VALIDATOR_ID: V9
+      CHAIN_ID: 1729
+      API_PORT: 4009
+      P2P_PORT: 5009
+      DATA_DIR: /data
+    ports:
+      - "4009:4009"
+    volumes:
+      - val09_storage:/data
+
+  validator-10:
+    <<: *validator-prod
+    container_name: pdschain-val-10
+    environment:
+      NODE_ENV: production
+      VALIDATOR_ID: VAL-10
+      SHORT_VALIDATOR_ID: V10
+      CHAIN_ID: 1729
+      API_PORT: 4010
+      P2P_PORT: 5010
+      DATA_DIR: /data
+    ports:
+      - "4010:4010"
+    volumes:
+      - val10_storage:/data
+
+  validator-11:
+    <<: *validator-prod
+    container_name: pdschain-val-11
+    environment:
+      NODE_ENV: production
+      VALIDATOR_ID: VAL-11
+      SHORT_VALIDATOR_ID: V11
+      CHAIN_ID: 1729
+      API_PORT: 4011
+      P2P_PORT: 5011
+      DATA_DIR: /data
+    ports:
+      - "4011:4011"
+    volumes:
+      - val11_storage:/data
+
+  validator-12:
+    <<: *validator-prod
+    container_name: pdschain-val-12
+    environment:
+      NODE_ENV: production
+      VALIDATOR_ID: VAL-12
+      SHORT_VALIDATOR_ID: V12
+      CHAIN_ID: 1729
+      API_PORT: 4012
+      P2P_PORT: 5012
+      DATA_DIR: /data
+    ports:
+      - "4012:4012"
+    volumes:
+      - val12_storage:/data
+
+  pdschain-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    image: pdschain/app:1.0.0
+    container_name: pdschain-app
+    restart: unless-stopped
+    networks:
+      - pdschain-prod-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_DIALECT: postgres
+      DATABASE_URL: postgres://${POSTGRES_USER:-pdschain}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-pdschain}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET (min 32 chars) is required in production}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-12h}
+      CORS_ORIGIN: ${CORS_ORIGIN:?CORS_ORIGIN is required in production}
+      EVENTS_JOURNAL_PATH: /app/database/events_journal.jsonl
+      SECURITY_AUDIT_PATH: /app/database/security_audit.jsonl
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    volumes:
+      - pdschain_data:/app/database
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:3000/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  pdschain_pgdata:
+    driver: local
+  pdschain_data:
+    driver: local
+  val01_storage:
+  val02_storage:
+  val03_storage:
+  val04_storage:
+  val05_storage:
+  val06_storage:
+  val07_storage:
+  val08_storage:
+  val09_storage:
+  val10_storage:
+  val11_storage:
+  val12_storage:

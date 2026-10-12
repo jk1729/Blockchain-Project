@@ -1,4 +1,4 @@
-const { DEFAULT_12_VALIDATORS } = require('./consensusConfig');
+const { DEFAULT_12_VALIDATORS, resolveValidatorId } = require('./consensusConfig');
 const ValidatorNode = require('./ValidatorNode');
 const QuorumResult = require('./QuorumResult');
 const { QuorumErrorCode } = require('./QuorumErrors');
@@ -31,7 +31,8 @@ class QuorumEngine {
     this.validatorMap.clear();
     if (validators instanceof Map) {
       for (const [id, node] of validators.entries()) {
-        this.validatorMap.set(id, node instanceof ValidatorNode ? node : new ValidatorNode(node));
+        const inst = node instanceof ValidatorNode ? node : new ValidatorNode(node);
+        this.validatorMap.set(inst.validatorId || id, inst);
       }
     } else if (Array.isArray(validators)) {
       for (const v of validators) {
@@ -42,7 +43,8 @@ class QuorumEngine {
   }
 
   getValidator(id) {
-    return this.validatorMap.get(id) || null;
+    if (!id) return null;
+    return this.validatorMap.get(id) || this.validatorMap.get(resolveValidatorId(id)) || null;
   }
 
   getAllValidators() {
@@ -60,9 +62,10 @@ class QuorumEngine {
    * @returns {boolean}
    */
   isSliceSatisfied(validatorId, agreeingNodes) {
-    const node = this.validatorMap.get(validatorId);
+    const node = this.getValidator(validatorId);
     if (!node) return false;
-    const agreeArr = agreeingNodes instanceof Set ? Array.from(agreeingNodes) : (agreeingNodes || []);
+    const rawArr = agreeingNodes instanceof Set ? Array.from(agreeingNodes) : (agreeingNodes || []);
+    const agreeArr = rawArr.map(id => resolveValidatorId(id));
     return Boolean(node.quorumSlice && node.quorumSlice.isSatisfied(agreeArr));
   }
 
@@ -72,7 +75,8 @@ class QuorumEngine {
    * @returns {boolean}
    */
   isQuorumSatisfied(candidateSet) {
-    const set = candidateSet instanceof Set ? candidateSet : new Set(candidateSet || []);
+    const rawArr = candidateSet instanceof Set ? Array.from(candidateSet) : (candidateSet || []);
+    const set = new Set(rawArr.map(id => resolveValidatorId(id)));
     if (set.size === 0) return false;
 
     for (const nodeId of set) {
@@ -106,9 +110,9 @@ class QuorumEngine {
     const ids = new Set();
     for (const item of votesOrIds) {
       if (typeof item === 'string') {
-        ids.add(item);
+        ids.add(resolveValidatorId(item));
       } else if (item && typeof item === 'object') {
-        const id = item.validatorId;
+        const id = resolveValidatorId(item.validatorId);
         const vote = String(item.vote || 'ACCEPT').toUpperCase();
         if (id && (vote === 'ACCEPT' || vote === 'AGREE')) {
           ids.add(id);
@@ -124,7 +128,8 @@ class QuorumEngine {
    * @returns {string[]}
    */
   getMissingValidators(agreeingNodes) {
-    const agreeSet = agreeingNodes instanceof Set ? agreeingNodes : new Set(agreeingNodes || []);
+    const rawArr = agreeingNodes instanceof Set ? Array.from(agreeingNodes) : (agreeingNodes || []);
+    const agreeSet = new Set(rawArr.map(id => resolveValidatorId(id)));
     const missing = [];
     for (const [id, node] of this.validatorMap.entries()) {
       if (!agreeSet.has(id) || !node.isOnline()) {
@@ -191,7 +196,8 @@ class QuorumEngine {
    * @returns {{ isQuorum: boolean, quorumMembers: string[], quorumSize: number }}
    */
   findQuorum(agreeingNodes) {
-    let U = new Set(agreeingNodes || []);
+    const rawArr = agreeingNodes instanceof Set ? Array.from(agreeingNodes) : (agreeingNodes || []);
+    let U = new Set(rawArr.map(id => this.validatorMap.has(id) ? id : resolveValidatorId(id)));
 
     let changed = true;
     while (changed) {

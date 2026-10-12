@@ -6,6 +6,7 @@
  */
 
 const { calculateMerkleRoot } = require('./merkle');
+const { verifyTransactionSignature } = require('./identity/signature');
 const ConsensusCertificate = require('../consensus/ConsensusCertificate');
 
 function validateBlock(block, previousBlock) {
@@ -28,6 +29,24 @@ function validateBlock(block, previousBlock) {
     const propCheck = block.verifyProposerSignature();
     if (!propCheck.valid) {
       return { valid: false, reason: `Block #${block.blockNumber} proposer signature invalid: ${propCheck.reason}` };
+    }
+  }
+
+  // Validate Transaction Digital Signatures if present
+  if (Array.isArray(block.transactions)) {
+    for (const tx of block.transactions) {
+      if (tx && tx.signature && tx.type !== 'GENESIS') {
+        const pubKey = tx.senderPublicKey || (tx.payload && tx.payload.senderPublicKey);
+        if (pubKey) {
+          const sigCheck = verifyTransactionSignature(tx, pubKey);
+          if (!sigCheck.valid) {
+            return {
+              valid: false,
+              reason: `Block #${block.blockNumber} transaction ${tx.transactionId || tx.id || ''} signature invalid: ${sigCheck.reason}`
+            };
+          }
+        }
+      }
     }
   }
 
@@ -119,7 +138,12 @@ function validateChain(chain, options = {}) {
       return { isValid: false, reason: result.reason, brokenBlockIndex: i };
     }
 
-    if (options.verifyCertificates && currentBlock.consensusCertificate) {
+    if (options.verifyCertificates) {
+      const certCheck = validateBlockConsensusCertificate(currentBlock, options.validatorMap);
+      if (!certCheck.valid) {
+        return { isValid: false, reason: `Block #${currentBlock.blockNumber} certificate invalid: ${certCheck.reason}`, brokenBlockIndex: i };
+      }
+    } else if (options.verifyCertificates !== false && currentBlock.consensusCertificate) {
       const certCheck = validateBlockConsensusCertificate(currentBlock, options.validatorMap);
       if (!certCheck.valid) {
         return { isValid: false, reason: `Block #${currentBlock.blockNumber} certificate invalid: ${certCheck.reason}`, brokenBlockIndex: i };

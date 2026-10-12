@@ -206,7 +206,7 @@
       body: JSON.stringify(payload)
     })
     .then(function (res) {
-      return res.json().then(function (data) {
+      return (window.parsePDSJsonResponse ? window.parsePDSJsonResponse(res) : res.json()).then(function (data) {
         if (!res.ok) {
           throw new Error(data.message || "Transaction rejected (Status " + res.status + ")");
         }

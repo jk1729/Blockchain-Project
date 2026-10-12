@@ -134,7 +134,26 @@ class Block {
     if (!pubKey) {
       return { valid: false, reason: 'MISSING_PROPOSER_PUBLIC_KEY' };
     }
-    return verifyBlockProposalSignature(this.getProposalHeader(), this.proposerSignature, pubKey);
+    let res = verifyBlockProposalSignature(this.getProposalHeader(), this.proposerSignature, pubKey);
+    if (res.valid) return res;
+
+    // Fallback: If block was committed with consensusCertificate, check original proposed stateRoot/timestamp
+    if (this.consensusCertificate) {
+      const cert = this.consensusCertificate;
+      const certStateRoot = cert.stateRoot || this.stateRoot;
+      const txTimestamp = this.transactions?.[0]?.timestamp;
+      if (certStateRoot !== this.stateRoot || (txTimestamp && txTimestamp !== this.timestamp)) {
+        const altHeader = {
+          ...this.getProposalHeader(),
+          stateRoot: certStateRoot,
+          timestamp: txTimestamp || this.timestamp
+        };
+        const altRes = verifyBlockProposalSignature(altHeader, this.proposerSignature, pubKey);
+        if (altRes.valid) return altRes;
+      }
+    }
+
+    return res;
   }
 
   attachCertificate(certificate) {

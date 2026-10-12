@@ -90,14 +90,14 @@
       <!-- Quick-fill demo credentials info card -->
       <div class="demo-note" style="display:flex; flex-direction:column; gap:8px;">
         <div style="display:flex; align-items:center; gap:6px; font-weight:700; color:var(--text-primary);">
-          <i class="bi bi-key-fill text-warning"></i> Demo Accounts (Username / Password):
+          <i class="bi bi-key-fill text-warning"></i> Demo Accounts &amp; 12 FBA Validators:
         </div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:12px;">
           <div>&bull; <strong>admin</strong> / <code>admin123</code></div>
           <div>&bull; <strong>shop</strong> / <code>shop123</code></div>
           <div>&bull; <strong>warehouse</strong> / <code>warehouse123</code></div>
           <div>&bull; <strong>citizen</strong> / <code>citizen123</code></div>
-          <div>&bull; <strong>validator</strong> / <code>validator123</code></div>
+          <div style="grid-column: 1 / -1;">&bull; <strong>12 Validators:</strong> <code>v1</code>, <code>v2</code>, &hellip;, <code>v12</code> (or <code>VAL-01</code>&hellip;<code>VAL-12</code>) / <code>validator123</code></div>
         </div>
       </div>
 
@@ -105,24 +105,39 @@
 
       <form id="login-form" novalidate>
         <div class="form-group">
-          <label class="form-label" for="login-role">Select Role (Quick Fill)</label>
+          <label class="form-label" for="login-role">Select Role or Validator Identity (Quick Fill)</label>
           <div class="role-select-wrap">
             <i class="bi bi-person-badge" aria-hidden="true"></i>
             <select class="form-select" id="login-role" name="loginRole">
-              <option value="" disabled selected>Choose a role...</option>
-              <option value="admin">Administrator (Admin Dashboard)</option>
-              <option value="warehouse">Warehouse Officer (WH-003)</option>
-              <option value="shop">Fair Price Shop Officer (FPS-102)</option>
-              <option value="citizen">Citizen / Beneficiary (BEN-1024)</option>
-              <option value="validator">Validator Node (NODE-07)</option>
+              <option value="" disabled selected>Choose a role or validator (V1–V12)...</option>
+              <optgroup label="Core Portal Roles">
+                <option value="admin">Administrator (Admin Dashboard)</option>
+                <option value="warehouse">Warehouse Officer (WH-003)</option>
+                <option value="shop">Fair Price Shop Officer (FPS-102)</option>
+                <option value="citizen">Citizen / Beneficiary (BEN-1024)</option>
+              </optgroup>
+              <optgroup label="12 Authorized FBA Validators (9-of-12 Quorum)">
+                <option value="v1">V1 (VAL-01) — Ministry of Consumer Affairs</option>
+                <option value="v2">V2 (VAL-02) — National Informatics Centre</option>
+                <option value="v3">V3 (VAL-03) — State Food Commission</option>
+                <option value="v4">V4 (VAL-04) — Civil Supplies Corporation</option>
+                <option value="v5">V5 (VAL-05) — District Administration Node</option>
+                <option value="v6">V6 (VAL-06) — Auditor General Observer Node</option>
+                <option value="v7">V7 (VAL-07) — Public Audit &amp; Governance Node</option>
+                <option value="v8">V8 (VAL-08) — Regional Warehouse Authority</option>
+                <option value="v9">V9 (VAL-09) — Fair Price Shop Union Node</option>
+                <option value="v10">V10 (VAL-10) — State Monitoring Cell</option>
+                <option value="v11">V11 (VAL-11) — Citizen Oversight Organisation</option>
+                <option value="v12">V12 (VAL-12) — Security &amp; Cryptography Validator</option>
+              </optgroup>
             </select>
           </div>
           <div class="form-hint" aria-live="polite"></div>
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="login-id">Username / User ID</label>
-          <input class="form-input" type="text" id="login-id" name="loginId" placeholder="e.g. admin, shop, warehouse, citizen, validator" autocomplete="username" />
+          <label class="form-label" for="login-id">Username / Validator ID</label>
+          <input class="form-input" type="text" id="login-id" name="loginId" placeholder="e.g. v1..v12, VAL-01..VAL-12, admin, shop, warehouse, citizen" autocomplete="username" />
           <div class="form-hint" aria-live="polite"></div>
         </div>
 

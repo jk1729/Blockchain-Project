@@ -106,8 +106,15 @@ class ConsensusCertificate {
       };
     }
 
-    // 2. Verify binding to blockHash
-    const blockHash = String(block.blockHash || block.hash || '');
+    // 2. Verify binding to non-empty blockHash
+    const blockHash = String(block.blockHash || block.hash || '').trim();
+    if (!cert.blockHash || !blockHash) {
+      return {
+        valid: false,
+        code: 'BLOCK_HASH_MISMATCH',
+        reason: 'Certificate or block is missing non-empty blockHash'
+      };
+    }
     if (cert.blockHash !== blockHash) {
       return {
         valid: false,

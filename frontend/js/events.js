@@ -196,7 +196,7 @@
     try {
       var res = await fetch(getApiBase() + "/events?" + params.toString());
       if (!res.ok) throw new Error("Server responded with HTTP " + res.status);
-      var data = await res.json();
+      var data = await (window.parsePDSJsonResponse ? window.parsePDSJsonResponse(res) : res.json());
 
       if (data && data.success) {
         currentEvents = data.events || [];

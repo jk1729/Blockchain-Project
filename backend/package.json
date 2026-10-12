@@ -8,7 +8,9 @@
     "dev": "nodemon src/server.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --detectOpenHandles --forceExit",
     "seed": "node src/seed/seedDatabase.js",
-    "validators:start": "node src/validators/startValidators.js"
+    "validators:start": "node src/validators/startValidators.js",
+    "provision:admin": "node src/scripts/provisionAdmin.js",
+    "provision:identity": "node src/scripts/provisionIdentity.js"
   },
   "keywords": [
     "blockchain",

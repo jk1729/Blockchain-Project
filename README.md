@@ -386,7 +386,7 @@ npm run validators:start
 Execute the full test suites across both backend and smart contracts:
 
 ```bash
-# Backend test suite (132 test suites, 1,091 tests)
+# Backend test suite (136 test suites, 1,140 tests)
 cd backend
 npm test
 
@@ -397,9 +397,9 @@ npx hardhat test
 
 ---
 
-## 11. Demo Accounts & Credentials
+## 11. Demo Accounts & 12-Validator Credentials
 
-The database seed initializes 5 pre-configured demo user accounts covering all roles:
+The database seed and validator provisioning script (`node src/scripts/provisionValidators.js`) initialize the 5 core role accounts plus **all 12 distinct FBA validator accounts (`v1`..`v12`)**:
 
 | Role | Username | Password | Assigned Entity | Default Landing Page |
 | :--- | :--- | :--- | :--- | :--- |
@@ -407,7 +407,18 @@ The database seed initializes 5 pre-configured demo user accounts covering all r
 | **Fair Price Shop** | `shop` | `shop123` | `FPS-102` (Central Bazaar) | `frontend/html/shop/shop.html` |
 | **Warehouse Officer** | `warehouse` | `warehouse123` | `WH-003` (Grain Silo) | `frontend/html/warehouse/warehouse.html` |
 | **Citizen Beneficiary**| `citizen` | `citizen123` | `BEN-1024` (Arun Kumar) | `frontend/html/citizen/citizen.html` |
-| **FBA Validator Node** | `validator` | `validator123` | `VAL-07` (Audit Node) | `frontend/html/validator/validator.html` |
+| **Validator V1** | `v1` (or `VAL-01`) | `validator123` | `VAL-01` (`V1` — Ministry of Consumer Affairs) | `frontend/html/validator/validator.html` |
+| **Validator V2** | `v2` (or `VAL-02`) | `validator123` | `VAL-02` (`V2` — National Informatics Centre) | `frontend/html/validator/validator.html` |
+| **Validator V3** | `v3` (or `VAL-03`) | `validator123` | `VAL-03` (`V3` — State Food Commission) | `frontend/html/validator/validator.html` |
+| **Validator V4** | `v4` (or `VAL-04`) | `validator123` | `VAL-04` (`V4` — Civil Supplies Corporation) | `frontend/html/validator/validator.html` |
+| **Validator V5** | `v5` (or `VAL-05`) | `validator123` | `VAL-05` (`V5` — District Administration Node) | `frontend/html/validator/validator.html` |
+| **Validator V6** | `v6` (or `VAL-06`) | `validator123` | `VAL-06` (`V6` — Auditor General Observer Node) | `frontend/html/validator/validator.html` |
+| **Validator V7** | `v7` (or `VAL-07` / `validator`) | `validator123` | `VAL-07` (`V7` — Public Audit & Governance Node) | `frontend/html/validator/validator.html` |
+| **Validator V8** | `v8` (or `VAL-08`) | `validator123` | `VAL-08` (`V8` — Regional Warehouse Authority) | `frontend/html/validator/validator.html` |
+| **Validator V9** | `v9` (or `VAL-09`) | `validator123` | `VAL-09` (`V9` — Fair Price Shop Union Node) | `frontend/html/validator/validator.html` |
+| **Validator V10** | `v10` (or `VAL-10`) | `validator123` | `VAL-10` (`V10` — State Monitoring Cell) | `frontend/html/validator/validator.html` |
+| **Validator V11** | `v11` (or `VAL-11`) | `validator123` | `VAL-11` (`V11` — Citizen Oversight Organisation) | `frontend/html/validator/validator.html` |
+| **Validator V12** | `v12` (or `VAL-12`) | `validator123` | `VAL-12` (`V12` — Security & Cryptography Validator) | `frontend/html/validator/validator.html` |
 
 ---
 
@@ -415,20 +426,20 @@ The database seed initializes 5 pre-configured demo user accounts covering all r
 
 ### Institutional Node Topology & Port Map
 
-| Node ID | Institutional Stakeholder | HTTP Port | Quorum Slice Members | Threshold |
-| :--- | :--- | :---: | :--- | :---: |
-| `VAL-01` | Ministry of Consumer Affairs | `4001` | `VAL-01`, `VAL-02`, `VAL-03`, `VAL-04` | 3 of 4 |
-| `VAL-02` | National Informatics Centre (NIC) | `4002` | `VAL-02`, `VAL-03`, `VAL-05`, `VAL-06` | 3 of 4 |
-| `VAL-03` | State Food Commission | `4003` | `VAL-01`, `VAL-03`, `VAL-07`, `VAL-08` | 3 of 4 |
-| `VAL-04` | Civil Supplies Corporation | `4004` | `VAL-01`, `VAL-04`, `VAL-09`, `VAL-10` | 3 of 4 |
-| `VAL-05` | District Administration Node | `4005` | `VAL-02`, `VAL-05`, `VAL-07`, `VAL-11` | 3 of 4 |
-| `VAL-06` | Auditor General Observer Node | `4006` | `VAL-02`, `VAL-06`, `VAL-08`, `VAL-12` | 3 of 4 |
-| `VAL-07` | Public Audit & Governance Node | `4007` | `VAL-03`, `VAL-05`, `VAL-07`, `VAL-09` | 3 of 4 |
-| `VAL-08` | Regional Warehouse Authority | `4008` | `VAL-03`, `VAL-06`, `VAL-08`, `VAL-10` | 3 of 4 |
-| `VAL-09` | Fair Price Shop Union Node | `4009` | `VAL-04`, `VAL-07`, `VAL-09`, `VAL-11` | 3 of 4 |
-| `VAL-10` | State Monitoring Cell | `4010` | `VAL-04`, `VAL-08`, `VAL-10`, `VAL-12` | 3 of 4 |
-| `VAL-11` | Citizen Oversight Organisation | `4011` | `VAL-05`, `VAL-09`, `VAL-11`, `VAL-12` | 3 of 4 |
-| `VAL-12` | Security & Cryptography Board | `4012` | `VAL-06`, `VAL-10`, `VAL-11`, `VAL-12` | 3 of 4 |
+| Short ID | Node ID | Institutional Stakeholder | HTTP Port | P2P Port | Quorum Slice Members | Threshold |
+| :---: | :--- | :--- | :---: | :---: | :--- | :---: |
+| `V1` | `VAL-01` | Ministry of Consumer Affairs | `4001` | `5001` | `VAL-01`, `VAL-02`, `VAL-03`, `VAL-04` | 3 of 4 |
+| `V2` | `VAL-02` | National Informatics Centre (NIC) | `4002` | `5002` | `VAL-02`, `VAL-03`, `VAL-05`, `VAL-06` | 3 of 4 |
+| `V3` | `VAL-03` | State Food Commission | `4003` | `5003` | `VAL-01`, `VAL-03`, `VAL-07`, `VAL-08` | 3 of 4 |
+| `V4` | `VAL-04` | Civil Supplies Corporation | `4004` | `5004` | `VAL-01`, `VAL-04`, `VAL-09`, `VAL-10` | 3 of 4 |
+| `V5` | `VAL-05` | District Administration Node | `4005` | `5005` | `VAL-02`, `VAL-05`, `VAL-07`, `VAL-11` | 3 of 4 |
+| `V6` | `VAL-06` | Auditor General Observer Node | `4006` | `5006` | `VAL-02`, `VAL-06`, `VAL-08`, `VAL-12` | 3 of 4 |
+| `V7` | `VAL-07` | Public Audit & Governance Node | `4007` | `5007` | `VAL-03`, `VAL-05`, `VAL-07`, `VAL-09` | 3 of 4 |
+| `V8` | `VAL-08` | Regional Warehouse Authority | `4008` | `5008` | `VAL-03`, `VAL-06`, `VAL-08`, `VAL-10` | 3 of 4 |
+| `V9` | `VAL-09` | Fair Price Shop Union Node | `4009` | `5009` | `VAL-04`, `VAL-07`, `VAL-09`, `VAL-11` | 3 of 4 |
+| `V10` | `VAL-10` | State Monitoring Cell | `4010` | `5010` | `VAL-04`, `VAL-08`, `VAL-10`, `VAL-12` | 3 of 4 |
+| `V11` | `VAL-11` | Citizen Oversight Organisation | `4011` | `5011` | `VAL-05`, `VAL-09`, `VAL-11`, `VAL-12` | 3 of 4 |
+| `V12` | `VAL-12` | Security & Cryptography Validator | `4012` | `5012` | `VAL-06`, `VAL-10`, `VAL-11`, `VAL-12` | 3 of 4 |
 
 ### Mathematical Quorum Logic & Equations
 
@@ -561,12 +572,18 @@ If any check fails (e.g. quota exceeded, insufficient stock, or consensus failur
 ### Validators & Consensus
 | Method | Endpoint | Auth Required | Role | Purpose |
 | :--- | :--- | :---: | :---: | :--- |
-| `GET` | `/api/validators` | No | Public | List all 12 institutional validator nodes and statuses |
-| `GET` | `/api/validators/:id` | No | Public | Retrieve validator trust configuration and quorum slice |
+| `GET` | `/api/validators` | No | Public | List all 12 institutional validator nodes (`V1..V12` / `VAL-01..VAL-12`), keys, and statuses |
+| `GET` | `/api/validators/processes` | No | Public | List all 12 isolated OS validator processes (`ports 4001..4012`), PIDs, and liveness |
+| `GET` | `/api/validators/:id` | No | Public | Retrieve validator trust configuration and 3-of-4 quorum slice |
 | `POST` | `/api/validators/:id/status`| Yes | `VALIDATOR`, `ADMIN` | Toggle node status (`Online`, `Offline`, `Degraded`) |
-| `GET` | `/api/consensus/status` | No | Public | Returns current active network quorum status |
-| `GET` | `/api/consensus/quorum` | No | Public | Returns trust graph and recent consensus rounds |
-| `POST` | `/api/consensus/round` | Yes | `VALIDATOR`, `ADMIN` | Manually trigger a standalone consensus round |
+| `POST` | `/api/validators/:id/restart`| Yes | `VALIDATOR`, `ADMIN` | Restart an isolated validator OS process (`ports 4001..4012`) |
+| `GET` | `/api/consensus/status` | No | Public | Returns current active network quorum status (`threshold: 9`) |
+| `GET` | `/api/consensus/quorum` | No | Public | Returns trust graph, recent rounds, and active proposal |
+| `GET` | `/api/consensus/proposals` | No | Public | List interactive pending/finalized/rejected candidate block proposals |
+| `GET` | `/api/consensus/proposals/active` | No | Public | Retrieve the currently active candidate block proposal and per-validator vote matrix |
+| `POST` | `/api/consensus/proposals` | Yes | `VALIDATOR`, `ADMIN`, `SHOP`, `WAREHOUSE` | Create a new pending candidate block proposal for step-by-step 12-validator voting |
+| `POST` | `/api/consensus/proposals/:id/vote` | Yes | `VALIDATOR` | Cast an authenticated, Ed25519-signed `ACCEPT` or `REJECT` vote as the logged-in validator (`V1..V12`) |
+| `POST` | `/api/consensus/proposals/:id/finalize` | Yes | `VALIDATOR`, `ADMIN` | Evaluate 9-of-12 quorum & FBA slices (`409 QUORUM_NOT_MET` if `< 9`) and finalize block |
 
 ### Smart Contracts & EVM Execution
 | Method | Endpoint | Auth Required | Role | Purpose |
@@ -588,9 +605,9 @@ If any check fails (e.g. quota exceeded, insufficient stock, or consensus failur
 
 ---
 
-## 16. Automated Test Suite (1,111/1,111 Tests Passing - 100%)
+## 16. Automated Test Suite (1,160/1,160 Tests Passing - 100%)
 
-The PDSChain test suite delivers comprehensive, end-to-end verification across every architectural layer, combining unit, integration, adversarial, failover, and performance test suites:
+The PDSChain test suite delivers comprehensive, end-to-end verification across every architectural layer, combining unit, integration, adversarial, failover, 12-validator multi-process FBA, and performance test suites:
 
 ### Test Suite Execution Summary
 
@@ -601,9 +618,9 @@ The PDSChain test suite delivers comprehensive, end-to-end verification across e
   Layer / Component                  Suites    Tests    Passing    Pass Rate
 --------------------------------------------------------------------------------
   Hardhat Smart Contracts (`contracts/`)  1       20       20         100%
-  Backend Application (`backend/`)       132    1,091    1,091         100%
+  Backend Application (`backend/`)       136    1,140    1,140         100%
 --------------------------------------------------------------------------------
-  TOTAL                                  133    1,111    1,111         100%
+  TOTAL                                  137    1,160    1,160         100%
 ================================================================================
 ```
 
@@ -619,10 +636,11 @@ The PDSChain test suite delivers comprehensive, end-to-end verification across e
   - Rejection of distributions exceeding quotas, insufficient shop inventory, unauthorized operators, or paused contract state.
 
 ### 2. Backend Integration & Layer Test Suites (`backend/`)
-- **1,091 / 1,091 Tests Passing across 132 Test Suites** (`npm test`):
-  - **Security, Authentication & Gating (10 Suites):** JWT secret strength enforcement in production, strict CORS policy with wildcard rejection, removal of tokens from URL query strings, client-side demo mode domain gating, XSS sanitization across all frontend DOM renderers, IDOR/BOLA scope enforcement, RPC method authorization, and secret redaction from logs.
-  - **Consensus & Federated Byzantine Agreement (18 Suites):** 12 institutional validator initialization, mathematical quorum slice pruning, crash-fault tolerance (VAL-05 and VAL-06 offline), Byzantine double-voter detection, colluding validator isolation, consensus certificate issuance, proposer timeout advancement, and write-ahead consensus journaling.
-  - **Blockchain Ledger & Cryptographic Proofs (14 Suites):** Genesis block anchoring, SHA-256 header hashing, previous-hash chaining, binary Merkle tree root computation, level-by-level Merkle proof generation and browser verification, second-preimage collision resistance, state root hashing, and tamper detection.
+- **1,140 / 1,140 Tests Passing across 136 Test Suites** (`npm test`):
+  - **12-Validator FBA Consensus & 9-of-12 Quorum Mission Suite (`twelve-validator-fba-mission.test.js`):** Verifies 12 distinct validator identities (`V1..V12` / `VAL-01..VAL-12`), 12 isolated OS child processes (`ports 4001..4012`), 12 validator logins (`v1..v12`), Case A (`8 approvals < 9` remains unfinalized with `409 QUORUM_NOT_MET`), Case B (`9th approval` satisfies 3-of-4 FBA slices and 9-of-12 threshold, generates verifiable `ConsensusCertificate`, and commits block), Case C (`12/12` full validator ratification), and Case D (`>= 4` rejections -> `REJECTED`, `403 VALIDATOR_IDENTITY_MISMATCH`, `403 FORBIDDEN_ROLE`, `409 DUPLICATE_VOTE`, `409 CONFLICTING_VOTE`, `400 INVALID_VOTE_SIGNATURE`, `409 VALIDATOR_OFFLINE`).
+  - **Security, Authentication & Gating (12 Suites):** JWT secret strength enforcement in production, strict CORS policy with wildcard rejection, removal of tokens from URL query strings, client-side demo mode domain gating, XSS sanitization across all frontend DOM renderers, IDOR/BOLA scope enforcement, RPC method authorization, and secret redaction from logs.
+  - **Consensus & Federated Byzantine Agreement (19 Suites):** 12 institutional validator initialization, mathematical quorum slice pruning, crash-fault tolerance (VAL-05 and VAL-06 offline), Byzantine double-voter detection, colluding validator isolation, consensus certificate issuance, proposer timeout advancement, and write-ahead consensus journaling.
+  - **Blockchain Ledger & Cryptographic Proofs (15 Suites):** Genesis block anchoring, SHA-256 header hashing, previous-hash chaining, binary Merkle tree root computation, level-by-level Merkle proof generation and browser verification, second-preimage collision resistance, state root hashing, and tamper detection.
   - **Transaction Mempool & Execution Engine (12 Suites):** Transaction admission validation, nonce sequencing, Ed25519 digital signature verification, simulation execution, atomic state transition commits, and gas limit enforcement.
   - **EVM Runtime & Smart Contract Integration (8 Suites):** In-memory Ethereum Virtual Machine bootstrap, contract registry, ABI encoding/decoding, read-only view calls, state-changing `CONTRACT_CALL` execution through FBA consensus, receipt generation, and candidate revert rollback.
   - **Database Migrations, ACID Atomicity & HA (16 Suites):** Database initialization, zero-loss rollback on failure, transactional outbox consistency, same-ID collision detection, denial audit logging with SHA-256 hash chains, primary-replica lag tracking, and writer fencing.
@@ -632,10 +650,10 @@ The PDSChain test suite delivers comprehensive, end-to-end verification across e
   - **Performance & Load Testing (14 Suites):** Workload registry, rate-controlled arrival pacing, bounded memory concurrency, response time histogram aggregation, and automated SLO regression detection.
 
 ```
-Test Suites: 132 passed, 132 total
-Tests:       1091 passed, 1091 total
+Test Suites: 136 passed, 136 total
+Tests:       1140 passed, 1140 total
 Snapshots:   0 total
-Time:        98.379 s
+Time:        124.351 s
 Ran all test suites.
 ```
 

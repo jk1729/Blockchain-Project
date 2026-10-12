@@ -111,11 +111,35 @@
   window.toggleSuspendBeneficiary = function (id) {
     var b = data.beneficiaries.find(function (item) { return item.id === id; });
     if (!b) return;
-    b.status = b.status === "Active" ? "Suspended" : "Active";
-    renderBeneficiaries();
-    if (window.showToast) {
-      window.showToast("Beneficiary " + id + " status changed to: " + b.status, b.status === "Active" ? "success" : "warning");
-    }
+    var newStatus = b.status === "Active" ? "Suspended" : "Active";
+    var token = localStorage.getItem("pdschain_jwt_token") || "";
+    var base = window.getPDSChainApiBase ? window.getPDSChainApiBase("api") : "http://localhost:3000/api";
+
+    fetch(base + "/beneficiaries/" + encodeURIComponent(id), {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { "Authorization": "Bearer " + token } : {})
+      },
+      body: JSON.stringify({ status: newStatus })
+    })
+    .then(function (res) { return window.parsePDSJsonResponse ? window.parsePDSJsonResponse(res) : res.json(); })
+    .then(function (resData) {
+      if (resData.success) {
+        b.status = newStatus;
+        renderBeneficiaries();
+        if (window.showToast) {
+          window.showToast("Beneficiary " + id + " status changed to: " + newStatus, newStatus === "Active" ? "success" : "warning");
+        }
+      } else {
+        throw new Error(resData.message || "Failed to update status");
+      }
+    })
+    .catch(function (err) {
+      if (window.showToast) {
+        window.showToast("Failed to update status: " + err.message, "error");
+      }
+    });
   };
 
   // Add Beneficiary Form
@@ -126,25 +150,50 @@
       var name = document.getElementById("add-ben-name").value.trim();
       var region = document.getElementById("add-ben-region").value;
       var size = parseInt(document.getElementById("add-ben-size").value || "4", 10);
-      var newId = "BEN-" + (1050 + data.beneficiaries.length);
+      var token = localStorage.getItem("pdschain_jwt_token") || "";
+      var base = window.getPDSChainApiBase ? window.getPDSChainApiBase("api") : "http://localhost:3000/api";
 
-      data.beneficiaries.unshift({
-        id: newId,
-        name: name,
-        region: region,
-        household: size,
-        quotaRice: size * 5,
-        quotaWheat: size * 2.5,
-        quotaSugar: 2,
-        quotaPulses: 2,
-        status: "Active",
-        lastDist: "None"
+      fetch(base + "/beneficiaries", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": "Bearer " + token } : {})
+        },
+        body: JSON.stringify({
+          name: name,
+          region: region,
+          household: size
+        })
+      })
+      .then(function (res) { return window.parsePDSJsonResponse ? window.parsePDSJsonResponse(res) : res.json(); })
+      .then(function (resData) {
+        if (resData.success && resData.beneficiary) {
+          var created = resData.beneficiary;
+          var newId = created.beneficiaryId || created.id;
+          data.beneficiaries.unshift({
+            id: newId,
+            beneficiaryId: newId,
+            name: created.name || name,
+            region: created.region || region,
+            household: created.household || size,
+            quotaRice: (created.monthlyEntitlement && created.monthlyEntitlement.Rice) || size * 5,
+            quotaWheat: (created.monthlyEntitlement && created.monthlyEntitlement.Wheat) || size * 2.5,
+            quotaSugar: (created.monthlyEntitlement && created.monthlyEntitlement.Sugar) || 2,
+            quotaPulses: (created.monthlyEntitlement && created.monthlyEntitlement.Pulses) || 2,
+            status: created.status || "Active",
+            lastDist: created.lastDist || "None"
+          });
+          window.closeModal("modal-add-beneficiary");
+          renderBeneficiaries();
+          addBenForm.reset();
+          if (window.showToast) window.showToast("Beneficiary " + newId + " added successfully and persisted to database!", "success");
+        } else {
+          throw new Error(resData.message || "Failed to create beneficiary");
+        }
+      })
+      .catch(function (err) {
+        if (window.showToast) window.showToast("Failed to create beneficiary: " + err.message, "error");
       });
-
-      window.closeModal("modal-add-beneficiary");
-      renderBeneficiaries();
-      addBenForm.reset();
-      if (window.showToast) window.showToast("Beneficiary " + newId + " added successfully!", "success");
     });
   }
 
@@ -154,15 +203,45 @@
     editBenForm.addEventListener("submit", function (e) {
       e.preventDefault();
       var id = document.getElementById("edit-ben-id").value;
-      var b = data.beneficiaries.find(function (item) { return item.id === id; });
-      if (b) {
-        b.name = document.getElementById("edit-ben-name").value.trim();
-        b.region = document.getElementById("edit-ben-region").value;
-        b.household = parseInt(document.getElementById("edit-ben-size").value || "4", 10);
-      }
-      window.closeModal("modal-edit-beneficiary");
-      renderBeneficiaries();
-      if (window.showToast) window.showToast("Beneficiary details updated.", "success");
+      var name = document.getElementById("edit-ben-name").value.trim();
+      var region = document.getElementById("edit-ben-region").value;
+      var size = parseInt(document.getElementById("edit-ben-size").value || "4", 10);
+      var token = localStorage.getItem("pdschain_jwt_token") || "";
+      var base = window.getPDSChainApiBase ? window.getPDSChainApiBase("api") : "http://localhost:3000/api";
+
+      fetch(base + "/beneficiaries/" + encodeURIComponent(id), {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": "Bearer " + token } : {})
+        },
+        body: JSON.stringify({
+          name: name,
+          region: region,
+          household: size
+        })
+      })
+      .then(function (res) { return window.parsePDSJsonResponse ? window.parsePDSJsonResponse(res) : res.json(); })
+      .then(function (resData) {
+        if (resData.success) {
+          var b = data.beneficiaries.find(function (item) { return item.id === id; });
+          if (b) {
+            b.name = name;
+            b.region = region;
+            b.household = size;
+            b.quotaRice = size * 5;
+            b.quotaWheat = size * 2.5;
+          }
+          window.closeModal("modal-edit-beneficiary");
+          renderBeneficiaries();
+          if (window.showToast) window.showToast("Beneficiary " + id + " updated and persisted to database.", "success");
+        } else {
+          throw new Error(resData.message || "Failed to update beneficiary");
+        }
+      })
+      .catch(function (err) {
+        if (window.showToast) window.showToast("Update failed: " + err.message, "error");
+      });
     });
   }
 
@@ -217,6 +296,77 @@
     }
     window.openModal("modal-view-shop");
   };
+
+  window.editShop = function (id) {
+    var s = data.shops.find(function (item) { return item.id === id; });
+    if (!s) return;
+    var idField = document.getElementById("edit-shop-id");
+    var nameField = document.getElementById("edit-shop-name");
+    var regionField = document.getElementById("edit-shop-region");
+    var managerField = document.getElementById("edit-shop-manager");
+    var statusField = document.getElementById("edit-shop-status");
+    var healthField = document.getElementById("edit-shop-health");
+
+    if (idField) idField.value = s.id;
+    if (nameField) nameField.value = s.name;
+    if (regionField) regionField.value = s.region;
+    if (managerField) managerField.value = s.manager;
+    if (statusField) statusField.value = s.status || "Active";
+    if (healthField) healthField.value = s.stockHealth || "Optimal";
+
+    window.openModal("modal-edit-shop");
+  };
+
+  var editShopForm = document.getElementById("form-edit-shop");
+  if (editShopForm) {
+    editShopForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var id = document.getElementById("edit-shop-id").value;
+      var name = document.getElementById("edit-shop-name").value.trim();
+      var region = document.getElementById("edit-shop-region").value;
+      var manager = document.getElementById("edit-shop-manager").value.trim();
+      var status = document.getElementById("edit-shop-status") ? document.getElementById("edit-shop-status").value : "Active";
+      var stockHealth = document.getElementById("edit-shop-health") ? document.getElementById("edit-shop-health").value : "Optimal";
+      var token = localStorage.getItem("pdschain_jwt_token") || "";
+      var base = window.getPDSChainApiBase ? window.getPDSChainApiBase("api") : "http://localhost:3000/api";
+
+      fetch(base + "/shops/" + encodeURIComponent(id), {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": "Bearer " + token } : {})
+        },
+        body: JSON.stringify({
+          name: name,
+          region: region,
+          manager: manager,
+          status: status,
+          stockHealth: stockHealth
+        })
+      })
+      .then(function (res) { return window.parsePDSJsonResponse ? window.parsePDSJsonResponse(res) : res.json(); })
+      .then(function (resData) {
+        if (resData.success) {
+          var s = data.shops.find(function (item) { return item.id === id; });
+          if (s) {
+            s.name = name;
+            s.region = region;
+            s.manager = manager;
+            s.status = status;
+            s.stockHealth = stockHealth;
+          }
+          window.closeModal("modal-edit-shop");
+          renderShops();
+          if (window.showToast) window.showToast("Shop " + id + " updated successfully in database.", "success");
+        } else {
+          throw new Error(resData.message || "Failed to update shop");
+        }
+      })
+      .catch(function (err) {
+        if (window.showToast) window.showToast("Shop update failed: " + err.message, "error");
+      });
+    });
+  }
 
   /* ==========================================================
      3. ADMIN WAREHOUSES PAGE

@@ -72,6 +72,7 @@ router.get('/data', async (req, res, next) => {
 
     const beneficiaries = rawBeneficiaries.map(b => ({
       id: b.beneficiaryId,
+      beneficiaryId: b.beneficiaryId,
       name: b.name,
       region: b.region,
       household: b.household,
@@ -80,7 +81,10 @@ router.get('/data', async (req, res, next) => {
       quotaSugar: b.monthlyEntitlement?.Sugar || 2,
       quotaPulses: b.monthlyEntitlement?.Pulses || 2,
       status: b.status,
-      lastDist: b.lastDist || 'None'
+      lastDist: b.lastDist || 'None',
+      eligibilityStatus: b.eligibilityStatus,
+      monthlyEntitlement: b.monthlyEntitlement,
+      currentMonthClaimed: b.currentMonthClaimed
     }));
 
     const shops = rawShops.map(s => ({

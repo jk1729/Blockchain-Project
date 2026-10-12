@@ -3,9 +3,15 @@ const logger = require('../utils/logger');
 const config = require('../config/env');
 
 function errorMiddleware(err, req, res, next) {
-  let statusCode = err.statusCode || 500;
+  let statusCode = err.statusCode || err.status || 500;
   let message = err.message || 'Internal Server Error';
   let errors = err.errors || undefined;
+
+  // Handle Express JSON body-parser syntax errors (empty/truncated/malformed JSON body)
+  if (err instanceof SyntaxError && (statusCode === 400 || err.type === 'entity.parse.failed' || 'body' in err)) {
+    statusCode = 400;
+    message = 'Invalid or malformed JSON request payload';
+  }
 
   // Handle Sequelize validation errors
   if (err.name === 'SequelizeValidationError' || err.name === 'SequelizeUniqueConstraintError') {

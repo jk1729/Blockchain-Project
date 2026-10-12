@@ -3,9 +3,10 @@
  * Defines the institutional identity, public keys, port assignments, and trusted quorum slice topology.
  */
 
-const DEFAULT_12_VALIDATORS = [
+const RAW_12_VALIDATORS = [
   {
     validatorId: 'VAL-01',
+    shortId: 'V1',
     name: 'Ministry of Consumer Affairs',
     org: 'Government of India',
     port: 4001,
@@ -21,6 +22,7 @@ const DEFAULT_12_VALIDATORS = [
   },
   {
     validatorId: 'VAL-02',
+    shortId: 'V2',
     name: 'National Informatics Centre',
     org: 'NIC Technology Cell',
     port: 4002,
@@ -36,6 +38,7 @@ const DEFAULT_12_VALIDATORS = [
   },
   {
     validatorId: 'VAL-03',
+    shortId: 'V3',
     name: 'State Food Commission',
     org: 'State Regulatory Authority',
     port: 4003,
@@ -51,6 +54,7 @@ const DEFAULT_12_VALIDATORS = [
   },
   {
     validatorId: 'VAL-04',
+    shortId: 'V4',
     name: 'Civil Supplies Corporation',
     org: 'State Food Logistics',
     port: 4004,
@@ -66,6 +70,7 @@ const DEFAULT_12_VALIDATORS = [
   },
   {
     validatorId: 'VAL-05',
+    shortId: 'V5',
     name: 'District Administration Node',
     org: 'District Collectorate',
     port: 4005,
@@ -81,6 +86,7 @@ const DEFAULT_12_VALIDATORS = [
   },
   {
     validatorId: 'VAL-06',
+    shortId: 'V6',
     name: 'Auditor General Observer Node',
     org: 'Comptroller & Auditor General',
     port: 4006,
@@ -96,6 +102,7 @@ const DEFAULT_12_VALIDATORS = [
   },
   {
     validatorId: 'VAL-07',
+    shortId: 'V7',
     name: 'Public Audit & Governance Node',
     org: 'Independent Audit Council',
     port: 4007,
@@ -111,6 +118,7 @@ const DEFAULT_12_VALIDATORS = [
   },
   {
     validatorId: 'VAL-08',
+    shortId: 'V8',
     name: 'Regional Warehouse Authority',
     org: 'Civil Supplies Depots',
     port: 4008,
@@ -126,6 +134,7 @@ const DEFAULT_12_VALIDATORS = [
   },
   {
     validatorId: 'VAL-09',
+    shortId: 'V9',
     name: 'Fair Price Shop Union Node',
     org: 'FPS Representative Federation',
     port: 4009,
@@ -141,6 +150,7 @@ const DEFAULT_12_VALIDATORS = [
   },
   {
     validatorId: 'VAL-10',
+    shortId: 'V10',
     name: 'State Monitoring Cell',
     org: 'E-Governance Cell',
     port: 4010,
@@ -156,6 +166,7 @@ const DEFAULT_12_VALIDATORS = [
   },
   {
     validatorId: 'VAL-11',
+    shortId: 'V11',
     name: 'Citizen Oversight Organisation',
     org: 'Civil Rights & Transparency Forum',
     port: 4011,
@@ -171,6 +182,7 @@ const DEFAULT_12_VALIDATORS = [
   },
   {
     validatorId: 'VAL-12',
+    shortId: 'V12',
     name: 'Security & Cryptography Validator',
     org: 'National Cryptographic Board',
     port: 4012,
@@ -186,6 +198,47 @@ const DEFAULT_12_VALIDATORS = [
   }
 ];
 
+const DEFAULT_12_VALIDATORS = RAW_12_VALIDATORS.map((v, idx) => {
+  const num = idx + 1;
+  const pad = String(num).padStart(2, '0');
+  return {
+    ...v,
+    shortId: `V${num}`,
+    aliases: [`V${num}`, `V${pad}`, `VAL-${pad}`, `VAL-${num}`, `VAL${pad}`, `NODE-${pad}`, `NODE-${num}`]
+  };
+});
+
+/**
+ * Resolve any known validator alias (V1..V12, VAL-01..VAL-12, NODE-01..NODE-12)
+ * to its canonical validator ID (VAL-01..VAL-12).
+ * Unknown IDs (such as 'VAL-99_UNKNOWN') are returned unchanged.
+ */
+function resolveValidatorId(idOrAlias) {
+  if (!idOrAlias || typeof idOrAlias !== 'string') return idOrAlias;
+  const trimmed = idOrAlias.trim().toUpperCase();
+  const m = trimmed.match(/^(?:V|VAL-?|NODE-?)(0?[1-9]|1[0-2])$/);
+  if (m) {
+    const num = parseInt(m[1], 10);
+    return `VAL-${String(num).padStart(2, '0')}`;
+  }
+  return trimmed;
+}
+
+/**
+ * Return the short validator ID ('V1'..'V12') for a canonical or alias validator ID.
+ */
+function getShortValidatorId(idOrAlias) {
+  const canonical = resolveValidatorId(idOrAlias);
+  if (!canonical || typeof canonical !== 'string') return null;
+  const m = canonical.match(/^VAL-(0?[1-9]|1[0-2])$/);
+  if (m) {
+    return `V${parseInt(m[1], 10)}`;
+  }
+  return canonical;
+}
+
 module.exports = {
-  DEFAULT_12_VALIDATORS
+  DEFAULT_12_VALIDATORS,
+  resolveValidatorId,
+  getShortValidatorId
 };

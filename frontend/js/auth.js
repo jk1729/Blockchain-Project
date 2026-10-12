@@ -24,10 +24,42 @@
     "shop": { password: "shop123", role: "shop", name: "FPS Officer (FPS-102)", redirect: "shop/shop.html" },
     "warehouse": { password: "warehouse123", role: "warehouse", name: "Warehouse Officer (WH-003)", redirect: "warehouse/warehouse.html" },
     "citizen": { password: "citizen123", role: "citizen", name: "Arun Kumar (BEN-1024)", redirect: "citizen/citizen.html" },
-    "validator": { password: "validator123", role: "validator", name: "Validator Node 07", redirect: "validator/validator.html" },
+    "validator": { password: "validator123", role: "validator", validatorId: "VAL-07", shortValidatorId: "V7", name: "V7 (VAL-07) — Public Audit & Governance Node", redirect: "validator/validator.html" },
     // Legacy support
     "admin@pdschain.local": { password: "Admin@123", role: "admin", name: "Administrator", redirect: "admin/admin.html" }
   };
+
+  var VALIDATOR_ORGS = [
+    "Ministry of Consumer Affairs",
+    "National Informatics Centre",
+    "State Food Commission",
+    "Civil Supplies Corporation",
+    "District Administration Node",
+    "Auditor General Observer Node",
+    "Public Audit & Governance Node",
+    "Regional Warehouse Authority",
+    "Fair Price Shop Union Node",
+    "State Monitoring Cell",
+    "Citizen Oversight Organisation",
+    "Security & Cryptography Validator"
+  ];
+
+  for (var vIdx = 1; vIdx <= 12; vIdx++) {
+    var padNum = vIdx < 10 ? "0" + vIdx : "" + vIdx;
+    var valId = "VAL-" + padNum;
+    var shortId = "V" + vIdx;
+    var vEntry = {
+      password: "validator123",
+      role: "validator",
+      validatorId: valId,
+      shortValidatorId: shortId,
+      name: shortId + " (" + valId + ") — " + VALIDATOR_ORGS[vIdx - 1],
+      redirect: "validator/validator.html"
+    };
+    DEMO_USERS["v" + vIdx] = vEntry;
+    DEMO_USERS["val-" + padNum] = vEntry;
+    DEMO_USERS["validator" + vIdx] = vEntry;
+  }
 
   /* Password visibility toggle buttons */
   document.querySelectorAll("[data-toggle-password]").forEach(function (btn) {
@@ -88,16 +120,29 @@
     var statusBox = document.getElementById("login-status");
     var submitBtn = document.getElementById("login-submit");
 
-    // Quick prefill helper when role is changed
+    // Quick prefill helper when role is changed (restricted to local demo environment)
     if (roleSelect && idInput && pwInput) {
       roleSelect.addEventListener("change", function () {
         var selectedRole = roleSelect.value;
-        if (DEMO_USERS[selectedRole]) {
+        var isLocal = window.location && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+        if (isLocal && DEMO_USERS[selectedRole]) {
           idInput.value = selectedRole;
           pwInput.value = DEMO_USERS[selectedRole].password;
           if (statusBox) statusBox.hidden = true;
         }
       });
+
+      // Check URL query param ?validator=v1 or ?role=v1 for quick validator switching
+      try {
+        var params = new URLSearchParams(window.location.search);
+        var qVal = (params.get("validator") || params.get("role") || "").toLowerCase();
+        var isLocalHost = window.location && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+        if (isLocalHost && qVal && DEMO_USERS[qVal]) {
+          roleSelect.value = qVal;
+          idInput.value = qVal;
+          pwInput.value = DEMO_USERS[qVal].password;
+        }
+      } catch (e) {}
     }
 
     loginForm.addEventListener("submit", function (e) {
@@ -136,23 +181,42 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: username, password: password })
       })
-      .then(function (res) { return res.json(); })
+      .then(function (res) { return window.parsePDSJsonResponse ? window.parsePDSJsonResponse(res) : res.json(); })
       .then(function (resData) {
         if (resData.success && resData.token) {
           localStorage.setItem("pdschain_jwt_token", resData.token);
-          var effectiveRole = (selectedRole || resData.user.role || "citizen").toLowerCase();
+          var effectiveRole = ((resData.user && resData.user.role) || "citizen").toLowerCase();
           var destination = effectiveRole + "/" + effectiveRole + ".html";
           if (effectiveRole === "admin") destination = "admin/admin.html";
 
+          var validatorId = (resData.user && (resData.user.validatorId || resData.user.entityId)) || null;
+          var shortValidatorId = (resData.user && resData.user.shortValidatorId) || null;
+
           localStorage.setItem("pds_role", effectiveRole);
           localStorage.setItem("pds_username", resData.user.username);
-          sessionStorage.setItem("pdschain-user", JSON.stringify({
+          if (validatorId) {
+            localStorage.setItem("pds_validator_id", validatorId);
+          } else {
+            localStorage.removeItem("pds_validator_id");
+          }
+          if (shortValidatorId) {
+            localStorage.setItem("pds_short_validator_id", shortValidatorId);
+          } else {
+            localStorage.removeItem("pds_short_validator_id");
+          }
+
+          var userPayload = {
             username: resData.user.username,
             role: effectiveRole,
             name: resData.user.name,
             entityId: resData.user.entityId,
+            validatorId: validatorId,
+            shortValidatorId: shortValidatorId
+          };
+          localStorage.setItem("pdschain_user", JSON.stringify(userPayload));
+          sessionStorage.setItem("pdschain-user", JSON.stringify(Object.assign({}, userPayload, {
             timestamp: new Date().toISOString()
-          }));
+          })));
 
           if (statusBox) {
             statusBox.hidden = false;
@@ -161,10 +225,13 @@
             var okIcon = document.createElement("i");
             okIcon.className = "bi bi-check-circle-fill";
             statusBox.appendChild(okIcon);
-            statusBox.appendChild(document.createTextNode(" Authenticated via PDSChain Backend API. Redirecting to " + effectiveRole.toUpperCase() + " dashboard…"));
+            var labelText = shortValidatorId
+              ? shortValidatorId + " (" + validatorId + ")"
+              : effectiveRole.toUpperCase();
+            statusBox.appendChild(document.createTextNode(" Authenticated as " + labelText + ". Redirecting to dashboard…"));
           }
 
-          setTimeout(function () { window.location.href = destination; }, 700);
+          setTimeout(function () { window.location.href = destination; }, 500);
         } else {
           throw new Error(resData.message || "Invalid credentials");
         }
@@ -179,20 +246,26 @@
         if (isDemoModeAllowed()) {
           var user = DEMO_USERS[username];
           if (user && user.password === password) {
-            var effectiveRole = selectedRole || user.role;
+            var effectiveRole = user.role || "citizen";
             var destination = user.redirect;
-
-            if (selectedRole) {
-              destination = selectedRole + "/" + selectedRole + ".html";
-              effectiveRole = selectedRole;
-            }
 
             localStorage.setItem("pds_role", effectiveRole);
             localStorage.setItem("pds_username", username);
+            if (user.validatorId) localStorage.setItem("pds_validator_id", user.validatorId);
+            if (user.shortValidatorId) localStorage.setItem("pds_short_validator_id", user.shortValidatorId);
+            localStorage.setItem("pdschain_user", JSON.stringify({
+              username: username,
+              role: effectiveRole,
+              name: user.name,
+              validatorId: user.validatorId || null,
+              shortValidatorId: user.shortValidatorId || null
+            }));
             sessionStorage.setItem("pdschain-user", JSON.stringify({
               username: username,
               role: effectiveRole,
               name: user.name,
+              validatorId: user.validatorId || null,
+              shortValidatorId: user.shortValidatorId || null,
               isDemoMode: true,
               timestamp: new Date().toISOString()
             }));
@@ -204,10 +277,10 @@
               var warnIcon = document.createElement("i");
               warnIcon.className = "bi bi-shield-exclamation";
               statusBox.appendChild(warnIcon);
-              statusBox.appendChild(document.createTextNode(" [DEMO/OFFLINE MODE] Authenticated locally. Backend unavailable. Redirecting to " + effectiveRole.toUpperCase() + "…"));
+              statusBox.appendChild(document.createTextNode(" [DEMO/OFFLINE MODE] Authenticated locally. Redirecting to " + effectiveRole.toUpperCase() + "…"));
             }
 
-            setTimeout(function () { window.location.href = destination; }, 1000);
+            setTimeout(function () { window.location.href = destination; }, 800);
             return;
           }
         }
@@ -333,7 +406,7 @@
           role: "CITIZEN"
         })
       })
-      .then(function (res) { return res.json(); })
+      .then(function (res) { return window.parsePDSJsonResponse ? window.parsePDSJsonResponse(res) : res.json(); })
       .then(function (resData) {
         if (resData.success) {
           if (regStatus) {
@@ -379,23 +452,65 @@
   document.querySelectorAll(".logout-btn, [data-action='logout']").forEach(function (btn) {
     btn.addEventListener("click", function (e) {
       e.preventDefault();
-      localStorage.removeItem("pdschain_jwt_token");
-      localStorage.removeItem("pds_role");
-      localStorage.removeItem("pds_username");
-      sessionStorage.removeItem("pdschain-user");
-      if (window.showToast) {
-        window.showToast("Signed out successfully.", "info");
-      }
-      setTimeout(function () {
-        // Calculate correct relative path to login.html
+      if (typeof window.pdsLogout === "function") {
+        window.pdsLogout();
+      } else {
+        try {
+          localStorage.removeItem("pdschain_jwt_token");
+          localStorage.removeItem("pds_role");
+          localStorage.removeItem("pds_username");
+          localStorage.removeItem("pdschain_user");
+          localStorage.removeItem("pds_user_profile");
+          sessionStorage.removeItem("pdschain-user");
+          sessionStorage.clear();
+        } catch (err) {}
         var inSubfolder = window.location.pathname.includes("/admin/") ||
                           window.location.pathname.includes("/warehouse/") ||
                           window.location.pathname.includes("/shop/") ||
                           window.location.pathname.includes("/citizen/") ||
                           window.location.pathname.includes("/validator/");
-        window.location.href = inSubfolder ? "../login.html" : "login.html";
-      }, 400);
+        window.location.replace(inSubfolder ? "../login.html" : "login.html");
+      }
     });
   });
+
+  /* ==========================================================
+     PROFILE EDIT FORM HANDLER (profile.html)
+     ========================================================== */
+  var profileEditForm = document.getElementById("profile-edit-form");
+  if (profileEditForm) {
+    var profName = document.getElementById("prof-name");
+    var profEmail = document.getElementById("prof-email");
+    var profPhone = document.getElementById("prof-phone");
+
+    // Prepopulate if saved in localStorage
+    try {
+      var savedProfile = JSON.parse(localStorage.getItem("pds_user_profile") || "null");
+      if (savedProfile) {
+        if (profName && savedProfile.name) profName.value = savedProfile.name;
+        if (profEmail && savedProfile.email) profEmail.value = savedProfile.email;
+        if (profPhone && savedProfile.phone) profPhone.value = savedProfile.phone;
+      }
+    } catch (e) {}
+
+    profileEditForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var nameVal = profName ? profName.value.trim() : "";
+      var emailVal = profEmail ? profEmail.value.trim() : "";
+      var phoneVal = profPhone ? profPhone.value.trim() : "";
+
+      var profileData = {
+        name: nameVal,
+        email: emailVal,
+        phone: phoneVal,
+        updatedAt: new Date().toISOString()
+      };
+
+      localStorage.setItem("pds_user_profile", JSON.stringify(profileData));
+      if (window.showToast) {
+        window.showToast("Personal profile changes saved to storage successfully!", "success");
+      }
+    });
+  }
 
 })();

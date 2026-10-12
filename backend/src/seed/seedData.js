@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { DEFAULT_12_VALIDATORS } = require('../consensus/consensusConfig');
+const { getPublicParticipantInfo } = require('../blockchain/identity/keyManager');
 
 const FIRST_NAMES = [
   'Arun', 'Ravi', 'Priya', 'Mohammed', 'Lakshmi', 'Sunita', 'Venkatesh', 'Ananya', 'Ramesh', 'Suresh',
@@ -19,20 +20,34 @@ const REGIONS = ['Chennai Central', 'Chennai North', 'Chennai South', 'Chennai W
 
 async function generateSeedData() {
   const salt = await bcrypt.genSalt(10);
-  const passwordHash = await bcrypt.hash('admin123', salt);
-  const shopPwHash = await bcrypt.hash('shop123', salt);
-  const whPwHash = await bcrypt.hash('warehouse123', salt);
-  const citizenPwHash = await bcrypt.hash('citizen123', salt);
-  const valPwHash = await bcrypt.hash('validator123', salt);
+  const passwordHash = await bcrypt.hash(process.env.DEMO_ADMIN_PASSWORD || 'admin123', salt);
+  const shopPwHash = await bcrypt.hash(process.env.DEMO_SHOP_PASSWORD || 'shop123', salt);
+  const whPwHash = await bcrypt.hash(process.env.DEMO_WAREHOUSE_PASSWORD || 'warehouse123', salt);
+  const citizenPwHash = await bcrypt.hash(process.env.DEMO_CITIZEN_PASSWORD || 'citizen123', salt);
+  const valPwHash = await bcrypt.hash(process.env.DEMO_VALIDATOR_PASSWORD || 'validator123', salt);
 
-  // 1. Users (Demo Accounts)
+  // 1. Users (Demo Accounts including all 12 distinct FBA Validators V1..V12)
   const users = [
     { username: 'admin', passwordHash, role: 'ADMIN', name: 'Master Administrator', email: 'admin@pdschain.local' },
     { username: 'shop', passwordHash: shopPwHash, role: 'SHOP', name: 'FPS Officer (FPS-102)', email: 'fps102@pdschain.local', entityId: 'FPS-102' },
     { username: 'warehouse', passwordHash: whPwHash, role: 'WAREHOUSE', name: 'Warehouse Officer (WH-003)', email: 'wh003@pdschain.local', entityId: 'WH-003' },
     { username: 'citizen', passwordHash: citizenPwHash, role: 'CITIZEN', name: 'Arun Kumar (BEN-1024)', email: 'arun@pdschain.local', entityId: 'BEN-1024' },
-    { username: 'validator', passwordHash: valPwHash, role: 'VALIDATOR', name: 'Validator Node 07', email: 'val07@pdschain.local', entityId: 'VAL-07' }
+    { username: 'validator', passwordHash: valPwHash, role: 'VALIDATOR', name: 'Validator Node 07 (V7)', email: 'val07@pdschain.local', entityId: 'VAL-07' }
   ];
+
+  for (let i = 0; i < DEFAULT_12_VALIDATORS.length; i++) {
+    const v = DEFAULT_12_VALIDATORS[i];
+    const num = i + 1;
+    const shortLower = `v${num}`;
+    users.push({
+      username: shortLower,
+      passwordHash: valPwHash,
+      role: 'VALIDATOR',
+      name: `${v.shortId} — ${v.name} (${v.validatorId})`,
+      email: `${shortLower}@pdschain.local`,
+      entityId: v.validatorId
+    });
+  }
 
   // 2. Commodities
   const commodities = [
@@ -205,18 +220,21 @@ async function generateSeedData() {
   }
 
   // 7. 12 Validators
-  const validators = DEFAULT_12_VALIDATORS.map((v, idx) => ({
-    validatorId: v.validatorId,
-    name: v.name,
-    org: v.org,
-    publicKey: v.publicKey,
-    status: v.status,
-    blockHeight: 4,
-    heartbeat: 'Just now',
-    txValidated: 14280 - (idx * 2),
-    participation: idx === 2 || idx === 9 ? '99.9%' : '100%',
-    trustConfiguration: v.trustConfiguration
-  }));
+  const validators = DEFAULT_12_VALIDATORS.map((v, idx) => {
+    const pubInfo = getPublicParticipantInfo(v.validatorId);
+    return {
+      validatorId: v.validatorId,
+      name: v.name,
+      org: v.org,
+      publicKey: (pubInfo && pubInfo.publicKey) || v.publicKey,
+      status: v.status,
+      blockHeight: 4,
+      heartbeat: 'Just now',
+      txValidated: 14280 - (idx * 2),
+      participation: idx === 2 || idx === 9 ? '99.9%' : '100%',
+      trustConfiguration: v.trustConfiguration
+    };
+  });
 
   // 8. Initial Verified Transactions (Aligned with real chain blocks #2, #3, #4)
   const transactions = [

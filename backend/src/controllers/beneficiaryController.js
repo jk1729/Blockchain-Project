@@ -1,5 +1,5 @@
 const Beneficiary = require('../models/Beneficiary');
-const { NotFoundError } = require('../utils/errors');
+const { NotFoundError, ValidationError } = require('../utils/errors');
 
 class BeneficiaryController {
   async getAll(req, res, next) {
@@ -74,20 +74,28 @@ class BeneficiaryController {
 
   async create(req, res, next) {
     try {
-      const { name, region, household, monthlyEntitlement } = req.body;
-      const count = await Beneficiary.count();
-      const beneficiaryId = `BEN-${String(1000 + count + 1).padStart(4, '0')}`;
+      const { name, region, household, monthlyEntitlement } = req.body || {};
+      if (!name || typeof name !== 'string' || name.trim().length < 2) {
+        throw new ValidationError('Beneficiary name is required (at least 2 characters)');
+      }
+      if (household !== undefined && (Number.isNaN(parseInt(household, 10)) || parseInt(household, 10) < 1)) {
+        throw new ValidationError('Household size must be a positive integer');
+      }
+
+      const maxId = await Beneficiary.max('id') || 0;
+      const beneficiaryId = `BEN-${String(1000 + maxId + 1).padStart(4, '0')}`;
+      const hSize = parseInt(household, 10) || 4;
 
       const b = await Beneficiary.create({
         beneficiaryId,
-        name: name || 'Citizen Beneficiary',
-        region: region || 'Chennai Central',
-        household: parseInt(household, 10) || 4,
+        name: name.trim(),
+        region: region && typeof region === 'string' && region.trim() ? region.trim() : 'Chennai Central',
+        household: hSize,
         status: 'Active',
         eligibilityStatus: true,
         monthlyEntitlement: monthlyEntitlement || {
-          Rice: (parseInt(household, 10) || 4) * 5,
-          Wheat: (parseInt(household, 10) || 4) * 2.5,
+          Rice: hSize * 5,
+          Wheat: hSize * 2.5,
           Sugar: 2,
           Pulses: 2,
           Kerosene: 1
@@ -113,10 +121,29 @@ class BeneficiaryController {
         throw new NotFoundError(`Beneficiary '${id}' not found.`);
       }
 
-      const { name, region, household, status, eligibilityStatus } = req.body;
-      if (name !== undefined) b.name = name;
+      const { name, region, household, status, eligibilityStatus } = req.body || {};
+      if (name !== undefined) {
+        if (!name || typeof name !== 'string' || name.trim().length < 2) {
+          throw new ValidationError('Beneficiary name must be at least 2 characters');
+        }
+        b.name = name.trim();
+      }
       if (region !== undefined) b.region = region;
-      if (household !== undefined) b.household = parseInt(household, 10);
+      if (household !== undefined) {
+        const hSize = parseInt(household, 10);
+        if (Number.isNaN(hSize) || hSize < 1) {
+          throw new ValidationError('Household size must be a positive integer');
+        }
+        b.household = hSize;
+        b.monthlyEntitlement = {
+          ...(b.monthlyEntitlement || {}),
+          Rice: hSize * 5,
+          Wheat: hSize * 2.5,
+          Sugar: 2,
+          Pulses: 2,
+          Kerosene: 1
+        };
+      }
       if (status !== undefined) b.status = status;
       if (eligibilityStatus !== undefined) b.eligibilityStatus = eligibilityStatus;
 

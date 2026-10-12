@@ -29,7 +29,9 @@ class QuorumSlice {
     return {
       nodeId: this.nodeId,
       threshold: this.threshold,
-      members: this.members
+      members: this.members,
+      validators: this.members,
+      quorumSlice: this.members
     };
   }
 }

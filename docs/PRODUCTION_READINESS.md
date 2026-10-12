@@ -1,0 +1,32 @@
+# PDSChain — Production Readiness & Independent Verification Matrix
+
+## 1. Evidence-Based Verification Matrix (Gates 1–5)
+
+| # | Gate / Requirement | Exact Command / Scenario | Observed Result | Status |
+| :---: | :--- | :--- | :--- | :---: |
+| **1** | **Backend Jest Suite (136 Suites)** | `npm test` in `D:\Blockchain Project\backend` | Exit code `0`; `136 passed, 136 total` suites; `1,142 passed, 1,142 total` tests; `0 failed`, `0 skipped` (`137.412 s`). | **VERIFIED** |
+| **2** | **Hardhat Solidity Suite (8 Contracts)** | `npx hardhat test` in `D:\Blockchain Project\contracts` | Exit code `0`; `20 passing (3s)`, `0 failing`, `0 skipped`. | **VERIFIED** |
+| **3** | **12-Validator FBA Mission Suite** | `node node_modules/jest/bin/jest.js tests/twelve-validator-fba-mission.test.js --runInBand` | Exit code `0`; `15 passed, 15 total` tests covering 12 identities, 12 logins, 8-vote non-finality, 9-vote broken-slice non-finality, 9-vote valid quorum finality, 12/12 ratification, replay/spoof rejection, equivocation, and offline recovery. | **VERIFIED** |
+| **4** | **12 Isolated Validator OS Processes** | Start `node src/server.js`; query `GET http://127.0.0.1:4001..4012/status` | All 12 child processes (`VAL-01`..`VAL-12` / `V1`..`V12`) online on ports `4001..4012` with 12 distinct PIDs, 12 unique Ed25519 public keys, and 12 unique `PDS1...` addresses. | **VERIFIED** |
+| **5** | **8 Approvals Cannot Finalize** | Vote `ACCEPT` as `V1,V2,V3,V4,V8,V9,V10,V11` (`8/12`) then `POST /api/consensus/proposals/:id/finalize` | Proposal remains `PENDING` (`finalized: false`, `certificate: null`); finalize returns `409 QUORUM_NOT_MET`. | **VERIFIED** |
+| **6** | **9 Approvals With Broken FBA Slice Cannot Finalize** | Add 9th `ACCEPT` vote from `V12` (`V5,V6,V7` missing -> `VAL-02` slice `[VAL-02,VAL-03,VAL-05,VAL-06]` has `2/4 < 3`) | `QuorumEngine.findQuorum` prunes `VAL-02` (`quorumSize = 8 < 9`, `quorumAchieved = false`, `finalized = false`); `POST .../finalize` refuses with `409 QUORUM_NOT_MET` despite `approvedCount === 9`. | **VERIFIED** |
+| **7** | **Valid 3-of-4 Slice + 9-of-12 Quorum Finalizes Block & Certificate** | `V5` votes `ACCEPT` (satisfying `VAL-02`'s slice -> `quorumSize = 10 >= 9`), followed by `V6` & `V7` (`12/12`) | Finalizes `Block #44` with a cryptographic `ConsensusCertificate` verified via `ConsensusCertificate.verify(cert, block)` (`valid: true, 12 Ed25519 signatures`). | **VERIFIED** |
+| **8** | **Post-Restart Block, Certificate & Vote Persistence** | Restart `node src/server.js`; run `node gate4_restart_and_ops_verification.js` | Server loads & verifies all `47` blocks on startup (`isValid: true, certificatesVerified: true`); Block `#44` certificate and all `12/12` votes remain intact in SQLite. | **VERIFIED** |
+| **9** | **Adversarial Consensus Defenses** | Spoofed counters/certificates, `CITIZEN` vote, `V1` claiming `V2`, duplicate vote, conflicting vote, forged sig, replayed sig from Proposal #1, offline validator vote, 4 rejections | Spoofed fields ignored; `403 FORBIDDEN_ROLE`; `403 VALIDATOR_IDENTITY_MISMATCH`; `409 DUPLICATE_VOTE`; `409 CONFLICTING_VOTE`; `400 INVALID_VOTE_SIGNATURE` (forged & replayed); `409 VALIDATOR_OFFLINE`; `409 PROPOSAL_REJECTED`. | **VERIFIED** |
+| **10** | **All Six Role Portals End-to-End** | `node independent_gate_verification.js` (`/admin`, `/warehouse`, `/shop`, `/citizen`, `/validator`, `/explorer`) | All 6 portals return `200 OK`; Admin CRUD & `/api/data` sync verified; Warehouse transfer (`WH-003 -> FPS-102`) & Shop distribution (`TXN-2B5E9022266C217F`) finalized on-chain (`Blocks #45, #46`); Citizen receipt verified; validation errors return `422`; cross-role/cross-entity actions return `403`. | **VERIFIED** |
+| **11** | **Health Probes, Metrics, Config Fail-Fast & Backup/Restore** | `GET /health`, `/health/live`, `/health/ready`, `/health/startup`, `/health/database`, `/metrics`; `validateConfig({ NODE_ENV: 'production', ... })`; `DatabaseBackupManager` | All 5 health probes & Prometheus `/metrics` return `200 OK`; production config rejects weak/default `JWT_SECRET` and wildcard `CORS_ORIGIN=*`; atomic backup `backup-VAL-01-H47-1791797594382` created, SHA-256 verified, and restored to staging. | **VERIFIED** |
+| **12** | **Docker & Docker Compose Deployment** | Static check of `Dockerfile`, `docker-compose.yml`, `docker-compose.network.yml`, `docker-compose.production.yml`; runtime `docker --version` | Manifests statically verified (`12` validator services `validator-01..12` on `ports 4001..4012`); runtime container execution blocked because `docker` CLI/Engine is not installed on this Windows host. | **PARTIALLY VERIFIED / BLOCKED AT RUNTIME** |
+| **13** | **PostgreSQL Runtime Verification** | `psql --version` on host; code inspection of `DatabaseManager.js` & `config/env.js` | Sequelize PostgreSQL dialect, pool config, and fail-fast validation (`DB_DIALECT=postgres`) are implemented, but live PostgreSQL runtime is unverified because PostgreSQL is not installed on this Windows host. | **BLOCKED / UNVERIFIED AT RUNTIME** |
+
+---
+
+## 2. Remaining Blockers Before Production Deployment
+
+While the local multi-process 12-validator FBA application, cryptographic consensus engine, smart contracts, and six portals are **100% verified** on this machine, the system is **not yet a live multi-organization production deployment** due to the following environmental and infrastructure blockers:
+
+1. **Docker Engine Not Installed on Current Host (`BLOCKED`)**:
+   - `docker compose -f docker-compose.production.yml up -d --build` must be executed and verified on a target Linux/container host where Docker Engine and Docker Compose are installed.
+2. **Live PostgreSQL 16 Instance Not Installed on Current Host (`UNVERIFIED AT RUNTIME`)**:
+   - Production deployment must be verified against a live PostgreSQL 16 instance (`DB_DIALECT=postgres`, `DATABASE_URL=postgres://...`) rather than the local single-node SQLite WAL file.
+3. **Single-Host Loopback vs. Multi-Institution WAN (`ARCHITECTURAL BOUNDARY`)**:
+   - All 12 validator processes currently run on a single host (`127.0.0.1:4001..4012`) with local filesystem keys (`database/validators/VAL-01..VAL-12/identity.json`). A genuine production consortium deployment requires provisioning each validator on separate institutional infrastructure with HSM/KMS-backed Ed25519 keys, mTLS/TLS termination, and disabled demo credentials.

@@ -72,7 +72,7 @@
       headers: { "Authorization": "Bearer " + (localStorage.getItem("pdschain_jwt_token") || "") }
     })
       .then(function (res) {
-        return res.json().then(function (data) {
+        return (window.parsePDSJsonResponse ? window.parsePDSJsonResponse(res) : res.json()).then(function (data) {
           if (!res.ok || !data.success) throw new Error(data.message || "Unable to load transfer history.");
           return data;
         });
@@ -165,7 +165,7 @@
         })
       })
       .then(function (res) {
-        return res.json().then(function (data) {
+        return (window.parsePDSJsonResponse ? window.parsePDSJsonResponse(res) : res.json()).then(function (data) {
           if (!res.ok || !data.success || !data.transfer) {
             throw new Error(data.message || "Stock transfer was rejected.");
           }

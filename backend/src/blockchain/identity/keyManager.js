@@ -49,14 +49,23 @@ function generateKeyPair() {
 const devKeystore = new Map();
 const devKeystoreByAddress = new Map();
 
+function normalizeParticipantKey(rawKey) {
+  const trimmed = String(rawKey || '').toUpperCase().trim();
+  const m = trimmed.match(/^(?:V|VAL-?|NODE-?)(0?[1-9]|1[0-2])$/);
+  if (m) {
+    return `VAL-${String(parseInt(m[1], 10)).padStart(2, '0')}`;
+  }
+  return trimmed;
+}
+
 /**
  * Deterministically generate or retrieve a development keypair for an entity ID.
- * @param {string} entityId - e.g. 'FPS-101', 'WH-001', 'VAL-01', 'BEN-1001'
+ * @param {string} entityId - e.g. 'FPS-101', 'WH-001', 'VAL-01', 'V1', 'BEN-1001'
  * @param {string} entityType - 'SHOP' | 'WAREHOUSE' | 'VALIDATOR' | 'BENEFICIARY' | 'SYSTEM'
  * @returns {{ entityId: string, entityType: string, address: string, publicKey: string, privateKey: string }}
  */
 function getOrCreateDevParticipant(entityId, entityType = 'SHOP') {
-  const key = String(entityId).toUpperCase().trim();
+  const key = normalizeParticipantKey(entityId);
   if (devKeystore.has(key)) {
     const existing = devKeystore.get(key);
     devKeystoreByAddress.set(existing.address, existing);
@@ -108,8 +117,9 @@ function getOrCreateDevParticipant(entityId, entityType = 'SHOP') {
  * Retrieve public participant info (Never returns private key).
  */
 function getPublicParticipantInfo(idOrAddress) {
-  const key = String(idOrAddress).trim();
-  let participant = devKeystore.get(key) || devKeystore.get(key.toUpperCase());
+  const raw = String(idOrAddress || '').trim();
+  const key = normalizeParticipantKey(raw);
+  let participant = devKeystore.get(raw) || devKeystore.get(key);
   if (!participant) {
     if (/^(FPS|WH|VAL|BEN)-/i.test(key)) {
       const type = key.startsWith('FPS') ? 'SHOP' : (key.startsWith('WH') ? 'WAREHOUSE' : (key.startsWith('VAL') ? 'VALIDATOR' : 'BENEFICIARY'));
@@ -137,8 +147,9 @@ function getParticipantByAddress(address) {
  * Retrieve private key for internal signing only (NEVER expose to API).
  */
 function getParticipantPrivateKey(idOrAddress) {
-  const key = String(idOrAddress).trim();
-  let participant = devKeystore.get(key) || devKeystore.get(key.toUpperCase());
+  const raw = String(idOrAddress || '').trim();
+  const key = normalizeParticipantKey(raw);
+  let participant = devKeystore.get(raw) || devKeystore.get(key);
   if (!participant && /^(FPS|WH|VAL|BEN)-/i.test(key)) {
     const type = key.startsWith('FPS') ? 'SHOP' : (key.startsWith('WH') ? 'WAREHOUSE' : (key.startsWith('VAL') ? 'VALIDATOR' : 'BENEFICIARY'));
     participant = getOrCreateDevParticipant(key, type);

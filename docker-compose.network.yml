@@ -4,19 +4,25 @@ networks:
   pdschain-net:
     driver: bridge
 
+x-validator-common: &validator-common
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: pdschain/validator:1.0.0
+  restart: unless-stopped
+  networks:
+    - pdschain-net
+  security_opt:
+    - no-new-privileges:true
+
 services:
   validator-01:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: pdschain/validator:1.0.0
+    <<: *validator-common
     container_name: pdschain-val-01
-    restart: unless-stopped
-    networks:
-      - pdschain-net
     environment:
       - NODE_ENV=development
       - VALIDATOR_ID=VAL-01
+      - SHORT_VALIDATOR_ID=V1
       - NETWORK_ID=pdschain-devnet
       - CHAIN_ID=1729
       - API_PORT=4001
@@ -31,17 +37,12 @@ services:
       - val01_storage:/data
 
   validator-02:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: pdschain/validator:1.0.0
+    <<: *validator-common
     container_name: pdschain-val-02
-    restart: unless-stopped
-    networks:
-      - pdschain-net
     environment:
       - NODE_ENV=development
       - VALIDATOR_ID=VAL-02
+      - SHORT_VALIDATOR_ID=V2
       - NETWORK_ID=pdschain-devnet
       - CHAIN_ID=1729
       - API_PORT=4002
@@ -56,17 +57,12 @@ services:
       - val02_storage:/data
 
   validator-03:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: pdschain/validator:1.0.0
+    <<: *validator-common
     container_name: pdschain-val-03
-    restart: unless-stopped
-    networks:
-      - pdschain-net
     environment:
       - NODE_ENV=development
       - VALIDATOR_ID=VAL-03
+      - SHORT_VALIDATOR_ID=V3
       - NETWORK_ID=pdschain-devnet
       - CHAIN_ID=1729
       - API_PORT=4003
@@ -81,17 +77,12 @@ services:
       - val03_storage:/data
 
   validator-04:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: pdschain/validator:1.0.0
+    <<: *validator-common
     container_name: pdschain-val-04
-    restart: unless-stopped
-    networks:
-      - pdschain-net
     environment:
       - NODE_ENV=development
       - VALIDATOR_ID=VAL-04
+      - SHORT_VALIDATOR_ID=V4
       - NETWORK_ID=pdschain-devnet
       - CHAIN_ID=1729
       - API_PORT=4004
@@ -105,9 +96,176 @@ services:
     volumes:
       - val04_storage:/data
 
+  validator-05:
+    <<: *validator-common
+    container_name: pdschain-val-05
+    environment:
+      - NODE_ENV=development
+      - VALIDATOR_ID=VAL-05
+      - SHORT_VALIDATOR_ID=V5
+      - NETWORK_ID=pdschain-devnet
+      - CHAIN_ID=1729
+      - API_PORT=4005
+      - P2P_PORT=5005
+      - P2P_HOST=0.0.0.0
+      - API_HOST=0.0.0.0
+      - DATA_DIR=/data
+    ports:
+      - "4005:4005"
+      - "5005:5005"
+    volumes:
+      - val05_storage:/data
+
+  validator-06:
+    <<: *validator-common
+    container_name: pdschain-val-06
+    environment:
+      - NODE_ENV=development
+      - VALIDATOR_ID=VAL-06
+      - SHORT_VALIDATOR_ID=V6
+      - NETWORK_ID=pdschain-devnet
+      - CHAIN_ID=1729
+      - API_PORT=4006
+      - P2P_PORT=5006
+      - P2P_HOST=0.0.0.0
+      - API_HOST=0.0.0.0
+      - DATA_DIR=/data
+    ports:
+      - "4006:4006"
+      - "5006:5006"
+    volumes:
+      - val06_storage:/data
+
+  validator-07:
+    <<: *validator-common
+    container_name: pdschain-val-07
+    environment:
+      - NODE_ENV=development
+      - VALIDATOR_ID=VAL-07
+      - SHORT_VALIDATOR_ID=V7
+      - NETWORK_ID=pdschain-devnet
+      - CHAIN_ID=1729
+      - API_PORT=4007
+      - P2P_PORT=5007
+      - P2P_HOST=0.0.0.0
+      - API_HOST=0.0.0.0
+      - DATA_DIR=/data
+    ports:
+      - "4007:4007"
+      - "5007:5007"
+    volumes:
+      - val07_storage:/data
+
+  validator-08:
+    <<: *validator-common
+    container_name: pdschain-val-08
+    environment:
+      - NODE_ENV=development
+      - VALIDATOR_ID=VAL-08
+      - SHORT_VALIDATOR_ID=V8
+      - NETWORK_ID=pdschain-devnet
+      - CHAIN_ID=1729
+      - API_PORT=4008
+      - P2P_PORT=5008
+      - P2P_HOST=0.0.0.0
+      - API_HOST=0.0.0.0
+      - DATA_DIR=/data
+    ports:
+      - "4008:4008"
+      - "5008:5008"
+    volumes:
+      - val08_storage:/data
+
+  validator-09:
+    <<: *validator-common
+    container_name: pdschain-val-09
+    environment:
+      - NODE_ENV=development
+      - VALIDATOR_ID=VAL-09
+      - SHORT_VALIDATOR_ID=V9
+      - NETWORK_ID=pdschain-devnet
+      - CHAIN_ID=1729
+      - API_PORT=4009
+      - P2P_PORT=5009
+      - P2P_HOST=0.0.0.0
+      - API_HOST=0.0.0.0
+      - DATA_DIR=/data
+    ports:
+      - "4009:4009"
+      - "5009:5009"
+    volumes:
+      - val09_storage:/data
+
+  validator-10:
+    <<: *validator-common
+    container_name: pdschain-val-10
+    environment:
+      - NODE_ENV=development
+      - VALIDATOR_ID=VAL-10
+      - SHORT_VALIDATOR_ID=V10
+      - NETWORK_ID=pdschain-devnet
+      - CHAIN_ID=1729
+      - API_PORT=4010
+      - P2P_PORT=5010
+      - P2P_HOST=0.0.0.0
+      - API_HOST=0.0.0.0
+      - DATA_DIR=/data
+    ports:
+      - "4010:4010"
+      - "5010:5010"
+    volumes:
+      - val10_storage:/data
+
+  validator-11:
+    <<: *validator-common
+    container_name: pdschain-val-11
+    environment:
+      - NODE_ENV=development
+      - VALIDATOR_ID=VAL-11
+      - SHORT_VALIDATOR_ID=V11
+      - NETWORK_ID=pdschain-devnet
+      - CHAIN_ID=1729
+      - API_PORT=4011
+      - P2P_PORT=5011
+      - P2P_HOST=0.0.0.0
+      - API_HOST=0.0.0.0
+      - DATA_DIR=/data
+    ports:
+      - "4011:4011"
+      - "5011:5011"
+    volumes:
+      - val11_storage:/data
+
+  validator-12:
+    <<: *validator-common
+    container_name: pdschain-val-12
+    environment:
+      - NODE_ENV=development
+      - VALIDATOR_ID=VAL-12
+      - SHORT_VALIDATOR_ID=V12
+      - NETWORK_ID=pdschain-devnet
+      - CHAIN_ID=1729
+      - API_PORT=4012
+      - P2P_PORT=5012
+      - P2P_HOST=0.0.0.0
+      - API_HOST=0.0.0.0
+      - DATA_DIR=/data
+    ports:
+      - "4012:4012"
+      - "5012:5012"
+    volumes:
+      - val12_storage:/data
+
 volumes:
   val01_storage:
   val02_storage:
   val03_storage:
   val04_storage:
-
+  val05_storage:
+  val06_storage:
+  val07_storage:
+  val08_storage:
+  val09_storage:
+  val10_storage:
+  val11_storage:
+  val12_storage:

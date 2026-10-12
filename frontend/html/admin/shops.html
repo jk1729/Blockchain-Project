@@ -158,6 +158,59 @@
   </div>
 </div>
 
+<!-- Edit Shop Modal -->
+<div class="modal-backdrop" id="modal-edit-shop" role="dialog" aria-modal="true">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <h3 class="modal-title"><i class="bi bi-pencil-square text-indigo"></i> Edit Fair Price Shop</h3>
+      <button class="modal-close" type="button" data-close-modal><i class="bi bi-x"></i></button>
+    </div>
+    <form id="form-edit-shop">
+      <input type="hidden" id="edit-shop-id" />
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" for="edit-shop-name">Shop Name</label>
+          <input class="form-input" type="text" id="edit-shop-name" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-shop-region">Region</label>
+          <select class="form-select" id="edit-shop-region">
+            <option value="Chennai Central">Chennai Central</option>
+            <option value="Chennai North">Chennai North</option>
+            <option value="Chennai South">Chennai South</option>
+            <option value="Chennai West">Chennai West</option>
+            <option value="Chennai East">Chennai East</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-shop-manager">Manager Name</label>
+          <input class="form-input" type="text" id="edit-shop-manager" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-shop-status">Operating Status</label>
+          <select class="form-select" id="edit-shop-status">
+            <option value="Active">Active</option>
+            <option value="Maintenance">Maintenance</option>
+            <option value="Suspended">Suspended</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="edit-shop-health">Inventory Stock Health</label>
+          <select class="form-select" id="edit-shop-health">
+            <option value="Optimal">Optimal</option>
+            <option value="Moderate">Moderate</option>
+            <option value="Critical">Critical</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" type="button" data-close-modal>Cancel</button>
+        <button class="btn btn-primary" type="submit">Save Shop Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
 
 <script src="../../js/main.js"></script>

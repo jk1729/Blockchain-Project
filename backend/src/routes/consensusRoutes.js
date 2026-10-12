@@ -12,6 +12,19 @@ router.get('/votes/height/:height', optionalAuthMiddleware, consensusController.
 router.get('/journal', optionalAuthMiddleware, consensusController.getJournal);
 router.get('/rounds/latest', optionalAuthMiddleware, consensusController.getLatestRound);
 router.get('/rounds/tx/:txId', optionalAuthMiddleware, consensusController.getRoundByTransaction);
+
+// Interactive 12-validator proposal & step-by-step voting endpoints
+router.get('/proposals', optionalAuthMiddleware, consensusController.getProposals);
+router.get('/proposals/active', optionalAuthMiddleware, consensusController.getActiveProposal);
+router.get('/proposals/:id', optionalAuthMiddleware, consensusController.getProposalById);
+router.post('/proposals', authMiddleware, roleMiddleware('VALIDATOR', 'ADMIN', 'SHOP', 'WAREHOUSE'), consensusController.createProposal);
+router.post('/proposals/:id/vote', authMiddleware, consensusController.voteOnProposal);
+router.post('/vote', authMiddleware, consensusController.voteOnProposal);
+router.post('/proposals/:id/finalize', authMiddleware, roleMiddleware('VALIDATOR', 'ADMIN'), consensusController.finalizeProposal);
+router.post('/finalize', authMiddleware, roleMiddleware('VALIDATOR', 'ADMIN'), consensusController.finalizeProposal);
+
+// Full automated round proposal
 router.post('/propose', authMiddleware, roleMiddleware('SHOP', 'ADMIN', 'VALIDATOR'), consensusController.propose);
 
 module.exports = router;
+

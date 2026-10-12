@@ -151,10 +151,14 @@ app.use('/api', routes);
 const frontendDir = path.join(__dirname, '../../frontend');
 const htmlDir = path.join(frontendDir, 'html');
 
+app.set('etag', false);
+app.get('/favicon.ico', (req, res) => res.status(204).end());
+
+app.use('/frontend', express.static(frontendDir));
 app.use('/css', express.static(path.join(frontendDir, 'css')));
 app.use('/js', express.static(path.join(frontendDir, 'js')));
-app.use('/html', express.static(htmlDir));
-app.use(express.static(htmlDir));
+app.use('/html', express.static(htmlDir, { redirect: false }));
+app.use(express.static(htmlDir, { redirect: false }));
 
 // Root landing page
 app.get('/', (req, res) => {

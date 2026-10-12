@@ -62,24 +62,27 @@ class VoteStore {
       };
     }
 
-    // Secondary legacy check for existing vote in round
+    // Secondary legacy check for existing vote in round at the same block height
     const legacyKey = `${vId}:${round}`;
     const existingLegacy = this.votesByValidatorRound.get(legacyKey);
     if (existingLegacy) {
-      if (existingLegacy.proposalId === proposalId && existingLegacy.blockHash === blockHash && existingLegacy.vote === vote.vote) {
-        return {
-          success: false,
-          code: 'DUPLICATE_VOTE',
-          reason: `Validator ${vId} already submitted an identical vote for proposal ${proposalId} in round ${round}`
-        };
-      }
-      if (existingLegacy.isAccept && existingLegacy.isAccept() && vote.isAccept && vote.isAccept()) {
-        if (existingLegacy.proposalId !== proposalId || existingLegacy.blockHash !== blockHash) {
+      const existingBlockNumber = parseInt(existingLegacy.blockNumber !== undefined ? existingLegacy.blockNumber : existingLegacy.blockIndex, 10) || 0;
+      if (existingBlockNumber === blockNumber) {
+        if (existingLegacy.proposalId === proposalId && existingLegacy.blockHash === blockHash && existingLegacy.vote === vote.vote) {
           return {
             success: false,
-            code: 'CONFLICTING_VOTE',
-            reason: `CONFLICTING_VOTE: Validator ${vId} already voted ACCEPT for proposal ${existingLegacy.proposalId} in round ${round}. Cannot vote for competing proposal ${proposalId}.`
+            code: 'DUPLICATE_VOTE',
+            reason: `Validator ${vId} already submitted an identical vote for proposal ${proposalId} in round ${round}`
           };
+        }
+        if (existingLegacy.isAccept && existingLegacy.isAccept() && vote.isAccept && vote.isAccept()) {
+          if (existingLegacy.proposalId !== proposalId || existingLegacy.blockHash !== blockHash) {
+            return {
+              success: false,
+              code: 'CONFLICTING_VOTE',
+              reason: `CONFLICTING_VOTE: Validator ${vId} already voted ACCEPT for proposal ${existingLegacy.proposalId} in round ${round}. Cannot vote for competing proposal ${proposalId}.`
+            };
+          }
         }
       }
     }

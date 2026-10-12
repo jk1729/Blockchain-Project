@@ -77,8 +77,8 @@
 
         <div class="dropdown-wrap">
           <button class="user-menu-btn" type="button" data-dropdown="user-panel">
-            <span class="avatar">VN</span>
-            <span class="user-menu-text"><span class="name">Validator 07</span><span class="role">NODE-07 Public Audit</span></span>
+            <span class="avatar" id="active-validator-avatar">V7</span>
+            <span class="user-menu-text"><span class="name" id="active-validator-name">V7 (VAL-07)</span><span class="role" id="active-validator-role">Public Audit &amp; Governance Node</span></span>
             <i class="bi bi-chevron-down"></i>
           </button>
           <div class="dropdown-panel user-dropdown" id="user-panel">
@@ -95,12 +95,12 @@
 
       <div class="page-header">
         <div>
-          <h1>Validator Node Telemetry &amp; Consensus</h1>
-          <p>NODE-07 (Public Audit &amp; Governance Observer) — Running Federated Byzantine Agreement.</p>
+          <h1 id="page-validator-title">Validator Node Telemetry &amp; 12-Validator FBA Consensus</h1>
+          <p id="page-validator-subtitle">Authenticated Session: V7 (VAL-07) — Public Audit &amp; Governance Node · 9-of-12 Quorum Configuration.</p>
         </div>
         <div class="page-header-meta">
-          <span class="badge badge-success"><i class="bi bi-broadcast"></i> Voting Active</span>
-          <span class="meta-chip mono">Height #4281</span>
+          <span class="badge badge-success" id="header-voting-badge"><i class="bi bi-broadcast"></i> 12-Validator FBA Active</span>
+          <span class="meta-chip mono" id="header-height-chip">Height #36</span>
         </div>
       </div>
 
@@ -108,28 +108,105 @@
       <div class="kpi-grid cols-5">
         <div class="stat-card">
           <div class="stat-card-top"><span class="stat-card-label">Node Status</span><span class="icon-tile"><i class="bi bi-hdd-network"></i></span></div>
-          <div class="stat-card-value text-success">ONLINE</div>
-          <div class="stat-card-foot"><span class="trend is-up"><i class="bi bi-heart-pulse"></i> Heartbeat 1s</span></div>
+          <div class="stat-card-value text-success" id="kpi-node-status">ONLINE</div>
+          <div class="stat-card-foot"><span class="trend is-up" id="kpi-node-port"><i class="bi bi-heart-pulse"></i> Process :4007</span></div>
         </div>
         <div class="stat-card">
           <div class="stat-card-top"><span class="stat-card-label">Block Height</span><span class="icon-tile"><i class="bi bi-diagram-3"></i></span></div>
-          <div class="stat-card-value mono" data-counter="4281">0</div>
+          <div class="stat-card-value mono" id="kpi-block-height" data-counter="36">36</div>
           <div class="stat-card-foot"><span class="caption">Synchronized</span></div>
         </div>
         <div class="stat-card">
           <div class="stat-card-top"><span class="stat-card-label">Txns Validated</span><span class="icon-tile is-teal"><i class="bi bi-patch-check"></i></span></div>
-          <div class="stat-card-value" data-counter="14280">0</div>
-          <div class="stat-card-foot"><span class="trend is-up">100% participation</span></div>
+          <div class="stat-card-value" id="kpi-tx-validated" data-counter="36">36</div>
+          <div class="stat-card-foot"><span class="trend is-up">Ed25519 Verified</span></div>
         </div>
         <div class="stat-card">
           <div class="stat-card-top"><span class="stat-card-label">Active Quorum</span><span class="icon-tile"><i class="bi bi-diagram-2"></i></span></div>
           <div class="stat-card-value" id="online-nodes-count">12 / 12</div>
-          <div class="stat-card-foot"><span class="caption">Threshold: 3 of 4</span></div>
+          <div class="stat-card-foot"><span class="caption">Global: 9 of 12 | Slice: 3 of 4</span></div>
         </div>
         <div class="stat-card">
-          <div class="stat-card-top"><span class="stat-card-label">Avg Consensus Time</span><span class="icon-tile is-warning"><i class="bi bi-stopwatch"></i></span></div>
-          <div class="stat-card-value">2.4s</div>
-          <div class="stat-card-foot"><span class="trend is-up">Fast finality</span></div>
+          <div class="stat-card-top"><span class="stat-card-label">Finality Threshold</span><span class="icon-tile is-warning"><i class="bi bi-shield-lock"></i></span></div>
+          <div class="stat-card-value">9 / 12</div>
+          <div class="stat-card-foot"><span class="trend is-up">75% BFT Safety</span></div>
+        </div>
+      </div>
+
+      <!-- INTERACTIVE 12-VALIDATOR PROPOSAL & AUTHENTICATED VOTING CONSOLE -->
+      <div class="consensus-live-card" id="interactive-voting-console" style="margin-bottom: 24px; border: 2px solid var(--primary, #2563eb);">
+        <div class="section-block-head" style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:16px;">
+          <div>
+            <span class="round-badge" id="session-validator-badge" style="background:var(--primary, #2563eb); color:#fff;">
+              <i class="bi bi-person-check-fill"></i> LOGGED IN AS: V7 (VAL-07)
+            </span>
+            <h2 style="margin-top:10px;">Interactive 12-Validator Proposal &amp; Authenticated Voting (9-of-12 Quorum)</h2>
+            <div class="sub">Create a candidate block proposal and cast cryptographically signed Ed25519 votes as each validator identity (<strong>V1</strong> through <strong>V12</strong>). Blocks remain <strong>UNFINALIZED</strong> at 1–8 approvals and automatically finalize with a verifiable <code>ConsensusCertificate</code> upon reaching <strong>9 of 12</strong> valid approvals.</div>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+            <button type="button" class="btn btn-primary btn-sm" id="btn-create-proposal">
+              <i class="bi bi-plus-circle-fill"></i> Create Pending Proposal
+            </button>
+            <button type="button" class="btn btn-success btn-sm" id="btn-vote-approve" style="background:#10b981; border-color:#10b981; color:#fff;">
+              <i class="bi bi-check2-circle"></i> <span id="btn-vote-approve-label">Approve &amp; Sign as V7</span>
+            </button>
+            <button type="button" class="btn btn-danger btn-sm" id="btn-vote-reject" style="background:#ef4444; border-color:#ef4444; color:#fff;">
+              <i class="bi bi-x-circle"></i> <span id="btn-vote-reject-label">Reject as V7</span>
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-finalize-proposal" title="Test finality guard (refuses if < 9 approvals)">
+              <i class="bi bi-patch-check-fill"></i> Verify &amp; Finalize Block
+            </button>
+          </div>
+        </div>
+
+        <!-- Action Feedback Banner -->
+        <div id="prop-action-feedback" class="form-status" style="margin-bottom:16px;" hidden></div>
+
+        <!-- Active Proposal Metrics Grid -->
+        <div class="kpi-grid cols-4" id="active-proposal-box" style="gap:14px; margin-bottom:16px;">
+          <div style="background:var(--bg-card, #fff); border:1px solid var(--border-color, #e2e8f0); border-radius:8px; padding:12px;">
+            <div class="stat-card-label" style="font-size:12px; color:var(--text-muted, #64748b);">Active Proposal / Candidate Height</div>
+            <div class="stat-card-value mono font-bold" id="prop-height-display" style="font-size:18px; margin-top:4px;">Block #36</div>
+            <div class="mono" id="prop-id-display" style="font-size:11px; color:var(--text-muted, #64748b); margin-top:4px; word-break:break-all;">No pending proposal — click Create Pending Proposal</div>
+          </div>
+          <div style="background:var(--bg-card, #fff); border:1px solid var(--border-color, #e2e8f0); border-radius:8px; padding:12px;">
+            <div class="stat-card-label" style="font-size:12px; color:var(--text-muted, #64748b);">Proposal Status &amp; Finality</div>
+            <div style="margin-top:6px;">
+              <span class="badge badge-warning" id="prop-status-badge" style="font-size:12.5px; padding:5px 10px;">AWAITING PROPOSAL</span>
+            </div>
+            <div id="prop-my-vote-status" style="font-size:11.5px; color:var(--text-muted, #64748b); margin-top:6px;">Your Vote: Not cast yet</div>
+          </div>
+          <div style="background:var(--bg-card, #fff); border:1px solid var(--border-color, #e2e8f0); border-radius:8px; padding:12px;">
+            <div class="stat-card-label" style="font-size:12px; color:var(--text-muted, #64748b);">Approved / 9-of-12 Quorum</div>
+            <div class="stat-card-value mono font-bold" id="prop-approved-count" style="font-size:20px; margin-top:4px;">0 / 12 Approved</div>
+            <div id="prop-remaining-count" style="font-size:11.5px; color:#f59e0b; margin-top:4px;">Requires 9 approvals for finality (0 Rejected)</div>
+          </div>
+          <div style="background:var(--bg-card, #fff); border:1px solid var(--border-color, #e2e8f0); border-radius:8px; padding:12px;">
+            <div class="stat-card-label" style="font-size:12px; color:var(--text-muted, #64748b);">Consensus Certificate</div>
+            <div class="stat-card-value mono font-bold" id="prop-cert-display" style="font-size:13px; margin-top:6px; word-break:break-all;">None (Unfinalized)</div>
+            <div id="prop-proposer-display" style="font-size:11px; color:var(--text-muted, #64748b); margin-top:4px;">Proposer: V1 (VAL-01)</div>
+          </div>
+        </div>
+
+        <!-- Quick Validator Session Switcher (Logout & Login as V1..V12) -->
+        <div style="background:rgba(37, 99, 235, 0.05); border:1px dashed var(--border-color, #cbd5e1); border-radius:8px; padding:10px 14px; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px;">
+          <div style="font-size:12px; font-weight:600; color:var(--text-primary);">
+            <i class="bi bi-arrow-left-right"></i> Switch Validator Session (Sign Out &amp; Login as V1–V12):
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:5px;" id="validator-quick-switch-bar">
+            <button type="button" class="btn btn-secondary btn-sm val-switch-btn" data-val-login="v1" style="padding:3px 8px; font-size:11px;">V1</button>
+            <button type="button" class="btn btn-secondary btn-sm val-switch-btn" data-val-login="v2" style="padding:3px 8px; font-size:11px;">V2</button>
+            <button type="button" class="btn btn-secondary btn-sm val-switch-btn" data-val-login="v3" style="padding:3px 8px; font-size:11px;">V3</button>
+            <button type="button" class="btn btn-secondary btn-sm val-switch-btn" data-val-login="v4" style="padding:3px 8px; font-size:11px;">V4</button>
+            <button type="button" class="btn btn-secondary btn-sm val-switch-btn" data-val-login="v5" style="padding:3px 8px; font-size:11px;">V5</button>
+            <button type="button" class="btn btn-secondary btn-sm val-switch-btn" data-val-login="v6" style="padding:3px 8px; font-size:11px;">V6</button>
+            <button type="button" class="btn btn-secondary btn-sm val-switch-btn" data-val-login="v7" style="padding:3px 8px; font-size:11px;">V7</button>
+            <button type="button" class="btn btn-secondary btn-sm val-switch-btn" data-val-login="v8" style="padding:3px 8px; font-size:11px;">V8</button>
+            <button type="button" class="btn btn-secondary btn-sm val-switch-btn" data-val-login="v9" style="padding:3px 8px; font-size:11px;">V9</button>
+            <button type="button" class="btn btn-secondary btn-sm val-switch-btn" data-val-login="v10" style="padding:3px 8px; font-size:11px;">V10</button>
+            <button type="button" class="btn btn-secondary btn-sm val-switch-btn" data-val-login="v11" style="padding:3px 8px; font-size:11px;">V11</button>
+            <button type="button" class="btn btn-secondary btn-sm val-switch-btn" data-val-login="v12" style="padding:3px 8px; font-size:11px;">V12</button>
+          </div>
         </div>
       </div>
 
@@ -153,7 +230,7 @@
         <div class="kpi-grid cols-4" style="gap:16px; margin-bottom:16px;">
           <div style="background:var(--bg-card, #fff); border:1px solid var(--border-color, #e2e8f0); border-radius:8px; padding:12px;">
             <div class="stat-card-label" style="font-size:12px; color:var(--text-muted, #64748b);">Finalized Height / Target</div>
-            <div class="stat-card-value mono font-bold" id="sync-height-display" style="font-size:20px; margin-top:4px;">#4281 / #4281</div>
+            <div class="stat-card-value mono font-bold" id="sync-height-display" style="font-size:20px; margin-top:4px;">#35 / #35</div>
             <div style="font-size:11px; color:#10b981; margin-top:4px;"><i class="bi bi-link-45deg"></i> Hash Continuity Valid</div>
           </div>
           <div style="background:var(--bg-card, #fff); border:1px solid var(--border-color, #e2e8f0); border-radius:8px; padding:12px;">
@@ -165,7 +242,7 @@
           </div>
           <div style="background:var(--bg-card, #fff); border:1px solid var(--border-color, #e2e8f0); border-radius:8px; padding:12px;">
             <div class="stat-card-label" style="font-size:12px; color:var(--text-muted, #64748b);">Durable Checkpoint</div>
-            <div class="stat-card-value mono font-bold" id="sync-checkpoint-display" style="font-size:16px; margin-top:4px;">#4281 (Verified)</div>
+            <div class="stat-card-value mono font-bold" id="sync-checkpoint-display" style="font-size:16px; margin-top:4px;">#35 (Verified)</div>
             <div style="font-size:11px; color:#10b981; margin-top:4px;"><i class="bi bi-file-earmark-lock-fill"></i> Crash-Safe Atomic Commit</div>
           </div>
           <div style="background:var(--bg-card, #fff); border:1px solid var(--border-color, #e2e8f0); border-radius:8px; padding:12px;">
@@ -180,7 +257,7 @@
       <div class="consensus-live-card">
         <div class="section-block-head" style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:flex-start; gap:16px;">
           <div>
-            <span class="round-badge" id="live-round-badge"><i class="bi bi-broadcast"></i> ROUND #4281 LIVE</span>
+            <span class="round-badge" id="live-round-badge"><i class="bi bi-broadcast"></i> ROUND #35 LIVE</span>
             <h2 style="margin-top:10px;">Federated Byzantine Agreement (FBA) — 12-Validator Consensus</h2>
             <div class="sub">Dynamic 4-stage consensus telemetry: verification, Ed25519 signing, quorum evaluation, and block finalization.</div>
           </div>
@@ -232,11 +309,11 @@
         <div class="crypto-roots-bar">
           <div class="crypto-root-item">
             <span class="crypto-root-label">Target Block</span>
-            <span class="crypto-root-val" id="fba-block-height">#4281</span>
+            <span class="crypto-root-val" id="fba-block-height">#35</span>
           </div>
           <div class="crypto-root-item">
             <span class="crypto-root-label">Proposal / Tx ID</span>
-            <span class="crypto-root-val" id="fba-tx-id">TXN-4281-01</span>
+            <span class="crypto-root-val" id="fba-tx-id">TXN-35</span>
           </div>
           <div class="crypto-root-item" style="flex:1; min-width:200px;">
             <span class="crypto-root-label">Merkle Root</span>
@@ -250,24 +327,24 @@
 
         <!-- 12-Node Voting Visualizer Grid -->
         <div class="votes-grid" id="fba-votes-grid">
-          <div class="vote-node is-voted" data-node="VAL-01"><span class="vote-node-id">VAL-01</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
-          <div class="vote-node is-voted" data-node="VAL-02"><span class="vote-node-id">VAL-02</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
-          <div class="vote-node is-voted" data-node="VAL-03"><span class="vote-node-id">VAL-03</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
-          <div class="vote-node is-voted" data-node="VAL-04"><span class="vote-node-id">VAL-04</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
-          <div class="vote-node is-voted" data-node="VAL-05"><span class="vote-node-id">VAL-05</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
-          <div class="vote-node is-voted" data-node="VAL-06"><span class="vote-node-id">VAL-06</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
-          <div class="vote-node is-voted" data-node="VAL-07"><span class="vote-node-id">VAL-07</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
-          <div class="vote-node is-voted" data-node="VAL-08"><span class="vote-node-id">VAL-08</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
-          <div class="vote-node is-voted" data-node="VAL-09"><span class="vote-node-id">VAL-09</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
-          <div class="vote-node is-voted" data-node="VAL-10"><span class="vote-node-id">VAL-10</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
-          <div class="vote-node is-voted" data-node="VAL-11"><span class="vote-node-id">VAL-11</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
-          <div class="vote-node is-voted" data-node="VAL-12"><span class="vote-node-id">VAL-12</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
+          <div class="vote-node is-voted" data-node="VAL-01"><span class="vote-node-id">V1 · VAL-01</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
+          <div class="vote-node is-voted" data-node="VAL-02"><span class="vote-node-id">V2 · VAL-02</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
+          <div class="vote-node is-voted" data-node="VAL-03"><span class="vote-node-id">V3 · VAL-03</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
+          <div class="vote-node is-voted" data-node="VAL-04"><span class="vote-node-id">V4 · VAL-04</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
+          <div class="vote-node is-voted" data-node="VAL-05"><span class="vote-node-id">V5 · VAL-05</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
+          <div class="vote-node is-voted" data-node="VAL-06"><span class="vote-node-id">V6 · VAL-06</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
+          <div class="vote-node is-voted" data-node="VAL-07"><span class="vote-node-id">V7 · VAL-07</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
+          <div class="vote-node is-voted" data-node="VAL-08"><span class="vote-node-id">V8 · VAL-08</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
+          <div class="vote-node is-voted" data-node="VAL-09"><span class="vote-node-id">V9 · VAL-09</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
+          <div class="vote-node is-voted" data-node="VAL-10"><span class="vote-node-id">V10 · VAL-10</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
+          <div class="vote-node is-voted" data-node="VAL-11"><span class="vote-node-id">V11 · VAL-11</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
+          <div class="vote-node is-voted" data-node="VAL-12"><span class="vote-node-id">V12 · VAL-12</span><span class="vote-status is-voted"><i class="bi bi-check-circle-fill"></i> Agreed</span></div>
         </div>
 
         <div class="progress-track" style="height:10px;"><div class="progress-fill" id="consensus-progress-fill" style="width:100%;"></div></div>
         <div style="display:flex; justify-content:space-between; margin-top:8px; font-size:12.5px; color:var(--text-muted);" id="consensus-summary-bar">
           <span id="quorum-agreement-stat">Quorum Agreement: <strong>100% (12 / 12 Nodes)</strong></span>
-          <span class="text-success font-bold" id="quorum-finality-stat"><i class="bi bi-check-circle-fill"></i> Consensus Reached — Block #4281 Finalized</span>
+          <span class="text-success font-bold" id="quorum-finality-stat"><i class="bi bi-check-circle-fill"></i> Consensus Reached — Block Finalized</span>
         </div>
 
         <!-- 12-Validator Telemetry Table -->
@@ -275,13 +352,13 @@
           <table class="fba-validator-table" id="fba-validator-table">
             <thead>
               <tr>
-                <th>Validator Node</th>
+                <th>Validator Identity</th>
                 <th>Stage 1: Verify</th>
                 <th>Stage 2: Sign</th>
                 <th>Ed25519 Digest</th>
-                <th>Vote</th>
-                <th>Quorum Contribution</th>
-                <th>Node Status</th>
+                <th>Vote Decision</th>
+                <th>Quorum Slice (3/4)</th>
+                <th>Process / Status</th>
               </tr>
             </thead>
             <tbody id="fba-validator-tbody">

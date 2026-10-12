@@ -7,6 +7,7 @@ const executionEngine = require('../execution/ExecutionEngine');
 const stateManager = require('../execution/StateManager');
 const consensusService = require('./consensusService');
 const blockchainService = require('./blockchainService');
+const Block = require('../blockchain/Block');
 const Transaction = require('../blockchain/Transaction');
 const { getOrCreateDevParticipant, getParticipantPrivateKey } = require('../blockchain/identity/keyManager');
 const { validateTransactionPayload } = require('../validators/schemas');
@@ -23,6 +24,16 @@ const { defaultEventStore } = require('../controllers/eventController');
 const { defaultSecurityAuditLogger } = require('../security/permissions/SecurityAuditLogger');
 
 class TransactionService {
+  constructor() {
+    this._commitLock = Promise.resolve();
+  }
+
+  _withCommitLock(fn) {
+    const next = this._commitLock.then(() => fn());
+    this._commitLock = next.catch(() => {});
+    return next;
+  }
+
   async drainTransferEventOutbox() {
     const pending = await TransferEventOutbox.findAll({
       where: { publishedAt: null },
@@ -111,6 +122,10 @@ class TransactionService {
    * 8. Blockchain Block Commit with Dual Commitments & Certificate
    */
   async processDistribution(payload, user = null) {
+    return this._withCommitLock(() => this._processDistributionInternal(payload, user));
+  }
+
+  async _processDistributionInternal(payload, user = null) {
     const validData = validateTransactionPayload(payload);
     const { beneficiaryId, shopId, commodity, quantity } = validData;
 
@@ -200,40 +215,50 @@ class TransactionService {
     const currentConsensusState = await stateManager.getConsensusStateSnapshot();
     const predictedState = JSON.parse(JSON.stringify(currentConsensusState));
     // Apply predicted modifications in-memory
-    const pBen = predictedState.beneficiaries.find(b => b.id === beneficiaryId);
+    const normBenId = String(beneficiaryId).toUpperCase().trim();
+    const normShopId = String(shopId).toUpperCase().trim();
+    const pBen = predictedState.beneficiaries.find(b => b.id === normBenId);
     if (pBen) {
       pBen.currentMonthClaimed[commodity] = (pBen.currentMonthClaimed[commodity] || 0) + quantity;
     }
-    const pShopInv = predictedState.shopInventory.find(i => i.shopId === shopId && i.commodity === commodity);
+    const pShopInv = predictedState.shopInventory.find(i => i.shopId === normShopId && i.commodity === commodity);
     if (pShopInv) {
       pShopInv.quantity -= quantity;
     }
     const predictedStateRoot = calculateStateRoot(predictedState);
 
-    // Proposer Identity & Signature
+    // Proposer Identity & Deterministic Pre-Mined Candidate Block
     const proposerId = 'VAL-01';
     const proposerParticipant = getOrCreateDevParticipant(proposerId, 'VALIDATOR');
     const proposerAddress = proposerParticipant.address;
     const round = 0;
 
-    const proposalHeader = {
-      version: 1,
-      blockNumber: nextBlockNumber,
-      previousHash,
+    const candidateBlock = new Block(
+      nextBlockNumber,
       timestamp,
-      merkleRoot,
-      stateRoot: predictedStateRoot,
-      proposerId,
-      proposerAddress,
-      round
-    };
+      [txPayload],
+      previousHash,
+      0,
+      'FINALIZED',
+      [],
+      predictedStateRoot,
+      {
+        version: 1,
+        proposerId,
+        proposerAddress,
+        round
+      }
+    );
 
-    const proposalId = hashProposal(proposalHeader);
     const proposerPrivKey = getParticipantPrivateKey(proposerId);
-    const proposerSignature = proposerPrivKey ? signBlockProposal(proposalHeader, proposerPrivKey) : null;
+    const proposerSignature = proposerPrivKey ? candidateBlock.signProposal(proposerPrivKey) : null;
+    const proposalId = candidateBlock.proposalId;
+    candidateBlock.mineBlock(blockchainService.blockchain.difficulty);
 
     const candidateProposal = {
-      ...proposalHeader,
+      ...candidateBlock.getProposalHeader(),
+      blockHash: candidateBlock.blockHash,
+      blockNonce: candidateBlock.nonce,
       proposalId,
       proposerSignature,
       proposerPublicKey: proposerParticipant.publicKey,
@@ -252,7 +277,7 @@ class TransactionService {
       payload: tx.payload
     };
 
-    logger.info(`Initiating FBA Block Consensus for Block #${nextBlockNumber} Proposal ${proposalId} (Tx: ${tx.transactionId})...`);
+    logger.info(`Initiating FBA Block Consensus for Block #${nextBlockNumber} Proposal ${proposalId} (BlockHash: ${candidateBlock.blockHash}, Tx: ${tx.transactionId})...`);
 
     // 7. Run FBA Consensus Round across 12 Validators (Independently verifies structure, signatures, stateRoot)
     const consensusResult = await consensusService.runBlockConsensus(candidateProposal, {
@@ -296,6 +321,8 @@ class TransactionService {
       // Execute State Transitions deterministically via ExecutionEngine
       const executionResult = await executionEngine.executeTransaction(tx, {
         dbTransaction: t,
+        blockNumber: nextBlockNumber,
+        blockHash: candidateBlock.blockHash,
         consensusRound: consensusResult.roundId
       });
 
@@ -312,13 +339,16 @@ class TransactionService {
         stateRoot,
         {
           version: 1,
+          timestamp,
+          nonce: candidateBlock.nonce,
           proposerId,
           proposerAddress,
           proposerSignature,
           proposalId,
           round,
           consensusCertificate: consensusResult.certificate,
-          consensusStatus: 'FINALIZED'
+          consensusStatus: 'FINALIZED',
+          requireFinality: true
         }
       );
 
@@ -380,6 +410,10 @@ class TransactionService {
   }
 
   async processWarehouseTransfer(payload, user) {
+    return this._withCommitLock(() => this._processWarehouseTransferInternal(payload, user));
+  }
+
+  async _processWarehouseTransferInternal(payload, user) {
         const warehouseId = String((user && user.entityId) || payload.warehouseId || '').toUpperCase().trim();
         const shopId = String(payload.shopId || payload.targetShopId || '').toUpperCase().trim();
         const commodity = String(payload.commodity || payload.item || '').trim();
@@ -444,32 +478,54 @@ class TransactionService {
         const previousHash = latestBlock ? latestBlock.blockHash : '0'.repeat(64);
         const snapshot = await stateManager.getConsensusStateSnapshot();
         const predicted = JSON.parse(JSON.stringify(snapshot));
-        const source = predicted.warehouseInventory.find(i => i.ownerId === warehouseId && i.commodityName === commodity);
-        const destination = predicted.shopInventory.find(i => i.ownerId === shopId && i.commodityName === commodity);
+        const normWhId = String(warehouseId).toUpperCase().trim();
+        const normShopId = String(shopId).toUpperCase().trim();
+        const source = predicted.warehouseInventory.find(i => (i.warehouseId === normWhId || i.ownerId === normWhId) && (i.commodity === commodity || i.commodityName === commodity));
+        const destination = predicted.shopInventory.find(i => (i.shopId === normShopId || i.ownerId === normShopId) && (i.commodity === commodity || i.commodityName === commodity));
         if (source) source.quantity -= quantity;
-        if (destination) destination.quantity += quantity;
+        if (destination) {
+          destination.quantity += quantity;
+        } else {
+          predicted.shopInventory.push({
+            shopId: normShopId,
+            commodity: String(commodity).trim(),
+            quantity,
+            unit: 'KG'
+          });
+        }
         const stateRoot = calculateStateRoot(predicted);
         const proposerId = 'VAL-01';
         const proposer = getOrCreateDevParticipant(proposerId, 'VALIDATOR');
-        const proposalHeader = {
-          version: 1,
+        const txBlockPayload = tx.toBlockPayload();
+        const candidateBlock = new Block(
           blockNumber,
+          tx.timestamp,
+          [txBlockPayload],
           previousHash,
-          timestamp: tx.timestamp,
-          merkleRoot: calculateMerkleRoot([tx.toBlockPayload()]),
+          0,
+          'FINALIZED',
+          [],
           stateRoot,
-          proposerId,
-          proposerAddress: proposer.address,
-          round: 0
-        };
-        const proposalId = hashProposal(proposalHeader);
+          {
+            version: 1,
+            proposerId,
+            proposerAddress: proposer.address,
+            round: 0
+          }
+        );
         const proposerPrivateKey = getParticipantPrivateKey(proposerId);
+        const proposerSignature = proposerPrivateKey ? candidateBlock.signProposal(proposerPrivateKey) : null;
+        const proposalId = candidateBlock.proposalId;
+        candidateBlock.mineBlock(blockchainService.blockchain.difficulty);
+
         const candidate = {
-          ...proposalHeader,
+          ...candidateBlock.getProposalHeader(),
+          blockHash: candidateBlock.blockHash,
+          blockNonce: candidateBlock.nonce,
           proposalId,
-          proposerSignature: proposerPrivateKey ? signBlockProposal(proposalHeader, proposerPrivateKey) : null,
+          proposerSignature,
           proposerPublicKey: proposer.publicKey,
-          transactions: [tx.toBlockPayload()],
+          transactions: [txBlockPayload],
           transactionId: tx.transactionId,
           transferId,
           warehouseId,
@@ -517,6 +573,7 @@ class TransactionService {
           const executionResult = await executionEngine.executeTransaction(tx, {
             dbTransaction: t,
             blockNumber,
+            blockHash: candidateBlock.blockHash,
             consensusRound: consensus.roundId
           });
           const resultingState = await stateManager.getConsensusStateSnapshot({ dbTransaction: t });
@@ -528,13 +585,16 @@ class TransactionService {
             committedStateRoot,
             {
               version: 1,
+              timestamp: tx.timestamp,
+              nonce: candidateBlock.nonce,
               proposerId,
               proposerAddress: proposer.address,
               proposerSignature: candidate.proposerSignature,
               proposalId,
               round: 0,
               consensusCertificate: consensus.certificate,
-              consensusStatus: 'FINALIZED'
+              consensusStatus: 'FINALIZED',
+              requireFinality: true
             }
           );
           const transactionHash = '0x' + crypto.createHash('sha256')
@@ -584,7 +644,6 @@ class TransactionService {
               transferId,
               eventType: 'SECURITY_AUDIT',
               payload: {
-                eventId: `audit_transfer_${transferId}`,
                 eventId: `audit_transfer_${transferId}`,
                 actorId: user && user.username,
                 actorType: user && user.role,
@@ -637,6 +696,10 @@ class TransactionService {
    * 7. Execution Receipt Generation
    */
   async processContractCall(payload, user = null) {
+    return this._withCommitLock(() => this._processContractCallInternal(payload, user));
+  }
+
+  async _processContractCallInternal(payload, user = null) {
     if (!payload || !payload.contractAddress) {
       throw new ValidationError('contractAddress is required for CONTRACT_CALL.');
     }
@@ -731,31 +794,40 @@ class TransactionService {
 
     const receiptsRoot = calculateMerkleRoot([{ receiptHash: simReceipt.receiptHash }]);
 
-    // Proposer Identity & Signature
+    // Proposer Identity & Deterministic Pre-Mined Candidate Block
     const proposerId = 'VAL-01';
     const proposerParticipant = getOrCreateDevParticipant(proposerId, 'VALIDATOR');
     const proposerAddress = proposerParticipant.address;
     const round = 0;
 
-    const proposalHeader = {
-      version: 1,
-      blockNumber: nextBlockNumber,
-      previousHash,
+    const candidateBlock = new Block(
+      nextBlockNumber,
       timestamp,
-      merkleRoot,
-      stateRoot: predictedStateRoot,
-      receiptsRoot,
-      proposerId,
-      proposerAddress,
-      round
-    };
+      [txPayload],
+      previousHash,
+      0,
+      'FINALIZED',
+      [],
+      predictedStateRoot,
+      {
+        version: 1,
+        proposerId,
+        proposerAddress,
+        round,
+        receiptsRoot
+      }
+    );
 
-    const proposalId = hashProposal(proposalHeader);
     const proposerPrivKey = getParticipantPrivateKey(proposerId);
-    const proposerSignature = proposerPrivKey ? signBlockProposal(proposalHeader, proposerPrivKey) : null;
+    const proposerSignature = proposerPrivKey ? candidateBlock.signProposal(proposerPrivKey) : null;
+    const proposalId = candidateBlock.proposalId;
+    candidateBlock.mineBlock(blockchainService.blockchain.difficulty);
 
     const candidateProposal = {
-      ...proposalHeader,
+      ...candidateBlock.getProposalHeader(),
+      blockHash: candidateBlock.blockHash,
+      blockNonce: candidateBlock.nonce,
+      receiptsRoot,
       proposalId,
       proposerSignature,
       proposerPublicKey: proposerParticipant.publicKey,
@@ -769,7 +841,7 @@ class TransactionService {
       payload: tx.payload
     };
 
-    logger.info(`Initiating FBA Block Consensus for Block #${nextBlockNumber} with EVM CONTRACT_CALL (Tx: ${tx.transactionId})...`);
+    logger.info(`Initiating FBA Block Consensus for Block #${nextBlockNumber} with EVM CONTRACT_CALL (BlockHash: ${candidateBlock.blockHash}, Tx: ${tx.transactionId})...`);
 
     // 5. Run FBA Consensus Round (with EVM independent verification)
     const consensusResult = await consensusService.runBlockConsensus(candidateProposal, {
@@ -810,7 +882,7 @@ class TransactionService {
         dbTransaction: t,
         consensusRound: consensusResult.roundId,
         blockNumber: nextBlockNumber,
-        blockHash: ''
+        blockHash: candidateBlock.blockHash
       });
 
       const finalEvmRoot = await evmRuntime.getStateRoot();
@@ -826,6 +898,8 @@ class TransactionService {
         stateRoot,
         {
           version: 1,
+          timestamp,
+          nonce: candidateBlock.nonce,
           proposerId,
           proposerAddress,
           proposerSignature,
@@ -834,7 +908,8 @@ class TransactionService {
           receiptsRoot,
           executionReceipts: [executionResult.evmReceipt ? (executionResult.evmReceipt.toJSON ? executionResult.evmReceipt.toJSON() : executionResult.evmReceipt) : (executionResult.receipt || simReceipt.toJSON())],
           consensusCertificate: consensusResult.certificate,
-          consensusStatus: 'FINALIZED'
+          consensusStatus: 'FINALIZED',
+          requireFinality: true
         }
       );
 

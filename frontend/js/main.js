@@ -8,33 +8,198 @@
 (function () {
   "use strict";
 
+  /* ==========================================================
+     UNIVERSAL AUTH GUARD & LOGOUT ENGINE
+     ========================================================== */
+  function enforcePageAuth() {
+    var pathname = (window.location && window.location.pathname) ? window.location.pathname.toLowerCase() : "";
+    var protectedRoutes = [
+      { prefix: "/admin/", role: "admin" },
+      { prefix: "/warehouse/", role: "warehouse" },
+      { prefix: "/shop/", role: "shop" },
+      { prefix: "/citizen/", role: "citizen" },
+      { prefix: "/validator/", role: "validator" }
+    ];
+    var isSubPage = false;
+    var requiredRole = null;
+    for (var i = 0; i < protectedRoutes.length; i++) {
+      if (pathname.indexOf(protectedRoutes[i].prefix) !== -1) {
+        isSubPage = true;
+        requiredRole = protectedRoutes[i].role;
+        break;
+      }
+    }
+    var isProtected = isSubPage || pathname.indexOf("profile.html") !== -1 || pathname.indexOf("settings.html") !== -1;
+    if (!isProtected) return;
+
+    var token = null;
+    var role = null;
+    try {
+      token = localStorage.getItem("pdschain_jwt_token");
+      role = (localStorage.getItem("pds_role") || "").toLowerCase().trim();
+    } catch (e) {}
+
+    var sessionUser = null;
+    try {
+      sessionUser = JSON.parse(sessionStorage.getItem("pdschain-user") || "null");
+    } catch (e) {}
+
+    // If neither JWT token nor valid session exists, immediately redirect to login
+    if (!token && !sessionUser) {
+      var target = isSubPage ? "../login.html" : "login.html";
+      window.location.replace(target);
+      return;
+    }
+
+    // Role-based access control: If role mismatch (except admin who can view all portals)
+    if (requiredRole && role && role !== requiredRole && role !== "admin") {
+      var target = isSubPage ? "../login.html" : "login.html";
+      window.location.replace(target);
+    }
+  }
+
+  // Execute auth guard immediately upon script load
+  enforcePageAuth();
+
+  // Re-verify on pageshow (handles browser Back button and bfcache restoration)
+  window.addEventListener("pageshow", function () {
+    enforcePageAuth();
+  });
+
+  window.pdsLogout = function (customRedirect) {
+    try {
+      localStorage.removeItem("pdschain_jwt_token");
+      localStorage.removeItem("pds_role");
+      localStorage.removeItem("pds_username");
+      localStorage.removeItem("pdschain_user");
+      localStorage.removeItem("pds_user_profile");
+      sessionStorage.removeItem("pdschain-user");
+      sessionStorage.clear();
+    } catch (e) {}
+
+    try {
+      var apiBase = window.getPDSChainApiBase ? window.getPDSChainApiBase("api") : "http://localhost:3000/api";
+      fetch(apiBase + "/auth/logout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      }).catch(function () {});
+    } catch (e) {}
+
+    if (window.showToast) {
+      window.showToast("Signed out successfully.", "info");
+    }
+
+    var pathname = (window.location && window.location.pathname) ? window.location.pathname.toLowerCase() : "";
+    var inSubfolder = pathname.indexOf("/admin/") !== -1 ||
+                      pathname.indexOf("/warehouse/") !== -1 ||
+                      pathname.indexOf("/shop/") !== -1 ||
+                      pathname.indexOf("/citizen/") !== -1 ||
+                      pathname.indexOf("/validator/") !== -1;
+    var defaultTarget = inSubfolder ? "../login.html" : "login.html";
+    var target = customRedirect || defaultTarget;
+
+    setTimeout(function () {
+      window.location.replace(target);
+    }, 150);
+  };
+
+  // Universal click event delegation for any logout buttons or links
+  document.addEventListener("click", function (e) {
+    var btn = e.target && e.target.closest && e.target.closest(".logout-btn, [data-action='logout'], .btn-logout, #btn-logout, a[href*='logout']");
+    if (btn) {
+      e.preventDefault();
+      e.stopPropagation();
+      window.pdsLogout();
+    }
+  });
+
   // Global Mock Database for PDSChain Simulation (Now fetched from backend)
   window.PDSCHAIN_DATA = {
     beneficiaries: [], shops: [], warehouses: [], transactions: [], validators: [], blocks: []
   };
 
-  window.getPDSChainApiBase = function (version) {
+  var STATIC_DEV_PORTS = { "5500": true, "5501": true, "5502": true, "5503": true, "5173": true, "8080": true, "8000": true, "4200": true };
+
+  function resolveBackendOrigin() {
     var configured = window.PDSCHAIN_API_URL;
-    if (configured) return configured.replace(/\/+$/, "") + (version ? "/" + version : "");
-    if (window.location && window.location.origin && window.location.origin.indexOf("http") === 0) {
-      return window.location.origin + (version ? "/" + version : "");
+    if (configured) {
+      return String(configured).replace(/\/+$/, "").replace(/\/api(\/v1)?$/i, "");
     }
-    return "http://localhost:3000" + (version ? "/" + version : "");
+    if (window.PDSCHAIN_BACKEND_ORIGIN) {
+      return String(window.PDSCHAIN_BACKEND_ORIGIN).replace(/\/+$/, "");
+    }
+    if (window.location && window.location.origin && window.location.origin.indexOf("http") === 0) {
+      var port = String(window.location.port || "");
+      var pathname = String(window.location.pathname || "").toLowerCase();
+      if (!STATIC_DEV_PORTS[port] && pathname.indexOf("/frontend/") === -1) {
+        return window.location.origin;
+      }
+    }
+    return "http://localhost:3000";
+  }
+
+  window.getPDSChainApiBase = function (version) {
+    var baseOrigin = resolveBackendOrigin();
+    return baseOrigin + (version ? "/" + String(version).replace(/^\/+/, "") : "");
   };
 
-  try {
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', window.getPDSChainApiBase("api") + "/data", false);  // `false` makes the request synchronous
-    xhr.send(null);
+  if (!window.parsePDSJsonResponse) {
+    window.parsePDSJsonResponse = function (res) {
+      if (!res) {
+        return Promise.reject(new Error("No response received from server."));
+      }
+      if (res.status === 204) {
+        return Promise.resolve({ success: true, status: 204 });
+      }
+      return res.text().then(function (rawText) {
+        var trimmed = (rawText || "").trim();
+        if (!trimmed) {
+          var emptyErr = new Error(
+            res.ok
+              ? "Server returned an empty response body (HTTP " + res.status + ")."
+              : "Request failed with HTTP " + res.status + " (empty response from server)."
+          );
+          emptyErr.status = res.status;
+          throw emptyErr;
+        }
+        try {
+          return JSON.parse(trimmed);
+        } catch (parseErr) {
+          var invalidErr = new Error(
+            "Server returned a non-JSON response (HTTP " + res.status + "). Ensure the PDSChain backend is running on http://localhost:3000."
+          );
+          invalidErr.status = res.status;
+          throw invalidErr;
+        }
+      });
+    };
+  }
 
-    if (xhr.status === 200) {
-      window.PDSCHAIN_DATA = JSON.parse(xhr.responseText);
-      console.log("Data loaded from backend API successfully.");
+  function tryLoadDataFromOrigin(originUrl) {
+    try {
+      var xhr = new XMLHttpRequest();
+      xhr.open("GET", originUrl.replace(/\/+$/, "") + "/api/data", false);
+      xhr.setRequestHeader("Accept", "application/json");
+      xhr.send(null);
+      var ctype = (xhr.getResponseHeader("content-type") || "").toLowerCase();
+      var body = (xhr.responseText || "").trim();
+      if (xhr.status === 200 && body.charAt(0) === "{" && (ctype.indexOf("application/json") !== -1 || !ctype)) {
+        window.PDSCHAIN_DATA = JSON.parse(body);
+        window.PDSCHAIN_BACKEND_ORIGIN = originUrl.replace(/\/+$/, "");
+        console.log("Data loaded from backend API successfully.");
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  var candidateOrigin = resolveBackendOrigin();
+  if (!tryLoadDataFromOrigin(candidateOrigin)) {
+    if (candidateOrigin !== "http://localhost:3000" && tryLoadDataFromOrigin("http://localhost:3000")) {
+      window.PDSCHAIN_BACKEND_ORIGIN = "http://localhost:3000";
     } else {
       console.error("Failed to load data from backend, using empty data.");
     }
-  } catch (e) {
-    console.error("Error connecting to backend API: ", e);
   }
 
   window.escapeHtml = function (str) {
